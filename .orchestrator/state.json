@@ -1,8 +1,11 @@
 {
-  "phase": "build",
+  "phase": "review",
   "feature": "design-baseline",
   "paused": false,
-  "awaiting_user": null,
+  "awaiting_user": {
+    "reason": "user testing design-baseline",
+    "since": "2026-10-18T14:18:06+00:00"
+  },
   "escalated": null,
   "stop_guard": {
     "count": 0,
@@ -85,10 +88,11 @@
           "user_approved": false,
           "started_at": "2026-10-18T14:16:32+00:00",
           "completed_at": "2026-10-18T14:17:51+00:00",
-          "commit": null
+          "commit": "791d1c5fffbb7b05cf3d2302995524eee5000df4"
         }
       },
-      "accepted_at": null
+      "accepted_at": null,
+      "review_requested_at": "2026-10-18T14:18:06.652693+00:00"
     }
   },
   "history": [
@@ -160,6 +164,23 @@
       "part": "judge",
       "status": "pass",
       "attempt": 0
+    },
+    {
+      "at": "2026-10-18T14:17:51+00:00",
+      "event": "cp_complete",
+      "cp": "CP-1",
+      "commit": "791d1c5fffbb7b05cf3d2302995524eee5000df4"
+    },
+    {
+      "at": "2026-10-18T14:17:57+00:00",
+      "event": "phase",
+      "frm": "build",
+      "to": "review",
+      "reason": ""
+    },
+    {
+      "at": "2026-10-18T14:18:06+00:00",
+      "event": "feature_presented"
     }
   ]
 }
