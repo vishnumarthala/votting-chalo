@@ -1,0 +1,14 @@
+{
+  "name": "votting-chalo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Votting Chalo: a satirical top-down game. Walk your candidate across your Andhra Pradesh town to the nomination office or polling booth past police and goons. Fictional party and characters.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "test": "node --test",
+    "serve": "node scripts/serve.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
