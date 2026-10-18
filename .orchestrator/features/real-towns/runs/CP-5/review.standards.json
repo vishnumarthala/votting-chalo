@@ -1,0 +1,45 @@
+{
+  "summary": "No blocker or major findings. The tree-to-tree diff touches test/ only by adding test/characters.test.js, so locked CP-1..CP-4 tests are untouched. The mob spawn change (first mob 8 members, others 5-7, 150-200 px from target) stays inside the locked 'a mob has 5 to 8 members' assertion in test/mob.test.js, and the full npm test run is green (77 pass, 0 fail, 0 skipped). T-15 and T-16 bite: 24 scratch-copy mutations (supporters 6->5, allyDamage 5->10, holdCut 2->1, shield or hold applied without the ally, ally event removed, ally taken by cop lift, supporters brought twice, ally drifts, first mob random size, gather radius pushed out to 400-450 px, leader on the wrong mob, role removed, wrong leader name, leader name dropped from text(), riot line without leader, unfilled placeholder, real name 'Jagan', 'YSR anna', quoted line, 'Babu') each failed at least one characters test. Expected values are literals (5, 95, 6/4 s, 7, names), tests go through createGame/step/state/drainEvents and Content, no skips or sleeps. Content is invented names only; the YSR regex exclusion is scoped to 'YSR Congress' and 'YSR anna' still trips it. Only minor/nit items remain.",
+  "verdict": "approve",
+  "findings": [
+    {
+      "severity": "minor",
+      "location": "shared/sim.js:30-31",
+      "issue": "The FIRE comment still says 3 mobs of up to 8 plus STONE.max stones is 38 extra entities. The first mob is now always 8 and the others are at most 7, and the ally plus 6 supporters add 7 more, so the worst case is about 43 (D-13 budget is ~40).",
+      "fix": "Update the comment to the real worst case (22 mob + 10 stones + 4 fires + 7 ally group) and note it is within the ~40 target, or trim ALLY.supporters if the budget is meant to be hard."
+    },
+    {
+      "severity": "nit",
+      "location": "shared/sim.js:175",
+      "issue": "G.leader is assigned and documented as public state, but nothing in the sim, client or tests reads it (tests find the leader via ents.find(role === 'leader')). Possible Speculative Generality.",
+      "fix": "Use G.leader in the T-16 test (assert it is the role 'leader' entity) or drop the field."
+    },
+    {
+      "severity": "nit",
+      "location": "shared/sim.js:308-317",
+      "issue": "allyBrought is set true before the supporters loop; if the crowd is at CAP at the first join the ally brings fewer than 6 and never brings the rest.",
+      "fix": "Set allyBrought only after the loop, or only when n === ALLY.supporters. The edge is near-impossible this close to the start, so low priority."
+    },
+    {
+      "severity": "nit",
+      "location": "test/characters.test.js:218",
+      "issue": "The 'quoted threat lines' denylist (champesta, veyakudadhu, ela vestaro, chuskundam) is not sourced anywhere in the repo or spec, so its fidelity to the user's quoted lines cannot be checked from the diff.",
+      "fix": "Add a comment saying where the list comes from (the user's original message), so the denylist can be audited."
+    },
+    {
+      "severity": "nit",
+      "location": "shared/sim.js:175 vs GLOSSARY.md:14",
+      "issue": "GLOSSARY calls the character 'Rival leader'; code, role and placeholders say 'leader' (LINES.leader, riotLeader, {leader}).",
+      "fix": "Optional: note in the GLOSSARY entry that the code name is 'leader', or leave as is."
+    }
+  ],
+  "instructions": "",
+  "source": ".orchestrator/features/real-towns/inbox/CP-5-review-standards.json",
+  "gate": "review",
+  "cp": "CP-5",
+  "part": "standards",
+  "status": "pass",
+  "tree": "git:fdd2cd3cc8f6181475ee0273f9bffebb266e9ed9",
+  "at": "2026-10-18T18:02:03+00:00",
+  "failed_attempts": 0
+}

@@ -1,0 +1,27 @@
+{
+  "summary": "(1) CP-5 meets AC-9 and AC-10 in all three towns:\n- an invented YSRCP ally (Ramanna, Lakshmi Devi, Sivanna) waits at the party office and joins with 6 supporters, halving stone damage (5) and shortening the hold by 2 s while in the crowd;\n- an invented TDP leader (Madhu Toogutla, Chaitanya, Bhupal; never 'Babu') heads the strictly largest mob near the target;\n- every line fills its placeholders.\n(2) T-15 and T-16 exist and bite: 24 scratch mutations each failed a test. Locked CP-1..CP-4 tests are untouched, and the mob spawn change stays inside their 5-8 range.\n(3) No gaming: npm test 77/77, e2e 3/3, design_check clean.\n(4) Small minors carried into CP-6's brief:\n- the sim.js entity-budget comment (worst case now ~43 against the ~40 guide);\n- the unused G.leader;\n- allyBrought set before the supporter loop;\n- GLOSSARY 'Rival leader' vs code 'leader'.\nRendering of name tags is verified by code reading and the builder's headless run.\n(5) Content line: I read every new line. Names are invented, there are no real names, and none of the quoted lines appear.\n(6) Ready.",
+  "verdict": "approve",
+  "findings": [
+    {
+      "severity": "minor",
+      "location": "shared/sim.js:30",
+      "issue": "The entity-budget comment is stale (worst case is now ~43).",
+      "fix": "CP-6 updates the comment and trims if needed."
+    },
+    {
+      "severity": "nit",
+      "location": "shared/sim.js:175, 308-317; GLOSSARY.md:14",
+      "issue": "G.leader is unused, allyBrought is ordered before the loop, and the glossary term doesn't match.",
+      "fix": "CP-6 cleans these up."
+    }
+  ],
+  "instructions": "",
+  "source": ".orchestrator/features/real-towns/inbox/CP-5-judge-judge.json",
+  "gate": "judge",
+  "cp": "CP-5",
+  "part": "judge",
+  "status": "pass",
+  "tree": "git:fdd2cd3cc8f6181475ee0273f9bffebb266e9ed9",
+  "at": "2026-10-18T18:02:04+00:00",
+  "failed_attempts": 0
+}

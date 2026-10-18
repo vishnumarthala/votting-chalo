@@ -58,6 +58,13 @@ No browser is downloaded.
   tiles when it starts is moved to the nearest open one); then the house or vehicle stays charred. Townspeople
   within 140 px run from a new fire and supporters within 56 px of a burning one leave your crowd. Smoke is drawn
   on the high graphics setting only.
+- **The ally and the TDP leader.** Each town has an invented YSRCP ally (Pulivendula: Ramanna, Kadapa: Lakshmi Devi,
+  Punganur: Sivanna) who waits beside the party office. Walk up to them and they join your crowd with 6 supporters.
+  While the ally is in your crowd a stone costs 5 points of papers instead of 10 and the counter hold is 2 s shorter;
+  if a lathi charge, fire or stone scatters the ally the bonuses stop until you walk up to them again. The mob that
+  waits near the destination is the largest and is headed by an invented TDP leader (Madhu Toogutla, Chaitanya,
+  Bhupal), who throws stones like the rest. Both wear name tags: the ally a blue shirt and fan flag, the leader a
+  yellow shirt and white cap. No real person is depicted.
 - **Goons** (lone TDP workers) tear your papers (25% per hit). If your papers hit 0%, your Form-A (or voter slip) is
   destroyed and you must fetch a new one. Goons back off from a crowd of 8 or more.
 - **Section 144 ring.** The streets around the destination are barricaded, with a few manned checkposts.
@@ -74,10 +81,10 @@ and a deterministic simulation shared between browser and Node. All code, text a
 ```
 index.html          menu, pause, touch buttons, CSS
 shared/             DOM-free UMD modules (browser + Node)
-  towns.js          the playable towns: names, map crop centre, RO office anchor, landmarks to skip
+  towns.js          the playable towns: names, invented ally and TDP leader, map crop centre, RO office anchor, landmarks to skip
   world.js          town builder, supporters' houses and parked vehicles, tile collision, BFS flow fields, line of sight, barricade ring, fire tiles
-  content.js        all text and modes (parties YSRCP and TDP); {town} {mandal} {district} {short} {rival} templating
-  sim.js            30 Hz deterministic game: crowd, police, goons, TDP mobs, stones and arson, gas, barricades, documents, filing
+  content.js        all text and modes (parties YSRCP and TDP); {town} {mandal} {district} {short} {rival} {ally} {leader} templating
+  sim.js            30 Hz deterministic game: crowd, ally and TDP leader, police, goons, TDP mobs, stones and arson, gas, barricades, documents, filing
 client/
   render.js         cached map chunks (roof flags, parked vehicles), people, sites, ring, gas, flames, smoke and charred remains, ambient autos on the roads, minimap, bubbles
   hud.js            status, minimap, documents, objective arrow, missions, toasts, intro

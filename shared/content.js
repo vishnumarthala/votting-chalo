@@ -1,5 +1,6 @@
 // Original game text. All parties, people and events are fictional.
-// Placeholders: {town} {mandal} {district} {short} {party} {rival} {doc} {n} {s}
+// Placeholders: {town} {mandal} {district} {short} {party} {rival} {ally} {leader} {doc} {n} {s}
+// {ally} and {leader} are the town's invented YSRCP ally and TDP leader (see Towns); fill(str, Content.TOWNS[id]) resolves them.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./towns.js'));
   else root.Content = factory(root.Towns);
@@ -46,6 +47,13 @@
     mobScared: ['Ammo, entha mandi! Venakki!', 'Crowd ekkuva ayindi, venakki ra!', 'Tarvatha vastham, inka mandi tho!'],
     stoned: ['Ayyo, rayi! Tala tirigindi!', 'Rayi tagilindi! Papers jaagratta!', 'Eppudu vesaaru ee rayi!'],
     stonedCrowd: ['Rallu! Paripondi!', 'Ayyo, rallu padatayi, nenu velthunna!'],
+    ally: ['Nenu {ally}, {town} nunchi. Mee venta nadusthanu!', 'Bhayam endhuku? {ally} unnadu, {short} kutumbam mee venta!', 'Raa raa, mana {short} andaru kalisi velduam!'],
+    allyJoined: ['🤝 {ally} of {town} joins your crowd with a band of supporters! Stones sting less and the counter wait is shorter.', '🤝 {ally} has brought supporters from the {short} office! Stones sting less and the counter wait is shorter.'],
+    allyBack: ['🤝 {ally} is back in your crowd! Stones sting less and the counter wait is shorter again.'],
+    allyLeft: ['😟 {ally} was scattered from your crowd! Stones sting in full again until you bring them back.', '😟 {ally} has left the crowd. Walk up to them again for the stone shield and the shorter counter wait.'],
+    allyShield: ['Bhayapadakandi, ee rallu ni nenu aduthanu!', 'Nenu unna kada, mundhuki nadavandi!', '{ally} mee venta ne undi, tala dinchakandi!'],
+    leader: ['{leader} ikkada undagane, {town} veedhulu {rival} vi!', 'Yellow jenda ki ee road, blue vaallaki detour!', 'Mee fan ki power cut! {leader} switch off chesaru!', 'Rallu ready ga unnayi, {leader} order ichaaru!'],
+    riotLeader: ['{leader} leads a {rival} mob! Stones incoming, keep moving!', '{rival} leader {leader} and the mob are out! Don\u2019t stand still!', 'Stone pelting ahead, {town}! {leader} is at the head of the {rival} mob!'],
     riot: ['A {rival} mob is out! Stones incoming, keep moving!', '{rival} mob nearby! Don\u2019t stand still!', 'Stone pelting ahead, {town}! Keep walking!'],
     mobRetreat: ['Your crowd drove the {rival} mob back! 💪', '{rival} mob backs off from the big crowd!'],
     arson: ['Aa jenda unna illu ki nippu pettandi!', 'Ee veedhi lo {short} illu undadu, kaalchandi!', 'Vaalla vandi kuda kaalchesey, tirigi raadu!', 'Nippu ra, nippu! {rival} wave!'],

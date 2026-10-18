@@ -204,6 +204,7 @@
           Render.burst(ev.x, ev.y, 16, ['#ff7043', '#ffca28', '#ffe082'], 190, 4);
           Hud.toast(ev.text, '#ffab91', 3.4);
           break;
+        case 'ally': SFX.join(); Hud.toast(ev.text, '#bbdefb', 4.2); Render.burst(ev.x, ev.y, 18, ['#1e5bd8', '#fff', '#90caf9'], 220, 4); Render.popup(ev.x, ev.y - 40, '+' + ev.crowd + ' 👥', '#bbdefb'); break;
         case 'burnt': Render.burst(ev.x, ev.y, 10, ['#9e9e9e', '#616161', '#bdbdbd'], 70, 6); break;
         case 'riot': SFX.riot(); Hud.toast('⚠️ ' + ev.text, '#ffe082', 3.6); break;
         case 'lostdoc': SFX.lostdoc(); break;

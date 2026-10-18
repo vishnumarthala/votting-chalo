@@ -131,7 +131,7 @@
       const by = VH - (touch ? 200 : 70);
       panel(ctx, cx - 170, by - 26, 340, 52);
       text(ctx, G.gameMode === 'vote' ? 'Casting your vote… hold your ground!' : 'Filing nomination… hold the counter!', cx, by - 8, 14, '#c5e1a5', 'center', 900);
-      bar(ctx, cx - 150, by + 8, 300, 10, P.submitT / G.M.hold, '#66bb6a');
+      bar(ctx, cx - 150, by + 8, 300, 10, P.submitT / G.hold, '#66bb6a');
     }
 
     // ---- toasts

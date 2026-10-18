@@ -298,7 +298,10 @@
       case 'civ': return e.mode === 'follow' ? { shirt: SHIRTS[e.look % 6], skin: SKIN[e.look % 4], scarf: YSRCP_BLUE, prop: e.id % 3 === 0 ? 'flag' : null } : { shirt: SHIRTS[e.look % 6], skin: SKIN[e.look % 4] };
       case 'cop': return { shirt: e.role === 'gas' ? '#b39b5e' : '#c8b071', skin: '#8d5a3b', hat: '#6d5a2e', brim: true, prop: 'lathi' };
       case 'goon': return { shirt: TDP_YELLOW, skin: '#7b4a2e', hat: TDP_HAT, brim: true };
-      case 'mob': return { shirt: TDP_YELLOW, skin: SKIN[e.id % 4], hat: TDP_HAT, brim: e.id % 2 === 0, prop: e.id % 3 === 0 ? 'tdpflag' : null };
+      case 'mob':
+        if (e.role === 'leader') return { shirt: TDP_YELLOW, skin: SKIN[e.id % 4], hat: '#fafafa', brim: true, prop: 'tdpflag' }; // the TDP leader: a white cap
+        return { shirt: TDP_YELLOW, skin: SKIN[e.id % 4], hat: TDP_HAT, brim: e.id % 2 === 0, prop: e.id % 3 === 0 ? 'tdpflag' : null };
+      case 'ally': return { shirt: YSRCP_BLUE, skin: '#8d5a3b', scarf: '#fff', prop: 'flag' }; // the YSRCP ally: blue shirt, fan flag
       default: return { shirt: '#999', skin: '#8d5a3b' };
     }
   }
@@ -497,7 +500,7 @@
       } else if (st === tg) {
         ctx.fillStyle = 'rgba(30,91,216,.22)'; ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = 'rgba(30,91,216,.8)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.stroke(); ctx.setLineDash([]);
-        if (P.submitT > 0) { ctx.strokeStyle = '#66bb6a'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(st.x, st.y, st.r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, P.submitT / G.M.hold)); ctx.stroke(); }
+        if (P.submitT > 0) { ctx.strokeStyle = '#66bb6a'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(st.x, st.y, st.r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, P.submitT / G.hold)); ctx.stroke(); }
         label(G.gameMode === 'vote' ? '🗳️' : '🏛️', st.x, st.y - 8, 26, '#000');
         label(G.gameMode === 'vote' ? 'POLLING BOOTH' : 'RETURNING OFFICER', st.x, st.y + 22, 11, '#fff', 'rgba(29,59,112,.9)');
       } else if (st.kind === 'station') {
@@ -530,6 +533,7 @@
       const x = e.px + (e.x - e.px) * alpha, y = e.py + (e.y - e.py) * alpha;
       if (!inView(x, y, 30)) continue;
       person(x, y, e, look(e));
+      if (e.name) label(e.name, x, y - 27, 11, e.kind === 'ally' ? '#fff' : '#2b2200', e.kind === 'ally' ? 'rgba(30,91,216,.92)' : TDP_YELLOW); // name tags: the ally and the TDP leader
       if (e.kind === 'cop' && e.mode === 'chase') label('!', x, y - 20, 14, '#d32f2f');
       else if (e.kind === 'cop' && e.mode === 'stun') label('💫', x, y - 18, 12, '#000');
       else if (e.kind === 'goon' && e.mode === 'chase') label('😠', x, y - 20, 12, '#000');

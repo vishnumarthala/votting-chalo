@@ -1,0 +1,25 @@
+{
+ "verdict": "approve",
+ "tree": "git:fdd2cd3cc8f6181475ee0273f9bffebb266e9ed9",
+ "summary": "CP-5 meets its goal and all three done_when items. T-15 (test/characters.test.js, run for pulivendula, kadapa and punganur, plus extra T-15 cases for the 4 s / 2 s hold in both modes, the ally leaving and returning, and the cop lift not taking the ally) shows the 'ally' event, a crowd of 7 (ally plus 6, event n=6), a stone costing exactly 5 (P.papers 95, event amount 5) and G.hold = mode hold - 2 s; with the ally gone the stone costs 10 again. T-16 (all three towns, both modes, 20 s with police, goons and mobs on) shows one role 'leader' mob entity named Madhu Toogutla / Chaitanya / Bhupal, in a mob strictly larger than every other (first mob fixed at 8, others 5..7), all members within 8 tiles of G.target; every string in LINES, TOWNS, MODES and MISSIONS fills with no braces in each town. Names in shared/towns.js are exactly Ramanna/Madhu Toogutla, Lakshmi Devi/Chaitanya and Sivanna/Bhupal. AC-9 and AC-10 hold. D-4 is respected: no real name or quoted threat line (a test scans the filled strings and a repo grep finds no 'Babu'), and no scrutiny/snatch/tear code exists yet (CP-6 untouched). Render (client/render.js) draws name tags (blue tag for the ally, yellow for the leader) and distinct looks (blue shirt, white scarf and fan flag for the ally; yellow shirt, white cap and TDP flag for the leader). HUD and render use G.hold, so the bar follows the shortened hold. README documents the feature without promising unbuilt features. npm test: 77/77 pass; the working tree matches the reviewed tree. Findings below are minor only.",
+ "findings": [
+  {
+   "severity": "minor",
+   "location": "client/render.js:536",
+   "issue": "done_when item 3 (name tags and distinct looks) is not shown by any automated test. The planned cases T-15 and T-16 don't cover rendering, so it was verified only by reading the code.",
+   "fix": "Optional: a later e2e or screenshot check, or accept as visual review at the end."
+  },
+  {
+   "severity": "nit",
+   "location": "shared/sim.js:170",
+   "issue": "To make the leader's mob strictly the largest, the other mobs are now 5 to 7 workers (the spec says mobs of 5 to 8) and the first mob is always 8. This is needed for AC-10 and stays inside the spec's range, but the spec text doesn't say it.",
+   "fix": "None needed; optionally note it in the spec or the MOB comment."
+  },
+  {
+   "severity": "nit",
+   "location": "shared/content.js:50",
+   "issue": "Beyond the spec's literal ask, the checkpoint adds allyLeft, allyBack, allyShield, leader and riotLeader lines and a rule that the cop lift never takes the ally. They support 'while the ally is in the crowd' and are documented in the README and tested. They add little surface and no risk.",
+   "fix": "None needed."
+  }
+ ]
+}

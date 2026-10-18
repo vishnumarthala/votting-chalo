@@ -17,18 +17,23 @@
   // TDP mobs (px and seconds). A mob riots when a member sees the candidate within `sight` (it keeps the candidate in
   // mind within `keep` until `loseT` s pass unseen). A crowd of `crowd` supporters within `backR` px of any one member
   // drives the mob back for `retreatT` s, after which it regroups for `regroupT` s.
-  // Police within `escortR` px of a rioting mob escort it.
-  const MOB = { count: 3, minSize: 5, maxSize: 8, sight: 330, keep: 600, loseT: 6, regroupT: 4, retreatT: 3, crowd: BIG_CROWD, backR: 150, escortR: 260 };
+  // Police within `escortR` px of a rioting mob escort it. The first mob gathers `gatherMin` to `gatherMax` px from the destination with
+  // `maxSize` members, one more than any other mob, and its first member is the town's TDP leader.
+  const MOB = { count: 3, minSize: 5, maxSize: 8, sight: 330, keep: 600, loseT: 6, regroupT: 4, retreatT: 3, crowd: BIG_CROWD, backR: 150, escortR: 260, gatherMin: 150, gatherMax: 200 };
   // A stone is thrown from up to `range` px at `speed` px/s, then lands within `hitR` px of the candidate or misses.
-  // A hit costs `damage` points of papers, sends the nearest `scatter` supporters within `scatterR` px running and
+  // A hit costs `damage` points of papers (`allyDamage` while the ally is in the crowd), sends the nearest `scatter` supporters within `scatterR` px running and
   // stuns the candidate for `stunTicks`. A member throws every `minCd` to `maxCd` s; `max` stones fly at once.
-  const STONE = { range: 260, speed: 260, hitR: 20, max: 10, damage: 10, stunTicks: 15, scatter: 2, scatterR: 120, minCd: 3.5, maxCd: 5.5 };
+  const STONE = { range: 260, speed: 260, hitR: 20, max: 10, damage: 10, allyDamage: 5, stunTicks: 15, scatter: 2, scatterR: 120, minCd: 3.5, maxCd: 5.5 };
   // A rioting mob member sets fire to a supporter's house or parked vehicle (never anything else) within `reach` px of it,
   // then waits `cd` s before lighting another. A fire burns for exactly `ticks` ticks (20 s at 30 Hz) and blocks its footprint
   // plus one ring of tiles; at most `max` burn at once. Townspeople within `scareR` px of a new fire run; supporters within
   // `leaveR` px of a burning one leave the crowd (decision D-20). Together with 3 mobs of up to 8 and `STONE.max` stones that is
   // 38 extra entities. Distances are from the nearest edge of the house's or vehicle's tiles.
   const FIRE = { ticks: 600, max: 4, reach: 80, cd: 4, scareR: 140, leaveR: 56 };
+  // The town's invented YSRCP ally waits `dist` px from the start, on the party office plaza. When the candidate comes within `reach` px
+  // the ally joins the crowd, and the first time brings `supporters` supporters, spawned `ring` px around them. While the ally is in
+  // the crowd a stone costs `STONE.allyDamage` points of papers and the counter hold is `holdCut` s shorter.
+  const ALLY = { dist: 44, reach: 34, ring: 22, supporters: 6, holdCut: 2 };
 
   // opts: { seed, town: 'pulivendula', townData, mode: 'nomination' | 'vote', police, goons, mobs, civilians }.
   // Police, goons and mobs are on unless passed as false; civilians is a count (default 150).
@@ -38,6 +43,9 @@
   // the ticks `left` of its `ticks`. A fire starts with a 'fire' event and ends `ticks` later with a 'burnt' event; anybody
   // standing in its tiles is moved out to the nearest open tile. Example: a rioting mob passes a supporter's house, the next
   // step drains { t: 'fire', id, kind: 'house', x, y, text } and `map.dyn` blocks its tiles until the 'burnt' event.
+  // Characters: `state.ally` is the town's YSRCP ally (an entity of kind 'ally'; the event { t: 'ally', n, crowd, text } fires when
+  // the candidate walks up to them) and `state.leader` the TDP leader (a 'mob' entity with role 'leader'); both carry the invented
+  // `name` from Content.TOWNS. `state.hold` is the seconds the counter must be held now: the mode's hold, 2 s less with the ally.
   function createGame(opts) {
     opts = opts || {};
     const townId = opts.town || Ct.DEFAULT_TOWN, info = Object.prototype.hasOwnProperty.call(Ct.TOWNS, townId) ? Ct.TOWNS[townId] : null;
@@ -46,16 +54,18 @@
     if (!townData) throw new Error('no map data for ' + townId + ': pass opts.townData');
     const rng = makeRng((opts.seed >>> 0) || 1);
     const mobRng = makeRng(((opts.seed >>> 0) || 1) ^ 0x70b5); // own stream: adding mobs leaves the rest of the game's draws alone
+    const allyRng = makeRng(((opts.seed >>> 0) || 1) ^ 0xa11e); // own stream for the ally's lines and supporters
     const modeKey = opts.mode === 'vote' ? 'vote' : 'nomination';
     const M = Ct.MODES[modeKey];
     const place = { town: info.town, mandal: info.mandal, district: info.district };
-    const text = (s, extra) => Ct.fill(s, Object.assign({}, place, extra || {}));
+    const names = { ally: info.ally, leader: info.leader };
+    const text = (s, extra) => Ct.fill(s, Object.assign({}, place, names, extra || {}));
     const map = buildTown(townData);
     const target = modeKey === 'vote' ? map.booth : map.office;
     const docSites = modeKey === 'vote' ? [map.blo] : map.docSites.filter((s) => M.docs.includes(s.doc));
 
     const G = {
-      tick: 0, mode: 'intro', modeT: 0, gameMode: modeKey, M, map, place, target, docSites,
+      tick: 0, mode: 'intro', modeT: 0, gameMode: modeKey, M, map, place, target, docSites, hold: M.hold, ally: null, leader: null,
       timer: M.time, elapsed: 0, score: 0, combo: { n: 0, t: 0 }, events: [],
       player: null, ents: [], barrs: [], clouds: [], mobs: [], stones: [], fires: [], posts: map.posts,
       supporterProps: map.supporterProps.map((t) => Object.assign({}, t, { state: 'ok' })), // state: 'ok', 'burning' or 'burnt'
@@ -151,17 +161,18 @@
     // One mob gathers a few tiles from the destination, the others wait at random spots away from the start.
     function spawnMobs() {
       for (let i = 0; i < MOB.count; i++) {
-        const at = i === 0 ? spotNear(target.gate.x, target.gate.y, 150, 250) : randomSpot(700, null, mobRng);
+        const at = i === 0 ? spotNear(target.x, target.y, MOB.gatherMin, MOB.gatherMax) : randomSpot(700, null, mobRng);
         const mob = { id: i + 1, state: 'idle', retreatT: 0, cool: 0, lostT: 0, talkT: 0 };
         G.mobs.push(mob);
         mobById.set(mob.id, mob);
-        const n = MOB.minSize + mobRng.int(MOB.maxSize - MOB.minSize + 1);
+        const n = i === 0 ? MOB.maxSize : MOB.minSize + mobRng.int(MOB.maxSize - MOB.minSize); // the first mob is the largest
         for (let k = 0; k < n; k++) {
           const a = (k / n) * Math.PI * 2, rad = 18 + 4 * (k % 3);
           let x = at.x + Math.cos(a) * rad, y = at.y + Math.sin(a) * rad;
           if (solidAt(map, Math.floor(x / TILE), Math.floor(y / TILE))) { x = at.x; y = at.y; }
           const m = spawn('mob', x, y, { mob: mob.id, mode: 'idle', home: { x, y }, throwCd: 1 + mobRng() * 2.5, torchCd: 0, sayCd: mobRng() * 4 });
           m.stand = 90 + (m.id % 5) * 12; // how close this member marches before stopping to throw
+          if (i === 0 && k === 0) { m.role = 'leader'; m.name = info.leader; mob.leader = m.id; G.leader = m; }
         }
       }
     }
@@ -175,6 +186,24 @@
       return { x, y };
     }
     if (opts.mobs !== false) spawnMobs();
+
+    // The ally waits on the first open bearing from the start (east first, then clockwise) that the start can see.
+    function allySpot() {
+      const open = (x, y) => [[-9, -9], [9, -9], [-9, 9], [9, 9]].every(([dx, dy]) => {
+        const tx = Math.floor((x + dx) / TILE), ty = Math.floor((y + dy) / TILE);
+        return isOpen(kindAt(map, tx, ty)) && !solidAt(map, tx, ty);
+      });
+      for (let k = 0; k < 8; k++) {
+        const x = map.start.x + Math.cos(k * Math.PI / 4) * ALLY.dist, y = map.start.y + Math.sin(k * Math.PI / 4) * ALLY.dist;
+        if (open(x, y) && lineOfSight(map, map.start.x, map.start.y, x, y)) return { x, y };
+      }
+      return { x: map.start.x, y: map.start.y };
+    }
+    function spawnAlly() {
+      const at = allySpot(), face = norm(map.start.x - at.x, map.start.y - at.y);
+      G.ally = spawn('ally', at.x, at.y, { name: info.ally, mode: 'wait', fx: face.x, fy: face.y, sayCd: 0 });
+    }
+    spawnAlly();
 
     // ------------------------------------------------------------ spatial hash
     const CELL = 64, CW = WORLD / CELL;
@@ -264,9 +293,30 @@
     }
     function leave(c, from, flee) {
       const i = P.followers.indexOf(c);
-      if (i >= 0) { P.followers.splice(i, 1); P.followers.forEach((f, k) => { f.slot = k; }); }
+      if (i >= 0) {
+        P.followers.splice(i, 1); P.followers.forEach((f, k) => { f.slot = k; });
+        if (c === G.ally) toast(allyRng.pick(Ct.LINES.allyLeft), '#ffcc80');
+      }
       if (flee) { c.mode = 'flee'; c.t = 2 + rng() * 1.5; c.cool = 6; const d = norm(c.x - from.x, c.y - from.y); c.dx = d.x || 1; c.dy = d.y; }
       else c.mode = 'wander';
+    }
+    const allyIn = () => P.followers.includes(G.ally);
+    // The ally joins the crowd; the first time they bring their supporters too.
+    let allyBrought = false;
+    function joinAlly() {
+      const ally = G.ally;
+      if (!join(ally)) return;
+      const first = !allyBrought;
+      let n = 0;
+      allyBrought = true;
+      for (let k = 0; first && k < ALLY.supporters && P.followers.length < CAP; k++) {
+        const a = (k / ALLY.supporters) * Math.PI * 2;
+        let x = ally.x + Math.cos(a) * ALLY.ring, y = ally.y + Math.sin(a) * ALLY.ring;
+        if (solidAt(map, Math.floor(x / TILE), Math.floor(y / TILE))) { x = ally.x; y = ally.y; }
+        if (join(spawn('civ', x, y, { look: allyRng.int(6), t: 0, sayCd: 0 }))) n++;
+      }
+      emit({ t: 'ally', id: ally.id, name: ally.name, x: ally.x, y: ally.y, n, crowd: P.followers.length, text: text(allyRng.pick(first ? Ct.LINES.allyJoined : Ct.LINES.allyBack)) });
+      if (first) say(ally, allyRng.pick(Ct.LINES.ally), null, '#bbdefb');
     }
     const shieldCount = () => { let n = 0; for (const f of P.followers) if (dist(f.x, f.y, P.x, P.y) < 70) n++; return n; };
 
@@ -389,6 +439,9 @@
         if (n) emit({ t: 'join', n, crowd: P.followers.length, pts: gain(10 * n, true), x: P.x, y: P.y });
       }
 
+      // the ally joins when the candidate walks up to them
+      if (G.ally.mode !== 'follow' && !(G.ally.cool > 0) && dist(P.x, P.y, G.ally.x, G.ally.y) <= ALLY.reach) joinAlly();
+
       // documents: stand at the shop counter for a moment
       let at = null;
       for (const s of G.docSites) if (!P.docs.includes(s.doc) && dist(P.x, P.y, s.x, s.y) < s.r + P.r) at = s;
@@ -415,7 +468,7 @@
         } else {
           if (P.submitT === 0) { emit({ t: 'filing' }); say(P, rng.pick(Ct.LINES.filing)); }
           P.submitT += DT;
-          if (P.submitT >= G.M.hold) end(true, 'filed');
+          if (P.submitT >= G.hold) end(true, 'filed');
         }
       } else P.submitT = Math.max(0, P.submitT - DT * 0.5);
     }
@@ -509,7 +562,7 @@
             const k = norm(e.x - P.x, e.y - P.y);
             for (let s = 0; s < 6; s++) moveBody(e, k.x * 14, k.y * 14, map);
             let taken = null, bd = Infinity;
-            for (const f of P.followers) { const fd = dist(f.x, f.y, e.x, e.y); if (fd < bd) { bd = fd; taken = f; } }
+            for (const f of P.followers) { const fd = dist(f.x, f.y, e.x, e.y); if (f !== G.ally && fd < bd) { bd = fd; taken = f; } }
             if (taken) { leave(taken, e, false); taken.dead = true; }
             G.stats.lift++;
             emit({ t: 'lift', x: e.x, y: e.y, pts: gain(150, true) });
@@ -546,6 +599,14 @@
       if (dist(e.x, e.y, p.x, p.y) < 40) { e.postIdx = rng.int(G.posts.length); return; }
       const dir = flowDir(map, postField(e.postIdx), e.x, e.y) || norm(p.x - e.x, p.y - e.y);
       move(e, dir.x, dir.y, e.kind === 'goon' ? SPEED.goon : SPEED.cop);
+    }
+
+    // The ally waits where they stand until the candidate comes; in the crowd or running from a scatter they move like a townsperson.
+    function updateAlly(e) {
+      if (e.mode !== 'wait' && e.mode !== 'wander') { updateCiv(e); return; }
+      e.mode = 'wait';
+      if (e.cool > 0) e.cool -= DT;
+      move(e, 0, 0, 0);
     }
 
     function scareGoon(e) {
@@ -652,7 +713,7 @@
     function mobRiots(mob, members) {
       mob.state = 'riot'; mob.lostT = 0;
       const c = centre(members);
-      emit({ t: 'riot', mob: mob.id, x: c.x, y: c.y, n: members.length, text: text(mobRng.pick(Ct.LINES.riot)) });
+      emit({ t: 'riot', mob: mob.id, x: c.x, y: c.y, n: members.length, text: text(mobRng.pick(mob.leader ? Ct.LINES.riotLeader : Ct.LINES.riot)) });
     }
     function mobRetreats(mob, members) {
       mob.state = 'retreat';
@@ -671,7 +732,7 @@
         const d = dist(e.x, e.y, P.x, P.y);
         if (d > e.stand || !e.los) { const dir = steerTo(e, P.x, P.y, true); move(e, dir.x, dir.y, SPEED.mobMarch); } else move(e, 0, 0, 0);
         if (e.los && d <= STONE.range && e.throwCd <= 0 && G.stones.length < STONE.max) throwStone(e, mob, d);
-        else if (e.sayCd <= 0 && mob.talkT <= 0) { say(e, mobRng.pick(Ct.LINES.mob), null, '#fff59d'); e.sayCd = 5 + mobRng() * 4; mob.talkT = 2.5; } // one voice at a time
+        else if (e.sayCd <= 0 && mob.talkT <= 0) { say(e, mobRng.pick(e.role === 'leader' ? Ct.LINES.leader : Ct.LINES.mob), null, '#fff59d'); e.sayCd = 5 + mobRng() * 4; mob.talkT = 2.5; } // one voice at a time
       } else {
         const h = e.home;
         if (dist(e.x, e.y, h.x, h.y) < 8) move(e, 0, 0, 0);
@@ -700,14 +761,15 @@
     function landStone(s) {
       const hit = P.state === 'free' && P.invuln <= 0 && P.stun === 0 && dist(s.x, s.y, P.x, P.y) <= STONE.hitR;
       if (!hit) { emit({ t: 'stone', x: s.x, y: s.y, hit: false }); return; }
-      const thrower = { x: s.x0, y: s.y0 };
-      tearPapers(thrower, STONE.damage, true);
+      const thrower = { x: s.x0, y: s.y0 }, shielded = allyIn(), damage = shielded ? STONE.allyDamage : STONE.damage;
+      tearPapers(thrower, damage, true);
       P.kx = 0; P.ky = 0; P.stun = STONE.stunTicks;
       const scattered = P.followers.filter((f) => dist(f.x, f.y, P.x, P.y) <= STONE.scatterR)
         .sort((a, b) => dist(a.x, a.y, s.x, s.y) - dist(b.x, b.y, s.x, s.y)).slice(0, STONE.scatter);
       for (const f of scattered) { leave(f, thrower, true); say(f, mobRng.pick(Ct.LINES.stonedCrowd), null, '#ffcdd2'); }
-      emit({ t: 'stone', x: P.x, y: P.y, hit: true, amount: STONE.damage, papers: P.papers, scattered: scattered.length });
+      emit({ t: 'stone', x: P.x, y: P.y, hit: true, amount: damage, papers: P.papers, scattered: scattered.length });
       say(P, mobRng.pick(Ct.LINES.stoned), null, '#ffcdd2');
+      if (shielded) say(G.ally, allyRng.pick(Ct.LINES.allyShield), null, '#bbdefb');
     }
 
     // ------------------------------------------------------------ arson
@@ -865,6 +927,7 @@
         if (e.kind === 'civ') updateCiv(e);
         else if (e.kind === 'cop') updateCop(e);
         else if (e.kind === 'mob') updateMobMember(e);
+        else if (e.kind === 'ally') updateAlly(e);
         else updateGoon(e);
         if (G.mode !== 'play') return;
       }
@@ -872,6 +935,7 @@
       updateArson();
       updateStones();
       upkeep();
+      G.hold = G.M.hold - (allyIn() ? ALLY.holdCut : 0);
       if (G.tick % 15 === 0) updateMissions();
     }
 
