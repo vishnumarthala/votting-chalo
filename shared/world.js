@@ -343,8 +343,8 @@
     g.fill(r.x0, r.y0, 7, 6, K.PLAZA);
     const bw = 5, bh = 4, bx = r.x0 + 1, by = r.y0 + 1;
     g.fill(bx, by, bw, bh, K.BUILD);
-    g.buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#bbdefb', kind: 'party', name: 'NPP Party Office' });
-    const start = { kind: 'start', name: 'NPP Party Office', x: (bx + bw / 2) * TILE, y: Math.min(r.y1 + 0.5, by + bh + 1) * TILE, r: 40 };
+    g.buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#bbdefb', kind: 'party', name: 'YSRCP Party Office' });
+    const start = { kind: 'start', name: 'YSRCP Party Office', x: (bx + bw / 2) * TILE, y: Math.min(r.y1 + 0.5, by + bh + 1) * TILE, r: 40 };
     g.sites.push(start);
     return start;
   }

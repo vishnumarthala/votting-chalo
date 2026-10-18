@@ -123,6 +123,9 @@
       panel(ctx, cx - 140, VH * 0.3 - 26, 280, 52);
       text(ctx, touch ? 'GRABBED! Drag far to RUN free!' : 'GRABBED! Hold SHIFT and run!', cx, VH * 0.3 - 8, 15, '#ff8a80', 'center', 900);
       bar(ctx, cx - 120, VH * 0.3 + 8, 240, 10, P.grab, '#e53935');
+    } else if (P.stun > 0) {
+      panel(ctx, cx - 120, VH * 0.3 - 20, 240, 40);
+      text(ctx, '💫 Stone hit! Hold on…', cx, VH * 0.3, 16, '#ffe082', 'center', 900);
     }
     if (P.submitT > 0) {
       const by = VH - (touch ? 200 : 70);

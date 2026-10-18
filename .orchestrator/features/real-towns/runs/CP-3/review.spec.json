@@ -1,0 +1,27 @@
+{
+  "summary": "Delta review of 52503416..d8aee741. The previous blocker is resolved: T-10 now places three stationary posted cops 200 to 230 px behind the mob (all within 260 px of every member) and more than 300 px from the candidate, asserts that setup, requires a first chase within 90 ticks and a lathi against the crowd (victims must be supporters, never mob members), and adds a negative control with the cops 330 px back that must never chase, lathi, or leave their posts while the mob riots. I verified by ablation in a scratch copy under the scratchpad: with escortsMob forced to false T-10 fails ('no cop chased the candidate within 3 s (first chase: tick -1)'), and with escortR raised to 400 the negative control fails; in the real tree T-9..T-12 pass and npm test is 52/52. The previous minor is resolved: shared/sim.js now counts supporters within MOB.backR (150 px) of any member of a mob, matching AC-7 ('a crowd of 8 or more within 150 px of a mob'), the README sentence was updated to say the same, and T-11 (8 drives back, 7 does not) still passes. Other delta changes are small and in line with the review findings, with no new feature surface: the stone hit no longer also emits a 'torn' event (client 'stone' handler already shows shake, burst and the -N% popup), the stun is cleared on detention and release, and test/stone-hit.test.js covers both through the Sim seam. Refactors (BIG_CROWD constant, mobById lookup, per-tick membersByMob, TDP_HAT constant, no id on stones) do not change contracts; no CP-4..CP-6 behaviour was added. T-12's empty fire comparison is accepted until CP-4, as agreed.",
+  "verdict": "approve",
+  "findings": [
+    {
+      "severity": "nit",
+      "location": "test/mob.test.js:146-166 (T-11)",
+      "issue": "The new AC-7 counting rule (supporters within 150 px of a mob member, not within 110 px of the candidate) is not probed by a test, because T-11 puts every supporter on the candidate. The change is exercised only indirectly.",
+      "fix": "Optional: add a case with 8 supporters 100 to 150 px from the mob but more than 110 px from the candidate and assert the mob retreats. Not required to approve."
+    },
+    {
+      "severity": "nit",
+      "location": "test/mob.test.js:T-12 (fires comparison)",
+      "issue": "Carried over and accepted: the fires comparison is empty at CP-3 because arson does not exist yet; AC-14 requires mobs and fires.",
+      "fix": "CP-4 must make fires non-empty and compared in the 900-tick replay."
+    }
+  ],
+  "instructions": "",
+  "source": ".orchestrator/features/real-towns/inbox/CP-3-review-spec.json",
+  "gate": "review",
+  "cp": "CP-3",
+  "part": "spec",
+  "status": "pass",
+  "tree": "git:d8aee741172c23e28a1e008067636569380e7e12",
+  "at": "2026-10-18T17:04:43+00:00",
+  "failed_attempts": 2
+}

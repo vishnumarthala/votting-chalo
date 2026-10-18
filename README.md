@@ -1,8 +1,8 @@
 # Votting Chalo 🗳️
 
-A satirical top-down game set in **a real Andhra Pradesh town**. Walk your candidate through the streets,
-gather a crowd, dodge the police and rival goons, push through the Section 144 barricades, and reach the
-office before it closes.
+A satirical top-down game set in **a real Andhra Pradesh town**. You play a YSRCP candidate (blue shirt, blue flag
+with a white ceiling fan). Walk through the streets, gather a crowd, dodge the police and the TDP workers (yellow),
+push through the Section 144 barricades, and reach the office before it closes.
 
 - **Nomination Day:** collect 5 documents from shops around town (Form-A, affidavit, caste certificate,
   deposit receipt, proposer signatures). Then reach the RO office before 3 PM and hold the counter until
@@ -48,7 +48,11 @@ No browser is downloaded.
   - Lathi charges scatter supporters. Inspectors throw **tear gas** at big crowds.
   - Each arrest is a case; **3 cases and you're jailed**. After an arrest you're released at a police station.
   - Backup arrives over time, and sooner if your crowd is large.
-- **Goons** tear your papers (25% per hit). If your papers hit 0%, your Form-A (or voter slip) is
+- **TDP mobs** (groups of 5 to 8 workers in yellow shirts, some with a plain yellow TDP flag) march on you when
+  they see you and throw stones. A stone that lands on you costs 10 points of papers, scatters up to 2
+  supporters and stuns you for half a second; keep walking and they miss. A **crowd of 8 or more** within 150 px of a mob drives
+  it back. **Police near a rioting mob escort it** and go for you and your crowd instead.
+- **Goons** (lone TDP workers) tear your papers (25% per hit). If your papers hit 0%, your Form-A (or voter slip) is
   destroyed and you must fetch a new one. Goons back off from a crowd of 8 or more.
 - **Section 144 ring.** The streets around the destination are barricaded, with a few manned checkposts.
   Walk into a barricade to push it; every supporter nearby speeds it up.
@@ -66,8 +70,8 @@ index.html          menu, pause, touch buttons, CSS
 shared/             DOM-free UMD modules (browser + Node)
   towns.js          the playable towns: names, map crop centre, RO office anchor, landmarks to skip
   world.js          town builder, tile collision, BFS flow fields, line of sight, barricade ring
-  content.js        all text and modes; {town} {mandal} {district} templating
-  sim.js            30 Hz deterministic game: crowd, police, goons, gas, barricades, documents, filing
+  content.js        all text and modes (parties YSRCP and TDP); {town} {mandal} {district} {short} {rival} templating
+  sim.js            30 Hz deterministic game: crowd, police, goons, TDP mobs and stones, gas, barricades, documents, filing
 client/
   render.js         cached map chunks, people, sites, ring, gas, ambient autos on the roads, minimap, bubbles
   hud.js            status, minimap, documents, objective arrow, missions, toasts, intro

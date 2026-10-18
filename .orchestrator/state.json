@@ -16,6 +16,7 @@
       "test/bus-stands.test.js": "5a022fc6f72efa7039c0de770a919cd4e4bcac51997a4bdab377bd28984e4818",
       "test/design.test.js": "a0f9ca7f26b26e17093d34bda1e55ee0389351c819c746b0fbf076a5f4fbe9fe",
       "test/map-invariants.js": "28c5711e1bce8f674677e097f86d0657f18fa1beb09e58e3668943cfe382dcbe",
+      "test/mob.test.js": "4eb88a515b580e145d0490f13b8b38a01716c2cc3847c4bf22132b69561de173",
       "test/osm-to-town.test.js": "209438073b2fb2f316a4cd7aef8a5122846b8307a9cbccb049b81f28275ce67e",
       "test/sim.test.js": "810c31ff6ea74415b28febd2887ae17a9cac9584babd7876bdd7408e322ac361",
       "test/towns.js": "5444e4f2882b5659588f0430ef5d40c915241c88b2a64891c3fd1b7530234235",
@@ -25,8 +26,8 @@
       "test/fixtures/broken.osm": "8047757c18750ce11d2be05a71c761f902602e1ad8683bcc2afd6fa483ce538e",
       "test/fixtures/mini.osm": "231df3a7805940262324d0c27f1679243f78823f50d359ecc75db9ba969ed4a4"
     },
-    "at": "2026-10-18T16:29:10+00:00",
-    "cp": "CP-2"
+    "at": "2026-10-18T16:59:47+00:00",
+    "cp": "CP-3"
   },
   "features": {
     "design-baseline": {
@@ -280,14 +281,65 @@
           "commit": "709bdfbb8563a70af59e6538df437140c6bb8f02"
         },
         "CP-3": {
-          "status": "todo",
-          "stage": null,
-          "start_tree": null,
-          "gates": {},
+          "status": "done",
+          "stage": "done",
+          "start_tree": "git:005ad95978e82f1560cbcce15fe89bf905753255",
+          "gates": {
+            "behavior": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:d8aee741172c23e28a1e008067636569380e7e12",
+                  "at": "2026-10-18T17:00:52+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-3/behavior.command.json"
+                }
+              }
+            },
+            "review": {
+              "attempts": 2,
+              "parts": {
+                "standards": {
+                  "status": "pass",
+                  "tree": "git:d8aee741172c23e28a1e008067636569380e7e12",
+                  "at": "2026-10-18T17:04:43+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-3/review.standards.json"
+                },
+                "spec": {
+                  "status": "pass",
+                  "tree": "git:d8aee741172c23e28a1e008067636569380e7e12",
+                  "at": "2026-10-18T17:04:43+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-3/review.spec.json"
+                }
+              }
+            },
+            "red": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:02e0a308248a153af8fe484344be0aad5ffa45f2",
+                  "at": "2026-10-18T16:59:47+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-3/red.command.json"
+                }
+              }
+            },
+            "judge": {
+              "attempts": 0,
+              "parts": {
+                "judge": {
+                  "status": "pass",
+                  "tree": "git:d8aee741172c23e28a1e008067636569380e7e12",
+                  "at": "2026-10-18T17:04:43+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-3/judge.judge.json"
+                }
+              }
+            }
+          },
           "tests_unlocked": null,
           "user_approved": false,
-          "started_at": null,
-          "completed_at": null,
+          "started_at": "2026-10-18T16:31:55+00:00",
+          "completed_at": "2026-10-18T17:04:43+00:00",
           "commit": null
         },
         "CP-4": {
@@ -761,6 +813,120 @@
       "event": "cp_complete",
       "cp": "CP-2",
       "commit": "709bdfbb8563a70af59e6538df437140c6bb8f02"
+    },
+    {
+      "at": "2026-10-18T16:31:55+00:00",
+      "event": "cp_start",
+      "cp": "CP-3",
+      "branch": "forge/real-towns"
+    },
+    {
+      "at": "2026-10-18T16:40:42+00:00",
+      "event": "gate",
+      "cp": "CP-3",
+      "gate": "red",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:40:42+00:00",
+      "event": "tests_locked",
+      "cp": "CP-3",
+      "count": 15
+    },
+    {
+      "at": "2026-10-18T16:47:18+00:00",
+      "event": "gate",
+      "cp": "CP-3",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:47:46+00:00",
+      "event": "gate",
+      "cp": "CP-3",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:55:31+00:00",
+      "event": "gate",
+      "cp": "CP-3",
+      "gate": "review",
+      "part": "standards",
+      "status": "fail",
+      "attempt": 1
+    },
+    {
+      "at": "2026-10-18T16:55:31+00:00",
+      "event": "gate",
+      "cp": "CP-3",
+      "gate": "review",
+      "part": "spec",
+      "status": "fail",
+      "attempt": 2
+    },
+    {
+      "at": "2026-10-18T16:55:31+00:00",
+      "event": "tests_unlocked",
+      "cp": "CP-3",
+      "reason": "T-10 passes with the police-escort rule disabled: patrolling cops reach the candidate's 220 px sight range within ~12 ticks and chase anyway, and the mob-member lathi assertions cannot fail, so AC-6 is not exercised"
+    },
+    {
+      "at": "2026-10-18T16:59:47+00:00",
+      "event": "gate",
+      "cp": "CP-3",
+      "gate": "red",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:59:47+00:00",
+      "event": "tests_locked",
+      "cp": "CP-3",
+      "count": 15
+    },
+    {
+      "at": "2026-10-18T17:00:52+00:00",
+      "event": "gate",
+      "cp": "CP-3",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T17:04:43+00:00",
+      "event": "gate",
+      "cp": "CP-3",
+      "gate": "review",
+      "part": "standards",
+      "status": "pass",
+      "attempt": 2
+    },
+    {
+      "at": "2026-10-18T17:04:43+00:00",
+      "event": "gate",
+      "cp": "CP-3",
+      "gate": "review",
+      "part": "spec",
+      "status": "pass",
+      "attempt": 2
+    },
+    {
+      "at": "2026-10-18T17:04:43+00:00",
+      "event": "gate",
+      "cp": "CP-3",
+      "gate": "judge",
+      "part": "judge",
+      "status": "pass",
+      "attempt": 0
     }
   ]
 }

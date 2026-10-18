@@ -8,13 +8,24 @@
   const { TILE, N, WORLD, DT, K, clamp, hypot, dist, norm, makeRng, buildTown, kindAt, solidAt, moveBody, field, flowDir, lineOfSight, barricadeRing } = Wd;
 
   const CAP = 30; // max crowd
-  const SPEED = { walk: 135, run: 215, follow: 1.18, civ: 34, flee: 120, cop: 70, copChase: 112, goon: 85, goonChase: 125, held: 0.75 };
+  const SPEED = { walk: 135, run: 215, follow: 1.18, civ: 34, flee: 120, cop: 70, copChase: 112, goon: 85, goonChase: 125, held: 0.75, mobMarch: 100, mobRetreat: 120 };
   const CASES = 3; // detentions before you are jailed
   const SHIELD = 3; // supporters needed near you to block an arrest
+  const BIG_CROWD = 8; // supporters that make goons back off and (within `backR` px of a mob) drive the mob back
   const GRAB_TIME = 1.1; // seconds a cop must hold on to arrest you
   const EMPTY_INPUT = { mx: 0, my: 0, run: false, act: false };
+  // TDP mobs (px and seconds). A mob riots when a member sees the candidate within `sight` (it keeps the candidate in
+  // mind within `keep` until `loseT` s pass unseen). A crowd of `crowd` supporters within `backR` px of any one member
+  // drives the mob back for `retreatT` s, after which it regroups for `regroupT` s.
+  // Police within `escortR` px of a rioting mob escort it.
+  const MOB = { count: 3, minSize: 5, maxSize: 8, sight: 330, keep: 600, loseT: 6, regroupT: 4, retreatT: 3, crowd: BIG_CROWD, backR: 150, escortR: 260 };
+  // A stone is thrown from up to `range` px at `speed` px/s, then lands within `hitR` px of the candidate or misses.
+  // A hit costs `damage` points of papers, sends the nearest `scatter` supporters within `scatterR` px running and
+  // stuns the candidate for `stunTicks`. A member throws every `minCd` to `maxCd` s; `max` stones fly at once.
+  const STONE = { range: 260, speed: 260, hitR: 20, max: 10, damage: 10, stunTicks: 15, scatter: 2, scatterR: 120, minCd: 3.5, maxCd: 5.5 };
 
   // opts: { seed, town: 'pulivendula', townData, mode: 'nomination' | 'vote', police, goons, mobs, civilians }.
+  // Police, goons and mobs are on unless passed as false; civilians is a count (default 150).
   // townData is the town's map file; Node loads data/towns/<town>.json itself, the browser passes the fetched file.
   function createGame(opts) {
     opts = opts || {};
@@ -23,6 +34,7 @@
     const townData = opts.townData || loadTown(townId);
     if (!townData) throw new Error('no map data for ' + townId + ': pass opts.townData');
     const rng = makeRng((opts.seed >>> 0) || 1);
+    const mobRng = makeRng(((opts.seed >>> 0) || 1) ^ 0x70b5); // own stream: adding mobs leaves the rest of the game's draws alone
     const modeKey = opts.mode === 'vote' ? 'vote' : 'nomination';
     const M = Ct.MODES[modeKey];
     const place = { town: info.town, mandal: info.mandal, district: info.district };
@@ -34,7 +46,7 @@
     const G = {
       tick: 0, mode: 'intro', modeT: 0, gameMode: modeKey, M, map, place, target, docSites,
       timer: M.time, elapsed: 0, score: 0, combo: { n: 0, t: 0 }, events: [],
-      player: null, ents: [], barrs: [], clouds: [], posts: map.posts,
+      player: null, ents: [], barrs: [], clouds: [], mobs: [], stones: [], posts: map.posts,
       stats: { rec: 0, crowd: 0, brk: 0, lift: 0, doc: 0, slogan: 0, goon: 0 }, missions: [], missionsDone: 0,
       result: null, alertT: 50,
     };
@@ -47,15 +59,15 @@
     const P = {
       id: 0, kind: 'player', x: map.start.x, y: map.start.y, r: 9, vx: 0, vy: 0, fx: 0, fy: 1, kx: 0, ky: 0,
       papers: 100, stamina: 100, cases: 0, followers: [], docs: (M.given || []).slice(), sloganCd: 0, grab: 0, grabTick: -1,
-      collect: null, submitT: 0, state: 'free', heldT: 0, invuln: 0, pushing: 0, running: false, sayCd: 0, inGas: false,
+      collect: null, submitT: 0, state: 'free', heldT: 0, invuln: 0, pushing: 0, running: false, sayCd: 0, inGas: false, stun: 0,
     };
     P.px = P.x; P.py = P.y;
     G.player = P;
 
     const isOpen = (k) => k === K.WALK || k === K.PARK || k === K.PLAZA || k === K.ROAD || k === K.BRIDGE;
-    function randomSpot(minFromPlayer, kinds) {
+    function randomSpot(minFromPlayer, kinds, rg = rng) {
       for (let tries = 0; tries < 400; tries++) {
-        const tx = 3 + rng.int(N - 6), ty = 3 + rng.int(N - 6);
+        const tx = 3 + rg.int(N - 6), ty = 3 + rg.int(N - 6);
         const k = kindAt(map, tx, ty);
         if (!(kinds ? kinds.includes(k) : isOpen(k)) || solidAt(map, tx, ty)) continue;
         const x = (tx + 0.5) * TILE, y = (ty + 0.5) * TILE;
@@ -65,7 +77,8 @@
       return { x: map.start.x, y: map.start.y };
     }
     function spawn(kind, x, y, extra) {
-      const e = Object.assign({ id: nextId++, kind, x, y, r: kind === 'civ' ? 8 : 9, vx: 0, vy: 0, fx: 0, fy: 1, mode: 'wander', t: 0, sayCd: rng() * 4 }, extra || {});
+      const e = Object.assign({ id: nextId++, kind, x, y, r: kind === 'civ' ? 8 : 9, vx: 0, vy: 0, fx: 0, fy: 1, mode: 'wander', t: 0 }, extra || {});
+      if (e.sayCd === undefined) e.sayCd = rng() * 4;
       e.px = e.x; e.py = e.y;
       G.ents.push(e);
       return e;
@@ -111,6 +124,35 @@
         spawn('goon', x, y, { mode: 'post', home: { x, y }, seeT: 0, stunT: 0 });
       }
     }
+
+    const mobById = new Map(); // mob id -> mob
+    // One mob gathers a few tiles from the destination, the others wait at random spots away from the start.
+    function spawnMobs() {
+      for (let i = 0; i < MOB.count; i++) {
+        const at = i === 0 ? spotNear(target.gate.x, target.gate.y, 150, 250) : randomSpot(700, null, mobRng);
+        const mob = { id: i + 1, state: 'idle', retreatT: 0, cool: 0, lostT: 0, talkT: 0 };
+        G.mobs.push(mob);
+        mobById.set(mob.id, mob);
+        const n = MOB.minSize + mobRng.int(MOB.maxSize - MOB.minSize + 1);
+        for (let k = 0; k < n; k++) {
+          const a = (k / n) * Math.PI * 2, rad = 18 + 4 * (k % 3);
+          let x = at.x + Math.cos(a) * rad, y = at.y + Math.sin(a) * rad;
+          if (solidAt(map, Math.floor(x / TILE), Math.floor(y / TILE))) { x = at.x; y = at.y; }
+          const m = spawn('mob', x, y, { mob: mob.id, mode: 'idle', home: { x, y }, throwCd: 1 + mobRng() * 2.5, sayCd: mobRng() * 4 });
+          m.stand = 90 + (m.id % 5) * 12; // how close this member marches before stopping to throw
+        }
+      }
+    }
+    // An open tile between r0 and r1 px from (x, y), drawn from the mob stream; (x, y) itself if none is found.
+    function spotNear(x, y, r0, r1) {
+      for (let tries = 0; tries < 60; tries++) {
+        const a = mobRng() * Math.PI * 2, r = mobRng.range(r0, r1);
+        const sx = x + Math.cos(a) * r, sy = y + Math.sin(a) * r, tx = Math.floor(sx / TILE), ty = Math.floor(sy / TILE);
+        if (tx >= 3 && ty >= 3 && tx < N - 3 && ty < N - 3 && isOpen(kindAt(map, tx, ty)) && !solidAt(map, tx, ty)) return { x: sx, y: sy };
+      }
+      return { x, y };
+    }
+    if (opts.mobs !== false) spawnMobs();
 
     // ------------------------------------------------------------ spatial hash
     const CELL = 64, CW = WORLD / CELL;
@@ -208,7 +250,7 @@
 
     // ------------------------------------------------------------ player events
     function detain(cop) {
-      P.state = 'held'; P.heldT = 2.6; P.cases++; P.submitT = 0; P.collect = null;
+      P.state = 'held'; P.heldT = 2.6; P.cases++; P.submitT = 0; P.collect = null; P.stun = 0;
       G.timer = Math.max(0, G.timer - 10);
       const scatter = P.followers.slice(Math.ceil(P.followers.length / 2));
       for (const f of scatter) leave(f, cop, true);
@@ -220,17 +262,18 @@
     function release() {
       let best = map.stations[0], bd = Infinity;
       for (const s of map.stations) { const d = dist(s.x, s.y, P.x, P.y); if (d < bd) { bd = d; best = s; } }
-      P.x = best.x; P.y = best.y; P.px = P.x; P.py = P.y; P.state = 'free'; P.invuln = 5; P.grab = 0;
+      P.x = best.x; P.y = best.y; P.px = P.x; P.py = P.y; P.state = 'free'; P.invuln = 5; P.grab = 0; P.stun = 0;
       for (const f of P.followers) { f.x = P.x + (f.x - P.x) * 0.1; f.y = P.y + (f.y - P.y) * 0.1; f.px = f.x; f.py = f.y; }
       pFieldDirty = true;
       emit({ t: 'released', x: P.x, y: P.y });
       toast('Released from ' + best.name + ' with a warning. ' + (CASES - P.cases) + ' case' + (CASES - P.cases === 1 ? '' : 's') + ' left before jail!', '#ffcc80');
     }
-    function tearPapers(by, amount) {
+    // `quiet`: the caller reports the hit with an event of its own (a stone), so no 'torn' event.
+    function tearPapers(by, amount, quiet) {
       P.papers = Math.max(0, P.papers - amount);
       const k = norm(P.x - by.x, P.y - by.y);
       P.kx = k.x * 260; P.ky = k.y * 260;
-      emit({ t: 'torn', amount, papers: P.papers, x: P.x, y: P.y });
+      if (!quiet) emit({ t: 'torn', amount, papers: P.papers, x: P.x, y: P.y });
       if (P.papers > 0) return;
       const doc = modeKey === 'vote' ? 'Voter Slip' : 'Form-A Nomination';
       const i = P.docs.indexOf(doc);
@@ -266,6 +309,7 @@
         return;
       }
       let mx = inp.mx || 0, my = inp.my || 0;
+      if (P.stun > 0) { P.stun--; mx = 0; my = 0; P.kx = 0; P.ky = 0; } // a stone hit: no walking or knock-back
       const mag = hypot(mx, my);
       if (mag > 1) { mx /= mag; my /= mag; }
       P.running = !!inp.run && mag > 0.2 && P.stamina > 3;
@@ -418,14 +462,16 @@
       if (e.mode === 'stun') { e.stunT -= DT; move(e, 0, 0, 0); if (e.stunT <= 0) backToWork(e); return; }
       const d = dist(e.x, e.y, P.x, P.y);
       const look = e.role === 'guard' ? 190 : 220;
-      if (e.mode !== 'chase' && sees(e, look)) {
+      // police near a rioting mob escort it: they go for the candidate and the crowd, from any distance
+      const escort = e.kind === 'cop' && P.state === 'free' && escortsMob(e);
+      if (e.mode !== 'chase' && (escort || sees(e, look))) {
         e.mode = 'chase'; e.seeT = 0;
-        if (e.sayCd <= 0) { say(e, rng.pick(Ct.LINES.cop), null, '#fff59d'); e.sayCd = 6; }
+        if (e.sayCd <= 0) { say(e, rng.pick(escort ? Ct.LINES.copEscort : Ct.LINES.cop), null, '#fff59d'); e.sayCd = 6; }
       }
       if (e.mode === 'chase') {
         if (sees(e, 700)) e.seeT = 0; else e.seeT += DT;
-        const leash = e.home ? dist(e.x, e.y, e.home.x, e.home.y) > 360 : false;
-        if (P.state !== 'free' || e.seeT > 6 || d > 700 || leash) { backToWork(e); return; }
+        const leash = !escort && e.home ? dist(e.x, e.y, e.home.x, e.home.y) > 360 : false;
+        if (P.state !== 'free' || (!escort && (e.seeT > 6 || d > 700)) || leash) { backToWork(e); return; }
         const dir = steerTo(e, P.x, P.y, true);
         move(e, dir.x, dir.y, SPEED.copChase * (e.role === 'gas' ? 0.9 : 1));
         if (e.role === 'gas' && e.gasCd <= 0 && P.followers.length >= 6 && d < 320 && e.los) {
@@ -454,12 +500,12 @@
         }
         // lathi: scatters supporters around the cop (after the crowd had its chance to lift him)
         if (e.mode === 'chase' && e.lathiCd <= 0) {
-          let hit = 0;
+          const victims = [];
           for (const f of P.followers.slice()) {
-            if (hit >= 3) break;
-            if (dist(f.x, f.y, e.x, e.y) < 46) { leave(f, e, true); hit++; }
+            if (victims.length >= 3) break;
+            if (dist(f.x, f.y, e.x, e.y) < 46) { leave(f, e, true); victims.push(f.id); }
           }
-          if (hit) { e.lathiCd = 1.8; emit({ t: 'lathi', x: e.x, y: e.y, n: hit }); if (rng() < 0.4) say(e, rng.pick(Ct.LINES.lathi), null, '#fff59d'); }
+          if (victims.length) { e.lathiCd = 1.8; emit({ t: 'lathi', x: e.x, y: e.y, n: victims.length, victims }); if (rng() < 0.4) say(e, rng.pick(Ct.LINES.lathi), null, '#fff59d'); }
         }
         return;
       }
@@ -498,7 +544,7 @@
         if (e.t <= 0) backToWork(e);
         return;
       }
-      const big = P.followers.length >= 8;
+      const big = P.followers.length >= BIG_CROWD;
       if (e.mode !== 'chase' && !(e.cool > 0) && !big && sees(e, 230)) {
         e.mode = 'chase'; e.seeT = 0;
         if (e.sayCd <= 0) { say(e, rng.pick(Ct.LINES.goon), null, '#ffcdd2'); e.sayCd = 6; }
@@ -528,6 +574,117 @@
         return;
       }
       updateCop(e); // shares the patrol walk
+    }
+
+    // ------------------------------------------------------------ mobs and stones
+    // Members of rioting mobs this tick: the police escort check reads it.
+    const rioters = [];
+    const escortsMob = (c) => rioters.some((m) => dist(m.x, m.y, c.x, c.y) <= MOB.escortR);
+
+    // Each mob is idle (at home), riot (marching on the candidate and throwing stones) or retreat (driven back by a crowd).
+    const withinOf = (list, p, r) => { for (const m of list) if (dist(m.x, m.y, p.x, p.y) <= r) return true; return false; };
+    const membersByMob = new Map(); // mob id -> its members this tick (arrays are reused)
+    function updateMobs() {
+      rioters.length = 0;
+      const free = P.state === 'free';
+      for (const list of membersByMob.values()) list.length = 0;
+      for (const e of G.ents) {
+        if (e.kind !== 'mob') continue;
+        let list = membersByMob.get(e.mob);
+        if (!list) { list = []; membersByMob.set(e.mob, list); }
+        list.push(e);
+      }
+      for (const mob of G.mobs) {
+        const members = membersByMob.get(mob.id);
+        if (!members || !members.length) continue;
+        mob.retreatT = Math.max(0, mob.retreatT - DT);
+        mob.cool = Math.max(0, mob.cool - DT);
+        mob.talkT = Math.max(0, mob.talkT - DT);
+        let sighted = false;
+        for (const m of members) if (sees(m, mob.state === 'riot' ? MOB.keep : MOB.sight)) sighted = true;
+        // supporters within backR px of any member of this mob
+        let crowd = 0;
+        for (const f of P.followers) if (withinOf(members, f, MOB.backR)) crowd++;
+        if (free && crowd >= MOB.crowd) {
+          if (mob.state !== 'retreat') mobRetreats(mob, members);
+          mob.retreatT = MOB.retreatT;
+        } else if (mob.state === 'retreat') {
+          if (mob.retreatT <= 0) { mob.state = 'idle'; mob.cool = MOB.regroupT; }
+        } else if (mob.state === 'idle') {
+          if (free && sighted && mob.cool <= 0) mobRiots(mob, members);
+        } else if (!free) {
+          mob.state = 'idle';
+        } else if (sighted) {
+          mob.lostT = 0;
+        } else if ((mob.lostT += DT) > MOB.loseT) {
+          mob.state = 'idle';
+        }
+        for (const m of members) {
+          m.mode = mob.state;
+          if (mob.state === 'riot') rioters.push(m);
+        }
+      }
+    }
+    const centre = (ms) => ({ x: ms.reduce((s, m) => s + m.x, 0) / ms.length, y: ms.reduce((s, m) => s + m.y, 0) / ms.length });
+    function mobRiots(mob, members) {
+      mob.state = 'riot'; mob.lostT = 0;
+      const c = centre(members);
+      emit({ t: 'riot', mob: mob.id, x: c.x, y: c.y, n: members.length, text: text(mobRng.pick(Ct.LINES.riot)) });
+    }
+    function mobRetreats(mob, members) {
+      mob.state = 'retreat';
+      toast(mobRng.pick(Ct.LINES.mobRetreat), '#b9f6ca');
+      say(members[0], mobRng.pick(Ct.LINES.mobScared), null, '#ffcdd2');
+    }
+
+    function updateMobMember(e) {
+      const mob = mobById.get(e.mob);
+      e.sayCd -= DT; e.throwCd = Math.max(0, e.throwCd - DT);
+      if (mob.state === 'retreat') {
+        const away = norm(e.x - P.x, e.y - P.y);
+        if (!away.x && !away.y) away.x = 1;
+        move(e, away.x, away.y, SPEED.mobRetreat);
+      } else if (mob.state === 'riot') {
+        const d = dist(e.x, e.y, P.x, P.y);
+        if (d > e.stand || !e.los) { const dir = steerTo(e, P.x, P.y, true); move(e, dir.x, dir.y, SPEED.mobMarch); } else move(e, 0, 0, 0);
+        if (e.los && d <= STONE.range && e.throwCd <= 0 && G.stones.length < STONE.max) throwStone(e, mob, d);
+        else if (e.sayCd <= 0 && mob.talkT <= 0) { say(e, mobRng.pick(Ct.LINES.mob), null, '#fff59d'); e.sayCd = 5 + mobRng() * 4; mob.talkT = 2.5; } // one voice at a time
+      } else {
+        const h = e.home;
+        if (dist(e.x, e.y, h.x, h.y) < 8) move(e, 0, 0, 0);
+        else { const dir = norm(h.x - e.x, h.y - e.y); move(e, dir.x, dir.y, SPEED.goon); }
+      }
+    }
+
+    // A stone flies in a straight line to where the candidate stood at the throw, so walking on dodges it.
+    function throwStone(e, mob, d) {
+      e.throwCd = mobRng.range(STONE.minCd, STONE.maxCd);
+      G.stones.push({ x: e.x, y: e.y, px: e.x, py: e.y, x0: e.x, y0: e.y, tx: P.x, ty: P.y, t: 0, T: Math.max(0.3, d / STONE.speed) });
+      if (e.sayCd <= 0 && mob.talkT <= 0) { say(e, mobRng.pick(Ct.LINES.mobThrow), null, '#fff59d'); e.sayCd = 4 + mobRng() * 3; mob.talkT = 2.5; }
+    }
+    function updateStones() {
+      const flying = [];
+      for (const s of G.stones) {
+        s.px = s.x; s.py = s.y; s.t += DT;
+        const k = Math.min(1, s.t / s.T);
+        s.x = s.x0 + (s.tx - s.x0) * k; s.y = s.y0 + (s.ty - s.y0) * k;
+        if (k < 1) flying.push(s); else landStone(s);
+      }
+      G.stones = flying;
+    }
+    // A landed stone hits the candidate who is still there and not in the grace of a hit or a release: papers tear,
+    // the nearest supporters run, and the candidate is stunned.
+    function landStone(s) {
+      const hit = P.state === 'free' && P.invuln <= 0 && P.stun === 0 && dist(s.x, s.y, P.x, P.y) <= STONE.hitR;
+      if (!hit) { emit({ t: 'stone', x: s.x, y: s.y, hit: false }); return; }
+      const thrower = { x: s.x0, y: s.y0 };
+      tearPapers(thrower, STONE.damage, true);
+      P.kx = 0; P.ky = 0; P.stun = STONE.stunTicks;
+      const scattered = P.followers.filter((f) => dist(f.x, f.y, P.x, P.y) <= STONE.scatterR)
+        .sort((a, b) => dist(a.x, a.y, s.x, s.y) - dist(b.x, b.y, s.x, s.y)).slice(0, STONE.scatter);
+      for (const f of scattered) { leave(f, thrower, true); say(f, mobRng.pick(Ct.LINES.stonedCrowd), null, '#ffcdd2'); }
+      emit({ t: 'stone', x: P.x, y: P.y, hit: true, amount: STONE.damage, papers: P.papers, scattered: scattered.length });
+      say(P, mobRng.pick(Ct.LINES.stoned), null, '#ffcdd2');
     }
 
     // ------------------------------------------------------------ world upkeep
@@ -581,13 +738,16 @@
       rebuildGrid();
       updatePlayer(inp);
       if (G.mode !== 'play') return;
+      updateMobs();
       for (const e of G.ents) {
         if (e.dead) continue;
         if (e.kind === 'civ') updateCiv(e);
         else if (e.kind === 'cop') updateCop(e);
+        else if (e.kind === 'mob') updateMobMember(e);
         else updateGoon(e);
         if (G.mode !== 'play') return;
       }
+      updateStones();
       upkeep();
       if (G.tick % 15 === 0) updateMissions();
     }

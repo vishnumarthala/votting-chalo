@@ -1,0 +1,9 @@
+{
+ "verdict": "approve",
+ "tree": "git:d8aee741172c23e28a1e008067636569380e7e12",
+ "summary": "(1) CP-3 does what it set out to:\n- PARTY is YSRCP and RIVAL is TDP, with original lines;\n- goons are TDP workers in yellow;\n- mobs of 5-8 throw stones (-10 papers, up to 2 supporters within 120 px leave, 0.5 s stun);\n- police within 260 px of a rioting mob escort it and target the crowd;\n- 8+ supporters within 150 px of a mob drive it back;\n- the fan flag and the TDP flag are drawn.\nA headless screenshot in Pulivendula shows the mob, stones, the 'Stoned! -10%' popup, riot toasts and police escort lines.\n(2) Tests: T-10 was unlocked by me because it passed with the escort rule disabled. It was rewritten with posted cops out of sight of the candidate, is shown to fail with the rule disabled, and has a negative control. T-9, T-11 and T-12 are unchanged. The new stone-hit.test.js covers the single hit effect and stun clearing.\n(3) No gaming: red was shown failing for the right reason, and npm test (52) and e2e (3) are green.\n(4) Accepted nits:\n- T-12's fire comparison stays empty until CP-4 adds fires (it will then compare real state);\n- AC-7's off-candidate counting is not separately probed.\n(5) Content line: I read every line myself. There are no real person's names and none of the quoted lines.\n(6) Ready.",
+ "findings": [
+  {"severity": "nit", "location": "test/mob.test.js T-12", "issue": "The fire comparison is empty until CP-4.", "fix": "CP-4 adds G.fires, which T-12 then compares."}
+ ],
+ "instructions": ""
+}

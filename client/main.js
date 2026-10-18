@@ -194,6 +194,12 @@
         case 'lift': SFX.lift(); Render.popup(ev.x, ev.y - 30, 'Crowd lifted the cop! +' + ev.pts, '#b9f6ca'); Render.shake(6); break;
         case 'scare': SFX.scare(); Render.popup(ev.x, ev.y - 30, '+' + ev.pts, '#ffd54f'); break;
         case 'torn': SFX.torn(); Render.shake(6); Render.burst(ev.x, ev.y, 12, ['#fff', '#eceff1'], 220, 5); Render.popup(ev.x, ev.y - 34, '📄 −' + ev.amount + '%', '#ff8a80'); break;
+        case 'stone':
+          SFX.stone();
+          Render.burst(ev.x, ev.y, ev.hit ? 14 : 6, ev.hit ? ['#bdbdbd', '#f2c200', '#fff'] : ['#bcaaa4', '#d7ccc8'], 160, 3);
+          if (ev.hit) { Render.shake(8); Render.popup(ev.x, ev.y - 52, 'Stoned! −' + ev.amount + '%', '#ffe082'); }
+          break;
+        case 'riot': SFX.riot(); Hud.toast('⚠️ ' + ev.text, '#ffe082', 3.6); break;
         case 'lostdoc': SFX.lostdoc(); break;
         case 'gas': SFX.gas(); Hud.toast('💨 Tear gas! Supporters are scattering', '#eeeeee'); break;
         case 'break': SFX.break(); Render.shake(12); Render.burst(ev.x, ev.y, 28, ['#ffca28', '#212121', '#90a4ae'], 300, 6); Render.popup(ev.x, ev.y - 30, 'Barricade down! +' + ev.pts, '#ffd54f'); break;

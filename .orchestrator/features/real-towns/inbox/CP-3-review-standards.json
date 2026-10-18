@@ -1,0 +1,19 @@
+{
+  "verdict": "approve",
+  "tree": "git:d8aee741172c23e28a1e008067636569380e7e12",
+  "summary": "Delta verified against the working tree (identical to d8aee74 for sim.js, render.js, README, both test files); npm test 52/52 green. Previous major fixed: T-10 now uses stationary 'post' cops 200-230 px behind a rioting mob and more than 300 px from the candidate, stones off, asserts a chase within 90 ticks, a lathi, victims limited to the candidate's supporters, mob members untouched, and a 330 px negative control (no chase, no lathi, cops stay at posts, mob never within 260 px). In a scratch copy with the escort rule disabled (escort = false) T-10 fails with 'no cop chased the candidate within 3 s (first chase: tick -1)' while T-9, T-11, T-12 still pass; the real code passes. T-9/T-11/T-12 bodies are untouched, so no locked test was weakened (T-10 was strengthened under the judge's unlock). Minors fixed and verified by mutation in scratch: a stone hit emits one 'stone' event (reverting the quiet flag fails the new stone-hit test; the client 'stone' hit branch already carries burst, shake and popup, so no feedback was lost), and detain/release clear P.stun (removing both fails the stun test). Nits fixed: mob.n and stone.id dropped, mob lookup via Map, per-mob allocation removed (reused member arrays, insertion order keeps determinism), BIG_CROWD shared by goon back-off and MOB.crowd, TDP_HAT hoisted, crowdR removed with no stray references, README and MOB comment match the new AC-7 counting. Remaining nit only.",
+  "findings": [
+    {
+      "severity": "nit",
+      "location": "test/mob.test.js:201",
+      "issue": "T-12 still compares G.fires || [], which is always [] until CP-4 adds fires, with no comment saying so (previous nit not addressed).",
+      "fix": "Add a one-line comment 'fires land in CP-4' above the fires lines, or assert fires once they exist."
+    },
+    {
+      "severity": "nit",
+      "location": "test/stone-hit.test.js:38",
+      "issue": "The detention test reaches into g._test.detain rather than driving a real arrest through step; acceptable as _test is an existing sim.test.js seam, but it couples to an internal.",
+      "fix": "Optional: reproduce via a cop grab through step if a cheap scenario exists; otherwise leave."
+    }
+  ]
+}

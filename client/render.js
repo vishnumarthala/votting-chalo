@@ -9,6 +9,7 @@
     [K.BRIDGE]: '#b9b0a2', [K.WALL]: '#a3553c', [K.PARK]: '#86bd59', [K.TREE]: '#86bd59', [K.PLAZA]: '#e8dfca', [K.FIELD]: '#a5d06b',
   };
 
+  const YSRCP_BLUE = '#1e5bd8', TDP_YELLOW = '#f2c200', TDP_HAT = '#8a6d00';
   let cv, ctx, W = 0, H = 0, DPR = 1, zoom = 1, quality = 'hi', bottomPad = 0;
   let map = null, G = null, pavedMask = null;
   const cam = { x: 0, y: 0, shake: 0 };
@@ -213,6 +214,29 @@
     }
   }
 
+  // ------------------------------------------------------------ flags
+  // The YSRCP flag: a blue field with a white three-blade ceiling fan, drawn from shapes (no image file).
+  // (x, y) is the flag's top-left corner; `spin` turns the blades, in radians.
+  function drawFanFlag(g, x, y, w, h, spin) {
+    g.save();
+    g.fillStyle = YSRCP_BLUE; g.fillRect(x, y, w, h);
+    const reach = Math.min(w, h) * 0.44;
+    g.translate(x + w / 2, y + h / 2); g.rotate(spin || 0);
+    g.fillStyle = '#fff';
+    for (let i = 0; i < 3; i++) {
+      g.beginPath(); g.ellipse(reach * 0.58, 0, reach * 0.46, reach * 0.2, 0, 0, Math.PI * 2); g.fill();
+      g.rotate((Math.PI * 2) / 3);
+    }
+    g.beginPath(); g.arc(0, 0, reach * 0.24, 0, Math.PI * 2); g.fill();
+    g.fillStyle = YSRCP_BLUE; g.beginPath(); g.arc(0, 0, reach * 0.1, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+  // A flag on a pole: the pole's foot is (x, y + 11), the cloth hangs from its top.
+  function carriedFlag(x, y, spin, tdp) {
+    ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 11); ctx.stroke();
+    if (tdp) { ctx.fillStyle = TDP_YELLOW; ctx.fillRect(x + 1, y, 14, 9); } else drawFanFlag(ctx, x + 1, y, 14, 9, spin);
+  }
+
   // ------------------------------------------------------------ people
   const SHIRTS = ['#f5f5f5', '#ffcc80', '#a5d6a7', '#ce93d8', '#90caf9', '#ffab91'];
   const SKIN = ['#8d5a3b', '#a86b45', '#7b4a2e', '#9c6644'];
@@ -230,7 +254,7 @@
     if (o.scarf) { ctx.fillStyle = o.scarf; ctx.fillRect(-3, -r * 1.05, 4, r * 2.1); }
     if (o.prop === 'papers') { ctx.fillStyle = '#fff'; ctx.fillRect(5, 3, 8, 6); ctx.fillStyle = '#90a4ae'; ctx.fillRect(7, 5, 4, 1); }
     if (o.prop === 'lathi') { ctx.strokeStyle = '#8d6e63'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(4, 7); ctx.lineTo(16, 10); ctx.stroke(); }
-    if (o.prop === 'flag') { ctx.fillStyle = '#1e5bd8'; ctx.fillRect(2, -14, 9, 6); ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(2, -14); ctx.lineTo(2, -4); ctx.stroke(); }
+    if (o.prop === 'flag' || o.prop === 'tdpflag') carriedFlag(2, -15, time * 4 + e.id, o.prop === 'tdpflag');
     // head
     ctx.fillStyle = o.skin; ctx.beginPath(); ctx.arc(1, 0, r * 0.55, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = o.hat || '#1b1b1b'; ctx.beginPath(); ctx.arc(0, 0, r * 0.55, Math.PI * 0.5, Math.PI * 1.5); ctx.fill();
@@ -239,10 +263,11 @@
   }
   function look(e) {
     switch (e.kind) {
-      case 'player': return { shirt: '#1e5bd8', skin: '#9c6644', scarf: '#bbdefb', prop: 'papers' };
-      case 'civ': return e.mode === 'follow' ? { shirt: SHIRTS[e.look % 6], skin: SKIN[e.look % 4], scarf: '#1e5bd8', prop: e.id % 3 === 0 ? 'flag' : null } : { shirt: SHIRTS[e.look % 6], skin: SKIN[e.look % 4] };
+      case 'player': return { shirt: YSRCP_BLUE, skin: '#9c6644', scarf: '#bbdefb', prop: 'papers' };
+      case 'civ': return e.mode === 'follow' ? { shirt: SHIRTS[e.look % 6], skin: SKIN[e.look % 4], scarf: YSRCP_BLUE, prop: e.id % 3 === 0 ? 'flag' : null } : { shirt: SHIRTS[e.look % 6], skin: SKIN[e.look % 4] };
       case 'cop': return { shirt: e.role === 'gas' ? '#b39b5e' : '#c8b071', skin: '#8d5a3b', hat: '#6d5a2e', brim: true, prop: 'lathi' };
-      case 'goon': return { shirt: '#37474f', skin: '#7b4a2e', hat: '#c62828', brim: true };
+      case 'goon': return { shirt: TDP_YELLOW, skin: '#7b4a2e', hat: TDP_HAT, brim: true };
+      case 'mob': return { shirt: TDP_YELLOW, skin: SKIN[e.id % 4], hat: TDP_HAT, brim: e.id % 2 === 0, prop: e.id % 3 === 0 ? 'tdpflag' : null };
       default: return { shirt: '#999', skin: '#8d5a3b' };
     }
   }
@@ -374,9 +399,8 @@
       } else if (st.kind === 'station') {
         label('🚓 Police Station', st.x, st.y - 6, 11, '#fff', 'rgba(21,101,192,.85)');
       } else if (st.kind === 'start') {
-        ctx.fillStyle = '#6d4c41'; ctx.fillRect(st.x - 1, st.y - 40, 3, 34);
-        ctx.fillStyle = '#1e5bd8'; ctx.fillRect(st.x + 2, st.y - 40, 22, 14);
-        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(st.x + 13, st.y - 33, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#6d4c41'; ctx.fillRect(st.x - 1, st.y - 50, 3, 44);
+        drawFanFlag(ctx, st.x + 2, st.y - 50, 32, 22, time * 1.5);
       }
     }
     // names on landmark roofs
@@ -405,6 +429,7 @@
       if (e.kind === 'cop' && e.mode === 'chase') label('!', x, y - 20, 14, '#d32f2f');
       else if (e.kind === 'cop' && e.mode === 'stun') label('💫', x, y - 18, 12, '#000');
       else if (e.kind === 'goon' && e.mode === 'chase') label('😠', x, y - 20, 12, '#000');
+      else if (e.kind === 'mob' && e.mode === 'retreat') label('💨', x, y - 20, 12, '#000');
     }
     if (P.state === 'held') {
       ctx.fillStyle = '#eceff1'; rr(px - 26, py - 16, 52, 30, 6); ctx.fill();
@@ -416,6 +441,20 @@
       if (P.invuln > 0 && Math.floor(time * 10) % 2) ctx.globalAlpha = 0.5;
       person(px, py, P, look(P));
       ctx.globalAlpha = 1;
+      if (P.stun > 0) label('💫', px, py - 24, 16, '#000');
+    }
+
+    // stones in flight: a lobbed arc from the thrower to where the candidate stood, with its shadow on the ground
+    for (const s of G.stones) {
+      const x = s.px + (s.x - s.px) * alpha, y = s.py + (s.y - s.py) * alpha;
+      if (!inView(x, y, 60)) continue;
+      const k = Math.min(1, s.t / s.T), lift = 104 * k * (1 - k);
+      ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 5]);
+      ctx.beginPath(); ctx.moveTo(s.x0, s.y0); ctx.quadraticCurveTo((s.x0 + s.tx) / 2, (s.y0 + s.ty) / 2 - 52, s.tx, s.ty); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x, y + 2, 4, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#6f6f6f'; ctx.beginPath(); ctx.arc(x, y - lift, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#b5b5b5'; ctx.beginPath(); ctx.arc(x - 1.2, y - lift - 1.2, 1.6, 0, Math.PI * 2); ctx.fill();
     }
 
     // particles
@@ -473,16 +512,16 @@
     ctx.strokeStyle = 'rgba(198,40,40,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x + G.target.x * sc, y + G.target.y * sc, 15.6 * T * sc, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = '#ff7043'; for (const b of G.barrs) ctx.fillRect(x + b.x * sc - 1.5, y + b.y * sc - 1.5, 3, 3);
     for (const s of G.docSites) if (!P.docs.includes(s.doc)) { ctx.fillStyle = '#ffd54f'; ctx.fillRect(x + s.x * sc - 3, y + s.y * sc - 3, 6, 6); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(x + s.x * sc - 3, y + s.y * sc - 3, 6, 6); }
-    ctx.fillStyle = '#1e5bd8'; ctx.fillRect(x + G.target.x * sc - 4, y + G.target.y * sc - 4, 8, 8);
+    ctx.fillStyle = YSRCP_BLUE; ctx.fillRect(x + G.target.x * sc - 4, y + G.target.y * sc - 4, 8, 8);
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(x + G.target.x * sc - 4, y + G.target.y * sc - 4, 8, 8);
     for (const e of G.ents) {
       if (e.kind === 'civ' && e.mode !== 'follow') continue;
       if (Math.abs(e.x - P.x) > 900 || Math.abs(e.y - P.y) > 900) continue;
-      ctx.fillStyle = e.kind === 'cop' ? '#e53935' : e.kind === 'goon' ? '#212121' : '#64b5f6';
+      ctx.fillStyle = e.kind === 'cop' ? '#e53935' : e.kind === 'goon' || e.kind === 'mob' ? TDP_YELLOW : '#64b5f6';
       ctx.fillRect(x + e.x * sc - 1, y + e.y * sc - 1, 2, 2);
     }
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + P.x * sc, y + P.y * sc, 3.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#1e5bd8'; ctx.beginPath(); ctx.arc(x + P.x * sc, y + P.y * sc, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = YSRCP_BLUE; ctx.beginPath(); ctx.arc(x + P.x * sc, y + P.y * sc, 2.2, 0, Math.PI * 2); ctx.fill();
     if (objective) { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x + P.x * sc, y + P.y * sc); ctx.lineTo(x + objective.x * sc, y + objective.y * sc); ctx.stroke(); ctx.setLineDash([]); }
     ctx.restore();
   }

@@ -59,6 +59,8 @@
     detained: () => { siren(3); tone('sawtooth', 300, 90, 0.5, 0.12); },
     released: () => [392, 523].forEach((f, i) => tone('triangle', f, f, 0.15, 0.12, i * 0.1)),
     doc: () => [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.1, 0.15, i * 0.06)),
+    stone: () => { noise(0.1, 0.3, 700); tone('triangle', 150, 60, 0.12, 0.14); },
+    riot: () => { [0, 0.12, 0.24].forEach((d) => tone('square', 110, 80, 0.1, 0.12, d)); tone('sawtooth', 196, 147, 0.5, 0.08, 0.36); },
     torn: () => { noise(0.25, 0.3, 5000, 0, 'highpass'); tone('sawtooth', 300, 120, 0.25, 0.08); },
     lostdoc: () => [392, 330, 262].forEach((f, i) => tone('triangle', f, f, 0.18, 0.16, i * 0.12)),
     gas: () => noise(1.2, 0.18, 900),
