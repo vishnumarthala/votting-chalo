@@ -15,7 +15,7 @@ const TYPES = {
   '.png': 'image/png',
   '.webp': 'image/webp',
 };
-const PUBLIC = ['index.html', 'shared', 'client'];
+const PUBLIC = ['index.html', 'shared', 'client', 'data/towns']; // data/osm holds the raw exports and stays private
 
 http.createServer((req, res) => {
   let rel;
@@ -26,8 +26,8 @@ http.createServer((req, res) => {
     return;
   }
   const file = path.resolve(ROOT, rel);
-  const top = path.relative(ROOT, file).split(path.sep)[0];
-  if (!file.startsWith(ROOT + path.sep) || !PUBLIC.includes(top)) {
+  const shown = path.relative(ROOT, file).split(path.sep).join('/');
+  if (!file.startsWith(ROOT + path.sep) || !PUBLIC.some((p) => shown === p || shown.startsWith(p + '/'))) {
     res.writeHead(404).end('not found');
     return;
   }
@@ -39,4 +39,4 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-cache' });
     res.end(data);
   });
-}).listen(PORT, () => console.log(`Mission Nomination: http://localhost:${PORT}`));
+}).listen(PORT, () => console.log(`Votting Chalo: http://localhost:${PORT}`));

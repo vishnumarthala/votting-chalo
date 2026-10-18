@@ -1,0 +1,27 @@
+{
+  "summary": "Delta review. All rework items are done: smooth road ribbons layered ground, ribbons, then tiles on top, with markPavements leaving alley WALK tiles as tiles; ambient traffic is limited to w >= 2; placeDocShops and placeBloTent throw the requested messages; the two new road tests plus a sparse-town test live in test/world-roads.test.js and the locked test/world.test.js is untouched; the five nits are fixed (hasOwnProperty in sim.js, main.js and the converter, pointInPolygon rename, cached in-flight loadMap, attribution dropped, README sentence). npm test (28 pass), npm run e2e and design_check (no findings) are green on this tree. newShopPlot is sound: it only uses 3x3 all-GRASS tiles with a reachable street door at least 20 tiles from the office, it is deterministic and bounded, and it is used only by the mini fixture (4 of 5 shops there). It is never used on Pulivendula. Disabling it makes locked T-2 and the new sparse-town test fail, so the test is meaningful. It is about 18 lines and in proportion. Two minor points remain.",
+  "verdict": "approve",
+  "findings": [
+    {
+      "severity": "minor",
+      "location": "shared/world.js:422",
+      "issue": "newShopPlot builds a house literal ({x,y,w,h,color,kind:'house',tank,seed} plus g.fill BUILD) that duplicates the plot helper in fillEmptyBlocks (line 344-346). The fallback also makes the 'placed N of 5' throw fire only when there is truly no room, so a CP-2 town with few usable mapped houses will silently get invented shop houses instead of failing loudly. Nothing asserts that real-town shops come from the mapped or filled buildings.",
+      "fix": "Optional: hoist the house push into one helper shared with fillEmptyBlocks. For CP-2, add a test per real town that checks the fallback is unused, for example by marking the building with fabricated: true and asserting no such building exists in Pulivendula, Kadapa and Punganur."
+    },
+    {
+      "severity": "nit",
+      "location": "e2e/town-picker.spec.js:59",
+      "issue": "Previous minor (HUD town-name check matches any canvas string containing 'Pulivendula') was not in the judge's rework list and is unchanged. It is accepted as out of scope.",
+      "fix": "Optional: match the HUD string exactly."
+    }
+  ],
+  "instructions": "",
+  "source": ".orchestrator/features/real-towns/inbox/CP-1-review-standards.json",
+  "gate": "review",
+  "cp": "CP-1",
+  "part": "standards",
+  "status": "pass",
+  "tree": "git:61fb35fa2a733016deecf0ef72a4563c0d8fa295",
+  "at": "2026-10-18T15:58:37+00:00",
+  "failed_attempts": 0
+}

@@ -15,14 +15,44 @@
   Input.bind(cv);
   document.body.classList.toggle('touch', Input.isTouch);
 
-  const menu = $('menu'), nameEl = $('name'), pinEl = $('pin'), pinStatus = $('pinStatus'), townEl = $('town');
+  const menu = $('menu'), nameEl = $('name'), townEl = $('town'), townStatus = $('townStatus');
   const playBtn = $('play'), lbEl = $('lb'), resultEl = $('result'), pauseEl = $('pause');
   let game = null, running = false, paused = false, acc = 0, last = performance.now(), endT = 0, view = null, lastTick = -1;
-  let place = null, placeErr = null, lookupSeq = 0, mode = store.get('vc_mode', 'nomination');
+  let town = store.get('vc_town', Ct.DEFAULT_TOWN), mode = store.get('vc_mode', 'nomination'), starting = false, townSeq = 0;
+  const isTown = (id) => Object.prototype.hasOwnProperty.call(Ct.TOWNS, id);
+  if (!isTown(town)) town = Ct.DEFAULT_TOWN;
+
+  // ------------------------------------------------------------ town maps
+  // Each town's map file is fetched from this site once and kept: the in-flight request is shared, so a quick Play
+  // does not fetch twice, and a failed fetch is forgotten so the next try starts again.
+  const maps = new Map(), loading = new Map(), MAP_TIMEOUT_MS = 15000;
+  function loadMap(id) {
+    if (maps.has(id)) return Promise.resolve(maps.get(id));
+    if (loading.has(id)) return loading.get(id);
+    const p = (async () => {
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), MAP_TIMEOUT_MS);
+      try {
+        const res = await fetch('data/towns/' + id + '.json', { signal: ctl.signal });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        maps.set(id, data);
+        return data;
+      } finally { clearTimeout(timer); loading.delete(id); }
+    })();
+    loading.set(id, p);
+    return p;
+  }
+  const placeLabel = (t) => [t.town, t.mandal && t.mandal !== t.town ? t.mandal + ' mandal' : '', t.district && t.district !== t.mandal ? t.district + ' district' : ''].filter(Boolean).join(', ');
+  function say(msg, cls) { townStatus.textContent = msg; townStatus.className = cls || ''; }
 
   // ------------------------------------------------------------ menu
   nameEl.value = store.get('vc_name', '');
-  pinEl.value = store.get('vc_pin', '');
+  for (const id of Object.keys(Ct.TOWNS)) {
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = Ct.TOWNS[id].town;
+    townEl.appendChild(opt);
+  }
+  townEl.value = town;
   function setMode(m) {
     mode = m === 'vote' ? 'vote' : 'nomination';
     store.set('vc_mode', mode);
@@ -32,53 +62,34 @@
   }
   for (const b of document.querySelectorAll('.mode')) b.addEventListener('click', () => setMode(b.dataset.m));
 
-  const placeLabel = (pl) => [pl.town, pl.mandal && pl.mandal !== pl.town ? pl.mandal + ' mandal' : '', pl.district && pl.district !== pl.mandal ? pl.district + ' district' : ''].filter(Boolean).join(', ');
-  function showPlace(res) {
-    townEl.innerHTML = ''; townEl.style.display = 'none';
-    if (!res) { place = null; placeErr = null; pinStatus.textContent = 'No pincode: you will play in the fictional town of ' + Ct.DEFAULT_PLACE.town + '.'; pinStatus.className = ''; return; }
-    if (!res.ok) { place = null; placeErr = res.message; pinStatus.textContent = '⚠️ ' + res.message; pinStatus.className = 'err'; return; }
-    place = res.place; placeErr = null;
-    pinStatus.textContent = '📍 ' + placeLabel(place) + (res.warning ? ' · ' + res.warning : '');
-    pinStatus.className = res.warning ? 'warn' : 'ok';
-    const offices = (place.offices || []).filter(Boolean);
-    if (offices.length > 1) {
-      for (const o of offices) { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; if (o === place.town) opt.selected = true; townEl.appendChild(opt); }
-      townEl.style.display = '';
+  // Shows the chosen town and, while the menu is up, plays its map behind the card.
+  async function showTown() {
+    const id = town, seq = ++townSeq;
+    store.set('vc_town', id);
+    say('Loading the map of ' + Ct.TOWNS[id].town + '…');
+    try {
+      await loadMap(id);
+    } catch {
+      if (seq === townSeq) say('Could not load the map of ' + Ct.TOWNS[id].town + '. Check your connection and press Play to try again.', 'err');
+      return;
     }
+    if (seq !== townSeq) return;
+    say('📍 ' + placeLabel(Ct.TOWNS[id]), 'ok');
+    if (!running) game = newGame(id, mode, 7);
   }
-  townEl.addEventListener('change', () => { if (place) { place = Object.assign({}, place, { town: townEl.value }); pinStatus.textContent = '📍 ' + placeLabel(place); } });
-  async function lookupPin() {
-    const raw = pinEl.value.trim(), seq = ++lookupSeq;
-    if (!raw) { showPlace(null); return; }
-    const v = Pincode.validate(raw);
-    if (!v.ok) { showPlace(raw.length < 6 ? { ok: false, message: 'Enter all 6 digits.' } : v); return; }
-    pinStatus.textContent = '🔎 Looking up ' + v.pin + '…'; pinStatus.className = '';
-    playBtn.disabled = true;
-    const res = await Pincode.lookup(v.pin, { storage: window.localStorage });
-    if (seq !== lookupSeq) return;
-    playBtn.disabled = false;
-    showPlace(res);
-    if (res.ok) store.set('vc_pin', v.pin);
-  }
-  let pinTimer = 0;
-  pinEl.addEventListener('input', () => {
-    pinEl.value = pinEl.value.replace(/\D/g, '').slice(0, 6);
-    clearTimeout(pinTimer);
-    pinTimer = setTimeout(lookupPin, pinEl.value.length === 6 ? 50 : 600);
-  });
-  lookupPin();
+  townEl.addEventListener('change', () => { town = isTown(townEl.value) ? townEl.value : Ct.DEFAULT_TOWN; renderLb(); showTown(); });
 
-  const lbKey = () => 'vc_lb_' + mode;
+  const lbKey = () => 'vc_lb_' + town + '_' + mode;
   function readLb() { try { return JSON.parse(store.get(lbKey(), '[]')) || []; } catch (e) { return []; } }
   function renderLb() {
     const lb = readLb();
     lbEl.innerHTML = '';
-    if (!lb.length) { lbEl.innerHTML = '<li class="none">No runs yet. Be the first from your town!</li>'; return; }
+    if (!lb.length) { lbEl.innerHTML = '<li class="none">No runs yet. Be the first from ' + Ct.TOWNS[town].town + '!</li>'; return; }
     lb.forEach((r, i) => { const li = document.createElement('li'); li.textContent = `${i + 1}. ${r.n} (${r.t}) · ${r.s.toLocaleString('en-IN')} · ${r.w ? '✅' : '❌'} · crowd ${r.c}`; lbEl.appendChild(li); });
   }
   function saveLb(res) {
     const lb = readLb();
-    lb.push({ n: (nameEl.value.trim() || 'Candidate').slice(0, 18), s: res.score, w: res.won, c: res.crowd, t: (res.place && res.place.town) || Ct.DEFAULT_PLACE.town, d: Date.now() });
+    lb.push({ n: (nameEl.value.trim() || 'Candidate').slice(0, 18), s: res.score, w: res.won, c: res.crowd, t: res.place.town, d: Date.now() });
     lb.sort((a, b) => b.s - a.s);
     store.set(lbKey(), JSON.stringify(lb.slice(0, 10)));
   }
@@ -95,26 +106,35 @@
   syncOpts();
 
   // ------------------------------------------------------------ lifecycle
-  function newGame(pl, m, seed) {
-    const g = window.Sim.createGame({ seed, mapSeed: hashStr('town:' + (pl.pin || pl.town)), place: pl, mode: m, names: pl.offices });
+  function newGame(id, m, seed) {
+    const g = window.Sim.createGame({ seed, town: id, townData: maps.get(id), mode: m });
     Render.setGame(g);
     return g;
   }
-  function start() {
-    if (placeErr) { pinEl.focus(); return; }
+  async function start() {
+    if (starting) return;
+    starting = true; playBtn.disabled = true;
     SFX.init();
     store.set('vc_name', nameEl.value.trim());
-    const pl = place ? { town: place.town, mandal: place.mandal, district: place.district, pin: place.pin, offices: (place.offices || []).filter((o) => o !== place.town) } : Object.assign({}, Ct.DEFAULT_PLACE);
-    game = newGame(pl, mode, hashStr(pl.pin + '|' + nameEl.value + '|' + Date.now()));
+    const id = town;
+    try {
+      await loadMap(id);
+    } catch {
+      say('Could not load the map of ' + Ct.TOWNS[id].town + '. Check your connection and press Play to try again.', 'err');
+      starting = false; playBtn.disabled = false;
+      return;
+    }
+    game = newGame(id, mode, hashStr(id + '|' + nameEl.value + '|' + Date.now()));
     Hud.reset();
     menu.classList.add('hide'); resultEl.innerHTML = '';
     running = true; paused = false; acc = 0; endT = 0; last = performance.now();
+    starting = false; playBtn.disabled = false;
     Input.setEnabled(true);
     document.body.classList.add('playing');
     cv.focus();
   }
   playBtn.addEventListener('click', start);
-  [nameEl, pinEl].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); start(); } }));
+  nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); start(); } });
 
   function stopPlaying() {
     running = false; paused = false;
@@ -206,10 +226,9 @@
     if (running) Hud.draw(Render.ctx, game, view, live ? dt : 0, { DPR: Render.DPR, W: Render.W, H: Render.H, isTouch: Input.isTouch });
   }
 
-  // attract mode: the default town behind the menu
-  game = newGame(Object.assign({}, Ct.DEFAULT_PLACE), mode, 7);
   addEventListener('resize', () => Render.resize());
   requestAnimationFrame(frame);
+  showTown(); // attract mode: the chosen town plays behind the menu once its map has loaded
 
   // read-only hook for automated playtests
   window.__vc = { get game() { return game; }, get running() { return running; } };

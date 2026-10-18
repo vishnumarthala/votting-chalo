@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="hand-made test fixture">
+ <bounds minlat="14.3972886" minlon="78.1972182" maxlat="14.4027114" maxlon="78.2027818"/>
+ <node id="1" lat="14.4000000" lon="78.1990727"/>
+ <node id="2" lat="14.4001808" lon="78.1997218"/>
+ <node id="3" lat="14.4001808" lon="78.2005564"/>
+ <node id="4" lat="14.3990962" lon="78.2009273"/>
+ <way id="100">
+  <nd ref="1"/>
+  <nd ref="2"/>
+  <nd ref="9999"/>
+  <nd ref="3"/>
+  <tag k="highway" v="residential"/>
+ </way>
+ <way id="101">
+  <nd ref="4"/>
+  <nd ref="8888"/>
+  <tag k="highway" v="residential"/>
+ </way>
+</osm>

@@ -1,13 +1,13 @@
 // Original game text. All parties, people and events are fictional.
 // Placeholders: {town} {mandal} {district} {short} {party} {doc} {n} {s}
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.Content = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./towns.js'));
+  else root.Content = factory(root.Towns);
+})(typeof self !== 'undefined' ? self : this, function (Towns) {
   'use strict';
 
   const PARTY = { name: 'Neelam Praja Party', short: 'NPP', color: '#1e5bd8' };
-  const DEFAULT_PLACE = { town: 'Kothapalli', mandal: 'Kothapalli', district: 'Godavari', pin: '' };
+  const { TOWNS, DEFAULT_TOWN } = Towns;
 
   const MODES = {
     nomination: {
@@ -66,11 +66,10 @@
     return String(str).replace(/\{(\w+)\}/g, (all, k) => {
       if (k === 'party') return PARTY.name;
       if (k === 'short') return PARTY.short;
-      if (vars && Object.prototype.hasOwnProperty.call(vars, k) && vars[k] != null && (vars[k] !== '' || !(k in DEFAULT_PLACE))) return String(vars[k]);
-      if (k in DEFAULT_PLACE) return DEFAULT_PLACE[k];
+      if (vars && Object.prototype.hasOwnProperty.call(vars, k) && vars[k] != null) return String(vars[k]);
       return all;
     });
   }
 
-  return { PARTY, DEFAULT_PLACE, MODES, LINES, MISSIONS, TIERS, fill };
+  return { PARTY, TOWNS, DEFAULT_TOWN, MODES, LINES, MISSIONS, TIERS, fill };
 });

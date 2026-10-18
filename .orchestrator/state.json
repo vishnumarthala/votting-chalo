@@ -1,22 +1,26 @@
 {
-  "phase": "plan",
+  "phase": "build",
   "feature": "real-towns",
   "paused": false,
   "awaiting_user": null,
   "escalated": null,
   "stop_guard": {
-    "count": 0,
-    "fingerprint": null
+    "count": 2,
+    "fingerprint": "77950f13014c9619b45772d5e8667795e68345ec162103699006603aac89ce64"
   },
   "test_lock": {
     "files": {
+      "e2e/town-picker.spec.js": "ea8d27379b507f90bc364822caabc699a7e187ef6e1f5b884db1b4f8c27aadae",
       "test/bot.js": "617e0e9879054034f79761b1f5159ef8ede22fd1589fef6c12ed8eb93f6ca5f6",
       "test/design.test.js": "a0f9ca7f26b26e17093d34bda1e55ee0389351c819c746b0fbf076a5f4fbe9fe",
-      "test/pincode.test.js": "9676bca2e0e98f0ec913d4abd3cf6f1041f9138531f1af1345d808d77f4d08ee",
-      "test/sim.test.js": "13ed7888d5bbaa3ae5de35541901aa27b651733e3f1aa36546bc3f640129f0dc",
-      "test/world.test.js": "654d761130f901306d911dc4b4e0dad9ad1711ec8adc51be01b12fe606a48eb4"
+      "test/osm-to-town.test.js": "209438073b2fb2f316a4cd7aef8a5122846b8307a9cbccb049b81f28275ce67e",
+      "test/sim.test.js": "810c31ff6ea74415b28febd2887ae17a9cac9584babd7876bdd7408e322ac361",
+      "test/towns.js": "5444e4f2882b5659588f0430ef5d40c915241c88b2a64891c3fd1b7530234235",
+      "test/world.test.js": "1a38a9fc6305f74e38484be23801d003187ce86a6f2315ce48c402476ee31996",
+      "test/fixtures/broken.osm": "8047757c18750ce11d2be05a71c761f902602e1ad8683bcc2afd6fa483ce538e",
+      "test/fixtures/mini.osm": "231df3a7805940262324d0c27f1679243f78823f50d359ecc75db9ba969ed4a4"
     },
-    "at": "2026-10-18T14:16:44+00:00",
+    "at": "2026-10-18T15:25:53+00:00",
     "cp": "CP-1"
   },
   "features": {
@@ -114,10 +118,145 @@
         "hash": "c78179557c685ecfd361780d654cd729f68bab0176a9cb5012fb5f22ab710459",
         "at": "2026-10-18T15:14:50.391794+00:00"
       },
-      "approved": null,
+      "approved": {
+        "at": "2026-10-18T15:16:42+00:00",
+        "hash": "c78179557c685ecfd361780d654cd729f68bab0176a9cb5012fb5f22ab710459",
+        "cases": 19,
+        "mode": "verified",
+        "quote": "Yes, approve"
+      },
       "waiver": null,
       "current_cp": null,
-      "cps": {},
+      "cps": {
+        "CP-1": {
+          "status": "done",
+          "stage": "done",
+          "start_tree": "git:4f12eac04380b153498c0cf074a19e86e51444df",
+          "gates": {
+            "red": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:3c2ce248ee7e3ffacb8489c6dc1dccf29a525eb9",
+                  "at": "2026-10-18T15:25:53+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-1/red.command.json"
+                }
+              }
+            },
+            "behavior": {
+              "attempts": 1,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:61fb35fa2a733016deecf0ef72a4563c0d8fa295",
+                  "at": "2026-10-18T15:54:10+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-1/behavior.command.json"
+                }
+              }
+            },
+            "design": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:61fb35fa2a733016deecf0ef72a4563c0d8fa295",
+                  "at": "2026-10-18T15:56:35+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-1/design.command.json"
+                }
+              }
+            },
+            "review": {
+              "attempts": 0,
+              "parts": {
+                "standards": {
+                  "status": "pass",
+                  "tree": "git:61fb35fa2a733016deecf0ef72a4563c0d8fa295",
+                  "at": "2026-10-18T15:58:37+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-1/review.standards.json"
+                },
+                "spec": {
+                  "status": "pass",
+                  "tree": "git:61fb35fa2a733016deecf0ef72a4563c0d8fa295",
+                  "at": "2026-10-18T15:58:37+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-1/review.spec.json"
+                }
+              }
+            },
+            "judge": {
+              "attempts": 1,
+              "parts": {
+                "judge": {
+                  "status": "pass",
+                  "tree": "git:61fb35fa2a733016deecf0ef72a4563c0d8fa295",
+                  "at": "2026-10-18T15:58:55+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-1/judge.judge.json"
+                }
+              }
+            }
+          },
+          "tests_unlocked": null,
+          "user_approved": false,
+          "started_at": "2026-10-18T15:16:47+00:00",
+          "completed_at": "2026-10-18T15:58:55+00:00",
+          "commit": null
+        },
+        "CP-2": {
+          "status": "todo",
+          "stage": null,
+          "start_tree": null,
+          "gates": {},
+          "tests_unlocked": null,
+          "user_approved": false,
+          "started_at": null,
+          "completed_at": null,
+          "commit": null
+        },
+        "CP-3": {
+          "status": "todo",
+          "stage": null,
+          "start_tree": null,
+          "gates": {},
+          "tests_unlocked": null,
+          "user_approved": false,
+          "started_at": null,
+          "completed_at": null,
+          "commit": null
+        },
+        "CP-4": {
+          "status": "todo",
+          "stage": null,
+          "start_tree": null,
+          "gates": {},
+          "tests_unlocked": null,
+          "user_approved": false,
+          "started_at": null,
+          "completed_at": null,
+          "commit": null
+        },
+        "CP-5": {
+          "status": "todo",
+          "stage": null,
+          "start_tree": null,
+          "gates": {},
+          "tests_unlocked": null,
+          "user_approved": false,
+          "started_at": null,
+          "completed_at": null,
+          "commit": null
+        },
+        "CP-6": {
+          "status": "todo",
+          "stage": null,
+          "start_tree": null,
+          "gates": {},
+          "tests_unlocked": null,
+          "user_approved": false,
+          "started_at": null,
+          "completed_at": null,
+          "commit": null
+        }
+      },
       "accepted_at": null
     }
   },
@@ -239,6 +378,157 @@
     {
       "at": "2026-10-18T15:14:50+00:00",
       "event": "plan_approval_requested"
+    },
+    {
+      "at": "2026-10-18T15:16:42+00:00",
+      "event": "plan_approved",
+      "feature": "real-towns",
+      "amend": false
+    },
+    {
+      "at": "2026-10-18T15:16:42+00:00",
+      "event": "phase",
+      "frm": "plan",
+      "to": "build",
+      "reason": ""
+    },
+    {
+      "at": "2026-10-18T15:16:47+00:00",
+      "event": "cp_start",
+      "cp": "CP-1",
+      "branch": "forge/real-towns"
+    },
+    {
+      "at": "2026-10-18T15:25:53+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "red",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T15:25:53+00:00",
+      "event": "tests_locked",
+      "cp": "CP-1",
+      "count": 9
+    },
+    {
+      "at": "2026-10-18T15:39:48+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T15:39:54+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "design",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T15:41:44+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T15:43:52+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "design",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T15:47:50+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "review",
+      "part": "standards",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T15:47:50+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "review",
+      "part": "spec",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T15:48:51+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "judge",
+      "part": "judge",
+      "status": "fail",
+      "attempt": 1
+    },
+    {
+      "at": "2026-10-18T15:53:49+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "behavior",
+      "part": "command",
+      "status": "fail",
+      "attempt": 1
+    },
+    {
+      "at": "2026-10-18T15:54:10+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 1
+    },
+    {
+      "at": "2026-10-18T15:56:35+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "design",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T15:58:37+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "review",
+      "part": "standards",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T15:58:37+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "review",
+      "part": "spec",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T15:58:55+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "judge",
+      "part": "judge",
+      "status": "pass",
+      "attempt": 1
     }
   ]
 }

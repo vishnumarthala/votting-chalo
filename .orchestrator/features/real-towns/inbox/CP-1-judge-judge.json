@@ -1,0 +1,10 @@
+{
+ "verdict": "approve",
+ "tree": "git:61fb35fa2a733016deecf0ef72a4563c0d8fa295",
+ "summary": "Re-judgement after one fixer round.\n(1) Every done_when item still holds, and all of the previous rework instructions were carried out:\n- smooth road ribbons from map.roads, with other tiles layered on top (I checked the fixer's 1100x760 Chromium screenshot: diagonal streets are smooth, and the bridge deck and river edges are still tile-stepped, which is acceptable);\n- traffic only on roads of 2 or more tiles;\n- descriptive throws for missing document shops and BLO tent;\n- the nits fixed.\n(2) Locked tests are unchanged (forge tests verify). The new tests in test/world-roads.test.js add coverage for bridges over water, no building or wall under major roads, and the sparse-town shop fallback.\n(3) No gaming: the throw broke locked T-2's sparse fixture, and the fixer answered with a real fallback (newShopPlot, deterministic, all-grass 3x3 plots with a reachable door at least 20 tiles from the office), not by weakening the test. It never fires on Pulivendula.\n(4) Remaining minors are acceptable for now:\n- newShopPlot repeats the house literal;\n- nothing yet asserts that real towns avoid the fallback (carried into CP-2 as a learning);\n- the T-5 HUD substring check is weak, but line 78 asserts the game's town.\n(5) Decisions D-19, D-7 and D-18 hold.\n(6) Ready to show: npm test 28/28, npm run e2e and design_check are green.",
+ "findings": [
+  {"severity": "minor", "location": "shared/world.js:422", "issue": "newShopPlot repeats the house-plot literal from fillEmptyBlocks and could hide a sparse real town that lacks houses.", "fix": "In CP-2: share one plot helper and assert per town that the fallback is unused."},
+  {"severity": "nit", "location": "e2e/town-picker.spec.js:59", "issue": "The HUD town-name check is a substring match over every canvas string.", "fix": "Optional: tighten when the e2e file is next unlocked."}
+ ],
+ "instructions": ""
+}

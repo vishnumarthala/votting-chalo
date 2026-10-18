@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="hand-made test fixture">
+ <bounds minlat="14.3972886" minlon="78.1972182" maxlat="14.4027114" maxlon="78.2027818"/>
+ <node id="1" lat="14.4013557" lon="78.1972182"/>
+ <node id="2" lat="14.4013557" lon="78.2000000"/>
+ <node id="3" lat="14.4013557" lon="78.2027818"/>
+ <node id="4" lat="14.3999096" lon="78.1972182"/>
+ <node id="5" lat="14.3999096" lon="78.2027818"/>
+ <node id="6" lat="14.3986443" lon="78.1972182"/>
+ <node id="7" lat="14.3986443" lon="78.2027818"/>
+ <node id="8" lat="14.3989154" lon="78.2009273"/>
+ <node id="9" lat="14.3997289" lon="78.2009273"/>
+ <node id="10" lat="14.3991866" lon="78.1989800"/>
+ <node id="11" lat="14.3991866" lon="78.1991655"/>
+ <node id="12" lat="14.3993673" lon="78.1991655"/>
+ <node id="13" lat="14.3993673" lon="78.1989800"/>
+ <node id="14" lat="14.4007230" lon="78.2013909">
+  <tag k="amenity" v="bus_station"/>
+  <tag k="name" v="Test Bus Station"/>
+ </node>
+ <node id="15" lat="14.4007230" lon="78.1986091">
+  <tag k="place" v="quarter"/>
+  <tag k="name" v="Test Quarter"/>
+ </node>
+ <node id="16" lat="14.4000000" lon="78.2185452">
+  <tag k="place" v="neighbourhood"/>
+  <tag k="name" v="Faraway"/>
+ </node>
+ <way id="100">
+  <nd ref="1"/>
+  <nd ref="2"/>
+  <nd ref="3"/>
+  <tag k="highway" v="primary"/>
+  <tag k="name" v="Primary Road"/>
+ </way>
+ <way id="101">
+  <nd ref="4"/>
+  <nd ref="5"/>
+  <tag k="highway" v="tertiary"/>
+  <tag k="name" v="Tertiary Road"/>
+ </way>
+ <way id="102">
+  <nd ref="6"/>
+  <nd ref="7"/>
+  <tag k="highway" v="residential"/>
+  <tag k="name" v="Residential Lane"/>
+ </way>
+ <way id="103">
+  <nd ref="8"/>
+  <nd ref="9"/>
+  <tag k="highway" v="footway"/>
+ </way>
+ <way id="104">
+  <nd ref="10"/>
+  <nd ref="11"/>
+  <nd ref="12"/>
+  <nd ref="13"/>
+  <nd ref="10"/>
+  <tag k="building" v="yes"/>
+ </way>
+</osm>

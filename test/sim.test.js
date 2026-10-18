@@ -9,7 +9,7 @@ const { TILE, N } = W;
 const NONE = S.EMPTY_INPUT;
 const inp = (o) => Object.assign({}, NONE, o);
 function play(opts) {
-  const g = S.createGame(Object.assign({ seed: 5, place: { town: 'Testpur', mandal: 'Testmandal', district: 'Testdist', pin: '522001' } }, opts));
+  const g = S.createGame(Object.assign({ seed: 5, town: 'pulivendula' }, opts));
   g.step(NONE);
   for (let i = 0; i < 30 && g.state.mode === 'intro'; i++) g.step(inp({ act: i > 20 }));
   assert.equal(g.state.mode, 'play');
@@ -20,7 +20,7 @@ const steps = (g, n, input) => { for (let i = 0; i < n; i++) g.step(input || NON
 const place = (e, x, y) => { e.x = x; e.y = y; e.px = x; e.py = y; };
 
 test('intro waits briefly, then any move starts play', () => {
-  const g = S.createGame({ seed: 1 });
+  const g = S.createGame({ seed: 1, town: 'pulivendula' });
   steps(g, 5, inp({ mx: 1 }));
   assert.equal(g.state.mode, 'intro');
   steps(g, 20, inp({ mx: 1 }));
@@ -72,11 +72,21 @@ function copNextToPlayer(g) {
   return cop;
 }
 
+// a patrol post with a clear run of road to its west, so the player can run away from a cop standing east of it
+function postWithRoadWest(map) {
+  return map.posts.find((p) => {
+    const tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
+    for (let dx = -14; dx <= 1; dx++) if (W.solidAt(map, tx + dx, ty)) return false;
+    return true;
+  });
+}
+
 test('a cop must hold on to arrest you; running breaks free', () => {
   const g = play({ goons: false, civilians: 0 });
   const P = g.state.player;
-  // on an open arterial: start at an intersection and run west along the road
-  place(P, g.state.posts[5].x, g.state.posts[5].y);
+  const post = postWithRoadWest(g.state.map);
+  assert.ok(post, 'a post with a clear road to its west');
+  place(P, post.x, post.y);
   const cop = copNextToPlayer(g);
   steps(g, 10);
   assert.ok(P.grab > 0 && P.state === 'free', 'grabbed but not yet detained');
@@ -199,13 +209,15 @@ test('polling day: voter ID in hand, slip from the BLO tent, vote at the booth',
 });
 
 for (const mode of ['nomination', 'vote']) {
-  test(`a route-following bot completes ${mode} on several towns when police and goons are off`, () => {
-    for (const seed of [3, 17, 404, 2024]) {
-      const g = S.createGame({ seed, mode, police: false, goons: false });
+  test(`T-4 a route-following bot completes ${mode} in Pulivendula when police, goons and mobs are off`, () => {
+    for (const seed of [1, 3, 17, 404, 2024]) {
+      const g = S.createGame({ seed, town: 'pulivendula', mode, police: false, goons: false, mobs: false });
+      assert.equal(g.state.place.town, 'Pulivendula');
       const bot = makeBot(g);
       let n = 0;
       while ((g.state.mode === 'intro' || g.state.mode === 'play') && n < 30 * 600) { g.step(bot()); g.drainEvents(); n++; }
       assert.equal(g.state.mode, 'won', `seed ${seed}: ${g.state.result && g.state.result.reason}`);
+      assert.equal(g.state.result.won, true);
     }
   });
 }

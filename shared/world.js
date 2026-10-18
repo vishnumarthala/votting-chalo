@@ -1,4 +1,4 @@
-// Shared world: seeded town generator, tile collision, BFS flow fields and line of sight.
+// Shared world: town builder, tile collision, BFS flow fields and line of sight.
 // UMD: loaded by the browser (window.World) and by Node (require). No DOM, no Math.random.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -35,7 +35,6 @@
     return h >>> 0;
   }
 
-  const NEIGHBOURHOODS = ['Gandhi Nagar', 'Rythu Peta', 'Bazaar Street', 'Station Road', 'Temple Street', 'Kummari Veedhi', 'Mill Colony', 'Teachers Colony', 'Main Road', 'Old Town', 'Brindavan Colony', 'Sai Nagar', 'Canal Road', 'Weavers Colony', 'Market Yard', 'Housing Board'];
   const ROOF = ['#e8c39e', '#f2d7a6', '#cfe0e8', '#f3c1b4', '#e7e2a7', '#d8c9ef', '#c8e6c0', '#f0b98d', '#ddd2c2', '#bfd8f0'];
   const DOC_SHOPS = [
     { doc: 'Form-A Nomination', name: 'Laxmi Xerox & Notary' },
@@ -45,325 +44,506 @@
     { doc: 'Proposer Signatures', name: 'Ward Elder\u2019s House' },
   ];
 
-  // ------------------------------------------------------------------ generation
-  // opts: { names: [neighbourhood names from the pincode lookup] }
-  function generateTown(seed, opts) {
-    const rng = makeRng(seed);
-    const t = new Uint8Array(N * N).fill(K.LOT);
-    const idx = (x, y) => y * N + x;
-    const inb = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
-    const get = (x, y) => (inb(x, y) ? t[idx(x, y)] : K.FIELD);
-    const set = (x, y, v) => { if (inb(x, y)) t[idx(x, y)] = v; };
-    const setIf = (x, y, v, only) => { if (inb(x, y) && t[idx(x, y)] === only) t[idx(x, y)] = v; };
-    const B = 3;
+  // ------------------------------------------------------------------ building a town from map data
+  const ROAD_W = { trunk: 3, primary: 3, secondary: 3, tertiary: 2 }; // tiles; every other road class is a 1-tile lane
+  const MAJOR_ROADS = new Set(['trunk', 'primary', 'secondary', 'tertiary']);
+  const WATER_W = { river: 3, canal: 2, stream: 1 };
+  const LANDMARK_BUILDING = { place_of_worship: ['temple', '#ffe082'], hospital: ['hospital', '#ffffff'], school: ['school', '#ffe0b2'], government: ['govt', '#f5e6c8'], townhall: ['govt', '#f5e6c8'] };
+  const COMPOUND_SIZES = [[11, 9], [9, 9], [9, 7], [7, 7]];
+  const BUS_STAND_SIZES = [[6, 6], [5, 5], [4, 4]];
+  const DOC_ANCHORS = [[0.2, 0.25], [0.8, 0.8], [0.15, 0.6], [0.55, 0.3], [0.45, 0.75]]; // where the five shops want to be, as shares of the map
+  const NEIGH4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const isStreet = (k) => k === K.ROAD || k === K.WALK || k === K.BRIDGE;
+  const idx = (x, y) => y * N + x;
+  const inb = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
 
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (x < B || y < B || x >= N - B || y >= N - B) set(x, y, K.FIELD);
-
-    // arterials: sidewalk, 3 road tiles, sidewalk
-    function lineV(a, w, y0, y1) {
-      for (let y = y0; y <= y1; y++) {
-        for (let d = 0; d < w; d++) set(a + d, y, K.ROAD);
-        setIf(a - 1, y, K.WALK, K.LOT); setIf(a + w, y, K.WALK, K.LOT);
+  // Visits the tiles of a w-wide band along a polyline in tile units. The band is 4-connected, so a flow field
+  // can follow it, and exactly w tiles wide across axis-aligned roads.
+  function stampPolyline(pts, w, visit) {
+    let px = null, py = null;
+    for (let i = 1; i < pts.length; i++) {
+      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+      const horizontal = Math.abs(x1 - x0) >= Math.abs(y1 - y0);
+      const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 4));
+      for (let s = 0; s <= n; s++) {
+        const x = x0 + ((x1 - x0) * s) / n, y = y0 + ((y1 - y0) * s) / n;
+        const along = Math.floor(horizontal ? x : y), first = Math.round((horizontal ? y : x) - w / 2);
+        const cx = horizontal ? along : first, cy = horizontal ? first : along;
+        if (w === 1 && px !== null && cx !== px && cy !== py) visit(cx, py); // keep single-tile lanes 4-connected on diagonals
+        for (let o = 0; o < w; o++) { if (horizontal) visit(along, first + o); else visit(first + o, along); }
+        px = cx; py = cy;
       }
     }
-    function lineH(a, w, x0, x1) {
-      for (let x = x0; x <= x1; x++) {
-        for (let d = 0; d < w; d++) set(x, a + d, K.ROAD);
-        setIf(x, a - 1, K.WALK, K.LOT); setIf(x, a + w, K.WALK, K.LOT);
-      }
+  }
+  function pointInPolygon(ring, x, y) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
     }
-    const span = N - 2 * B;
-    const art = (n) => { const out = []; for (let k = 1; k <= n; k++) out.push(Math.round(B + (k * span) / (n + 1) + rng.range(-4, 4) - 1)); return out; };
-    const ax = art(4), ay = art(4);
-    for (const a of ax) lineV(a, 3, B, N - B - 1);
-    for (const a of ay) lineH(a, 3, B, N - B - 1);
-    // sidewalks along crossings must not cut roads: restore road tiles of crossing arterials
-    for (const a of ax) for (let y = B; y < N - B; y++) for (let d = 0; d < 3; d++) set(a + d, y, K.ROAD);
-    for (const a of ay) for (let x = B; x < N - B; x++) for (let d = 0; d < 3; d++) set(x, a + d, K.ROAD);
-
-    // canal across the town; roads become bridges
-    const canal = [];
-    const cy0 = Math.round(N * rng.range(0.33, 0.42)), amp = rng.range(2, 5), ph = rng.range(0, 6);
-    for (let x = B; x < N - B; x++) {
-      const cy = Math.round(cy0 + Math.sin(x * 0.06 + ph) * amp);
-      canal.push(cy);
-      for (let d = 0; d < 3; d++) {
-        const y = cy + d, k = get(x, y);
-        if (k === K.ROAD || k === K.WALK) set(x, y, K.BRIDGE);
-        else if (k !== K.FIELD) set(x, y, K.WATER);
-      }
-      // embankment walk on both banks
-      setIf(x, cy - 1, K.WALK, K.LOT); setIf(x, cy + 3, K.WALK, K.LOT);
+    return inside;
+  }
+  // Calls visit(tx, ty, covered) for every tile the ring touches; covered is the share of a 4x4 sample grid inside it.
+  function ringTiles(ring, visit) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of ring) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    for (let ty = Math.floor(y0); ty <= Math.floor(y1); ty++) for (let tx = Math.floor(x0); tx <= Math.floor(x1); tx++) {
+      let hit = 0;
+      for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) if (pointInPolygon(ring, tx + (i + 0.5) / 4, ty + (j + 0.5) / 4)) hit++;
+      if (hit) visit(tx, ty, hit / 16);
     }
+  }
 
-    // super blocks between arterials, split by lanes into leaf blocks
-    const bounds = (lines) => {
-      const lo = [B], hi = [];
-      for (const a of lines) { hi.push(a - 2); lo.push(a + 4); }
-      hi.push(N - B - 1);
-      return lo.map((l, i) => [l, hi[i]]);
+  // The tile grid being built, with the extra layers the placement steps need.
+  function newGrid(data) {
+    const g = {
+      scale: N / data.size, // tiles per metre
+      t: new Uint8Array(N * N).fill(K.LOT),
+      owner: new Int32Array(N * N).fill(-1), // BUILD tile -> index of the mapped building that covers it
+      wide: new Uint8Array(N * N), // road tile of a road wider than one tile: never cleared for a site
+      main: new Uint8Array(N * N), // tiles of the walkable network that sites must connect to
+      mapped: [], // { tiles, kind, name, color, seed } per mapped building
+      roads: [], // { class, w, pts } with pts in tile units
+      buildings: [], sites: [], stations: [],
     };
-    const XB = bounds(ax), YB = bounds(ay);
-    const supers = [];
-    for (const [y0, y1] of YB) for (const [x0, x1] of XB) supers.push({ x0, y0, x1, y1 });
+    g.get = (x, y) => (inb(x, y) ? g.t[idx(x, y)] : K.FIELD);
+    g.set = (x, y, v) => { if (inb(x, y)) g.t[idx(x, y)] = v; };
+    g.setIf = (x, y, v, only) => { if (inb(x, y) && g.t[idx(x, y)] === only) g.t[idx(x, y)] = v; };
+    g.fill = (x0, y0, w, h, kind) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) g.set(x, y, kind); };
+    g.release = (r) => { for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) g.owner[idx(x, y)] = -1; };
+    return g;
+  }
 
-    const leaves = [];
-    function laneV(c, y0, y1) {
-      for (let y = y0; y <= y1; y++) {
-        for (const d of [1, 2]) { const k = get(c + d, y); if (k === K.WATER) continue; set(c + d, y, k === K.BRIDGE ? K.BRIDGE : K.ROAD); }
-        setIf(c, y, K.WALK, K.LOT); setIf(c + 3, y, K.WALK, K.LOT);
-      }
-    }
-    function laneH(c, x0, x1) {
-      for (let x = x0; x <= x1; x++) {
-        for (const d of [1, 2]) { const k = get(x, c + d); if (k === K.WATER) continue; set(x, c + d, k === K.BRIDGE ? K.BRIDGE : K.ROAD); }
-        setIf(x, c, K.WALK, K.LOT); setIf(x, c + 3, K.WALK, K.LOT);
-      }
-    }
-    function split(r, depth) {
-      const w = r.x1 - r.x0 + 1, h = r.y1 - r.y0 + 1;
-      const canV = w >= 17, canH = h >= 17;
-      if ((!canV && !canH) || (depth > 1 && w < 22 && h < 22 && rng() < 0.35)) { leaves.push(r); return; }
-      if (canV && (!canH || w >= h)) {
-        const c = r.x0 + 6 + rng.int(w - 15);
-        laneV(c, r.y0, r.y1);
-        split({ x0: r.x0, y0: r.y0, x1: c - 1, y1: r.y1 }, depth + 1);
-        split({ x0: c + 4, y0: r.y0, x1: r.x1, y1: r.y1 }, depth + 1);
-      } else {
-        const c = r.y0 + 6 + rng.int(h - 15);
-        laneH(c, r.x0, r.x1);
-        split({ x0: r.x0, y0: r.y0, x1: r.x1, y1: c - 1 }, depth + 1);
-        split({ x0: r.x0, y0: c + 4, x1: r.x1, y1: r.y1 }, depth + 1);
-      }
-    }
-    for (const s of supers) split(s, 0);
-    // lanes leave sidewalk tiles on block edges; shrink leaves to their LOT interior
-    const lotLeaves = [];
-    for (const r of leaves) {
-      let { x0, y0, x1, y1 } = r;
-      const rowLot = (y) => { for (let x = x0; x <= x1; x++) if (get(x, y) === K.LOT) return true; return false; };
-      const colLot = (x) => { for (let y = y0; y <= y1; y++) if (get(x, y) === K.LOT) return true; return false; };
-      while (y0 <= y1 && !rowLot(y0)) y0++;
-      while (y1 >= y0 && !rowLot(y1)) y1--;
-      while (x0 <= x1 && !colLot(x0)) x0++;
-      while (x1 >= x0 && !colLot(x1)) x1--;
-      if (x1 - x0 >= 2 && y1 - y0 >= 2) lotLeaves.push({ x0, y0, x1, y1 });
-    }
-    // blocks cut by the canal: keep runs of fully buildable rows as blocks, green the strips beside the water
-    for (let i = lotLeaves.length - 1; i >= 0; i--) {
-      const r = lotLeaves[i];
-      const full = (y) => { for (let x = r.x0; x <= r.x1; x++) if (get(x, y) !== K.LOT) return false; return true; };
-      let mixed = false;
-      for (let y = r.y0; y <= r.y1 && !mixed; y++) if (!full(y)) mixed = true;
-      if (!mixed) continue;
-      lotLeaves.splice(i, 1);
-      let run = null;
-      for (let y = r.y0; y <= r.y1 + 1; y++) {
-        if (y <= r.y1 && full(y)) { if (!run) run = { x0: r.x0, x1: r.x1, y0: y, y1: y }; else run.y1 = y; continue; }
-        if (run && run.y1 - run.y0 >= 2) lotLeaves.push(run);
-        else if (run) for (let yy = run.y0; yy <= run.y1; yy++) for (let x = r.x0; x <= r.x1; x++) set(x, yy, K.PARK);
-        run = null;
-        if (y <= r.y1) for (let x = r.x0; x <= r.x1; x++) setIf(x, y, K.PARK, K.LOT);
-      }
-    }
-    const pureLot = (r) => { for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) if (get(x, y) !== K.LOT) return false; return true; };
-    const cx = (r) => ((r.x0 + r.x1 + 1) / 2) * TILE, cyy = (r) => ((r.y0 + r.y1 + 1) / 2) * TILE;
+  // Roads, water and mapped buildings drawn onto the grid, and mapped landmarks tagged onto their buildings.
+  function drawMap(g, data) {
+    const tiles = (pts) => pts.map(([x, y]) => [x * g.scale, y * g.scale]);
+    g.roads = data.roads.map((r) => ({ class: r.class, w: ROAD_W[r.class] || 1, pts: tiles(r.pts) }));
+    for (const r of g.roads) if (r.w >= 3) stampPolyline(r.pts, r.w + 2, (x, y) => g.setIf(x, y, K.WALK, K.LOT));
+    for (const r of g.roads) stampPolyline(r.pts, r.w, (x, y) => { g.set(x, y, K.ROAD); if (r.w > 1 && inb(x, y)) g.wide[idx(x, y)] = 1; });
 
-    // ---- special sites
-    const big = lotLeaves.filter((r) => r.x1 - r.x0 >= 9 && r.y1 - r.y0 >= 9 && pureLot(r));
-    const used = new Set();
-    const take = (cands, score) => {
-      let best = null, bs = -Infinity;
-      for (const r of cands) { if (used.has(r)) continue; const s = score(r); if (s > bs) { bs = s; best = r; } }
-      if (best) used.add(best);
-      return best;
-    };
-    const flip = rng() < 0.5;
-    const cornerA = { x: flip ? WORLD : 0, y: WORLD }, cornerB = { x: flip ? 0 : WORLD, y: 0 };
-    const officeR = take(big, (r) => -dist(cx(r), cyy(r), cornerB.x, cornerB.y));
-    const startR = take(lotLeaves.filter(pureLot), (r) => -dist(cx(r), cyy(r), cornerA.x, cornerA.y));
-    const boothR = take(big, (r) => -Math.abs(dist(cx(r), cyy(r), cornerA.x, cornerA.y) - WORLD * 0.95) - dist(cx(r), cyy(r), officeR ? cx(officeR) : 0, officeR ? cyy(officeR) : 0) * -0.3);
-    const stationRs = [];
-    const stationTargets = [[0.5, 0.5], [officeR ? cx(officeR) / WORLD : 0.8, officeR ? cyy(officeR) / WORLD + 0.15 : 0.3], [0.25, 0.75], [0.75, 0.75]];
-    for (const [fx, fy] of stationTargets) {
-      const r = take(lotLeaves.filter((r) => pureLot(r) && r.x1 - r.x0 >= 5 && r.y1 - r.y0 >= 5), (r) => -dist(cx(r), cyy(r), fx * WORLD, fy * WORLD));
-      if (r) stationRs.push(r);
+    const wet = (x, y) => { if (inb(x, y)) g.t[idx(x, y)] = isStreet(g.t[idx(x, y)]) ? K.BRIDGE : K.WATER; };
+    for (const w of data.water || []) {
+      if (w.kind === 'area') ringTiles(tiles(w.pts), (x, y, covered) => { if (covered >= 0.5) wet(x, y); });
+      else stampPolyline(tiles(w.pts), WATER_W[w.kind] || 1, wet);
     }
 
-    const buildings = [];
-    const sites = [];
-    const labels = [];
-
-    // find a walkable tile just outside a rect side, preferring roads; returns {side, x, y} of door tile
-    function doorFor(r) {
-      const opts = [];
-      const walk = (k) => k === K.WALK || k === K.ROAD || k === K.BRIDGE;
-      for (let x = r.x0 + 1; x < r.x1; x++) { if (walk(get(x, r.y0 - 1))) opts.push({ side: 'n', x, y: r.y0 - 1 }); if (walk(get(x, r.y1 + 1))) opts.push({ side: 's', x, y: r.y1 + 1 }); }
-      for (let y = r.y0 + 1; y < r.y1; y++) { if (walk(get(r.x0 - 1, y))) opts.push({ side: 'w', x: r.x0 - 1, y }); if (walk(get(r.x1 + 1, y))) opts.push({ side: 'e', x: r.x1 + 1, y }); }
-      if (!opts.length) return null;
-      // middle of the longest side
-      const bySide = {};
-      for (const o of opts) (bySide[o.side] = bySide[o.side] || []).push(o);
-      const side = Object.keys(bySide).sort((a, b) => bySide[b].length - bySide[a].length)[0];
-      const list = bySide[side];
-      return list[Math.floor(list.length / 2)];
+    (data.buildings || []).forEach((b, bi) => {
+      let best = -1, bestCover = 0;
+      const mine = [];
+      ringTiles(tiles(b.pts), (x, y, covered) => {
+        if (!inb(x, y) || g.t[idx(x, y)] !== K.LOT) return;
+        if (covered >= 0.25) mine.push(idx(x, y));
+        if (covered > bestCover) { bestCover = covered; best = idx(x, y); }
+      });
+      if (!mine.length && best >= 0) mine.push(best); // every building keeps the tile it covers most
+      if (!mine.length) return;
+      for (const i of mine) { g.t[i] = K.BUILD; g.owner[i] = g.mapped.length; }
+      g.mapped.push({ tiles: mine, kind: 'house', name: null, color: null, seed: hashStr('b' + bi) });
+    });
+    for (const l of data.landmarks || []) {
+      const spec = LANDMARK_BUILDING[l.kind], tx = Math.floor(l.x * g.scale), ty = Math.floor(l.y * g.scale);
+      const m = inb(tx, ty) && g.owner[idx(tx, ty)] >= 0 ? g.mapped[g.owner[idx(tx, ty)]] : null;
+      if (spec && m) { m.kind = spec[0]; m.color = spec[1]; m.name = l.name || null; }
     }
+  }
 
-    // walled compound: wall ring, gate facing the street, plaza, central building, counter zone at its door
-    function compound(r, kind, name, color) {
-      const gate = doorFor(r);
-      for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) {
-        const edge = x === r.x0 || x === r.x1 || y === r.y0 || y === r.y1;
-        set(x, y, edge ? K.WALL : K.PLAZA);
-      }
-      // gate: 3 tiles in the wall facing the door tile
-      const gx = gate.side === 'n' || gate.side === 's' ? gate.x : gate.side === 'w' ? r.x0 : r.x1;
-      const gy = gate.side === 'e' || gate.side === 'w' ? gate.y : gate.side === 'n' ? r.y0 : r.y1;
-      for (let d = -1; d <= 1; d++) {
-        if (gate.side === 'n' || gate.side === 's') set(gx + d, gy, K.PLAZA); else set(gx, gy + d, K.PLAZA);
-      }
-      // building in the half away from the gate
-      const iw = r.x1 - r.x0 - 1, ih = r.y1 - r.y0 - 1;
-      const bw = Math.max(3, Math.floor(iw * 0.6)), bh = Math.max(3, Math.floor(ih * 0.4));
-      let bx = r.x0 + 1 + Math.floor((iw - bw) / 2), by = r.y0 + 1 + Math.floor((ih - bh) / 2);
-      if (gate.side === 'n') by = r.y1 - 1 - bh;
-      if (gate.side === 's') by = r.y0 + 2;
-      if (gate.side === 'e') bx = r.x0 + 2;
-      if (gate.side === 'w') bx = r.x1 - 1 - bw;
-      for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) set(x, y, K.BUILD);
-      const bld = { x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color, kind, name };
-      buildings.push(bld);
-      // counter zone in front of the building, on the gate side
-      let zx = (bx + bw / 2) * TILE, zy = (by + bh / 2) * TILE;
-      if (gate.side === 'n') zy = (by - 1) * TILE; else if (gate.side === 's') zy = (by + bh + 1) * TILE;
-      else if (gate.side === 'w') zx = (bx - 1) * TILE; else zx = (bx + bw + 1) * TILE;
-      return { kind, name, x: zx, y: zy, r: 52, gate: { x: (gx + 0.5) * TILE, y: (gy + 0.5) * TILE }, rect: { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 }, bld };
-    }
-
-    const office = officeR ? compound(officeR, 'office', 'RO Office', '#f5e6c8') : null;
-    const booth = boothR ? compound(boothR, 'booth', 'Govt High School (Polling Booth)', '#ffe0b2') : null;
-    if (office) sites.push(office);
-    if (booth) sites.push(booth);
-
-    // police stations: building in a plaza
-    const stations = [];
-    for (const r of stationRs) {
-      for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) set(x, y, K.PLAZA);
-      const bw = Math.max(3, r.x1 - r.x0 - 3), bh = Math.max(3, Math.floor((r.y1 - r.y0) / 2));
-      const bx = r.x0 + 2, by = r.y0 + 1;
-      for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) set(x, y, K.BUILD);
-      buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#c5d3e8', kind: 'station', name: 'Police Station' });
-      const s = { kind: 'station', name: 'Police Station', x: (bx + bw / 2) * TILE, y: (by + bh + 1) * TILE, r: 40 };
-      stations.push(s); sites.push(s);
-    }
-
-    // party office (start)
-    let start = null;
-    if (startR) {
-      const r = startR;
-      for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) set(x, y, K.PLAZA);
-      const bw = Math.max(2, Math.min(6, r.x1 - r.x0 - 1)), bh = Math.max(2, Math.min(4, r.y1 - r.y0 - 1));
-      const bx = r.x0 + 1, by = r.y0 + 1;
-      for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) set(x, y, K.BUILD);
-      buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#bbdefb', kind: 'party', name: 'NPP Party Office' });
-      start = { kind: 'start', name: 'NPP Party Office', x: (bx + bw / 2) * TILE, y: Math.min(r.y1 + 0.5, by + bh + 1) * TILE, r: 40 };
-      sites.push(start);
-    }
-
-    // ---- ordinary blocks: houses, parks, a few landmarks
-    const remaining = lotLeaves.filter((r) => !used.has(r) && pureLot(r));
-    const landmarkNames = [['temple', 'Sri Venkateswara Temple'], ['market', 'Rythu Bazar'], ['busstand', 'RTC Bus Stand'], ['hospital', 'Govt Hospital']];
-    const docRects = [];
-    const shuffled = remaining.slice().sort((a, b) => hashStr(a.x0 + ':' + a.y0 + ':' + seed) - hashStr(b.x0 + ':' + b.y0 + ':' + seed));
-    let li = 0;
-    for (const r of shuffled) {
-      const w = r.x1 - r.x0 + 1, h = r.y1 - r.y0 + 1;
-      if (li < landmarkNames.length && w >= 6 && h >= 6) {
-        const [kind, name] = landmarkNames[li++];
-        for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) set(x, y, kind === 'temple' ? K.PARK : K.PLAZA);
-        const bw = kind === 'market' ? 2 : Math.min(5, w - 2), bh = kind === 'market' ? 2 : Math.min(4, h - 2);
-        const bx = Math.floor(r.x0 + (w - bw) / 2), by = Math.floor(r.y0 + (h - bh) / 2);
-        if (kind !== 'market') for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) set(x, y, K.BUILD);
-        buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: kind === 'temple' ? '#ffe082' : kind === 'hospital' ? '#ffffff' : '#ffccbc', kind, name, solid: kind !== 'market' });
-        continue;
-      }
-      if (rng() < 0.12 || w < 3 || h < 3) {
-        for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) {
-          const edge = x === r.x0 || x === r.x1 || y === r.y0 || y === r.y1;
-          set(x, y, !edge && rng() < 0.12 ? K.TREE : K.PARK);
-        }
-        if (w * h > 30) labels.push({ x: cx(r), y: cyy(r), text: 'Park', small: true });
-        continue;
-      }
-      // houses: one or two rows of plots, occasional alley
-      const rows = h >= 8 ? 2 : 1;
-      const rowH = Math.floor(h / rows);
-      for (let k = 0; k < rows; k++) {
-        const y0 = r.y0 + k * rowH, y1 = k === rows - 1 ? r.y1 : y0 + rowH - 1;
-        let x = r.x0;
-        while (x <= r.x1) {
-          const pw = Math.min(r.x1 - x + 1, 3 + rng.int(4));
-          const alley = rng() < 0.18 && x > r.x0 && r.x1 - x > 4;
-          if (alley) { for (let y = y0; y <= y1; y++) set(x, y, K.WALK); x++; continue; }
-          for (let y = y0; y <= y1; y++) for (let xx = x; xx < x + pw; xx++) set(xx, y, K.BUILD);
-          buildings.push({ x: x * TILE, y: y0 * TILE, w: pw * TILE, h: (y1 - y0 + 1) * TILE, color: ROOF[rng.int(ROOF.length)], kind: 'house', tank: rng() < 0.5, seed: rng.int(1e6) });
-          x += pw;
+  // The open component with the most road tiles is the network every site must connect to.
+  function markMainNetwork(g) {
+    const { t } = g, label = new Int32Array(N * N).fill(-1), roadCount = [];
+    const open = (i) => t[i] === K.LOT || isStreet(t[i]);
+    for (let s = 0; s < N * N; s++) {
+      if (label[s] >= 0 || !open(s)) continue;
+      const id = roadCount.length, stack = [s];
+      let count = 0;
+      label[s] = id;
+      while (stack.length) {
+        const i = stack.pop();
+        if (t[i] === K.ROAD) count++;
+        const x = i % N, y = (i / N) | 0;
+        for (const [ox, oy] of NEIGH4) {
+          if (!inb(x + ox, y + oy)) continue;
+          const j = idx(x + ox, y + oy);
+          if (label[j] < 0 && open(j)) { label[j] = id; stack.push(j); }
         }
       }
-      docRects.push(r);
+      roadCount.push(count);
     }
-    for (let i = 0; i < t.length; i++) if (t[i] === K.LOT) t[i] = K.GRASS;
+    const top = roadCount.indexOf(Math.max(...roadCount, 0));
+    for (let i = 0; i < N * N; i++) if (label[i] === top) g.main[i] = 1;
+  }
 
-    // ---- document shops: one house building in each of five spread-out blocks, door on the street
-    const docSites = [];
-    const goal = office || booth || { x: WORLD / 2, y: WORLD / 2 };
-    const anchors = [[0.2, 0.25], [0.8, 0.8], [0.15, 0.6], [0.55, 0.3], [0.45, 0.75]];
+  // A site may take open lots, mapped buildings and one-tile lanes: the old town is too tightly built to leave room otherwise.
+  const clearable = (g, i) => (g.t[i] === K.LOT || (g.t[i] === K.BUILD && g.owner[i] >= 0) || (g.t[i] === K.ROAD && !g.wide[i])) && g.main[i] === 1;
+  const clearingCost = (g, i) => (g.t[i] === K.ROAD ? 1 : g.t[i] === K.BUILD ? (g.mapped[g.owner[i]].kind === 'house' ? 1.5 : 8) : 0);
+  function touchesStreet(g, x0, y0, x1, y1) {
+    let n = 0;
+    const count = (x, y) => { if (inb(x, y) && g.main[idx(x, y)] && isStreet(g.t[idx(x, y)])) n++; };
+    for (let x = x0 - 1; x <= x1 + 1; x++) { count(x, y0 - 1); count(x, y1 + 1); }
+    for (let y = y0; y <= y1; y++) { count(x0 - 1, y); count(x1 + 1, y); }
+    return n >= 3;
+  }
+  // The w x h rectangle of clearable tiles that touches a street and is cheapest: its distance from `near`
+  // (tile units, within near.r) plus the cost of clearing it and of `extra(x0, y0)`.
+  function findRect(g, w, h, near, extra) {
+    let best = null, bestCost = Infinity;
+    const lo = (v) => Math.max(2, Math.floor(v)), hi = (v, size) => Math.min(N - 2 - size, Math.ceil(v));
+    for (let y0 = lo(near.y - h / 2 - near.r); y0 <= hi(near.y - h / 2 + near.r, h); y0++) {
+      for (let x0 = lo(near.x - w / 2 - near.r); x0 <= hi(near.x - w / 2 + near.r, w); x0++) {
+        const d = hypot(x0 + w / 2 - near.x, y0 + h / 2 - near.y);
+        if (d > near.r || d >= bestCost) continue;
+        let cost = d + (extra ? extra(x0, y0) : 0), ok = true;
+        for (let y = y0; y < y0 + h && ok; y++) for (let x = x0; x < x0 + w; x++) {
+          const i = idx(x, y);
+          if (!clearable(g, i)) { ok = false; break; }
+          cost += clearingCost(g, i);
+        }
+        if (ok && cost < bestCost && touchesStreet(g, x0, y0, x0 + w - 1, y0 + h - 1)) { bestCost = cost; best = { x0, y0, x1: x0 + w - 1, y1: y0 + h - 1 }; }
+      }
+    }
+    return best;
+  }
+  // The best rectangle near a tile over several sizes: area is traded against distance and the cost of clearing.
+  function bestRect(g, sizes, near) {
+    const [bigW, bigH] = sizes[0];
+    let best = null, bestScore = Infinity;
+    for (const [w, h] of sizes) {
+      const r = findRect(g, w, h, near);
+      if (!r) continue;
+      let score = ((bigW * bigH - w * h) * 11 * 9) / (bigW * bigH) / 6 + hypot((r.x0 + r.x1 + 1) / 2 - near.x, (r.y0 + r.y1 + 1) / 2 - near.y);
+      for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) score += clearingCost(g, idx(x, y));
+      if (score < bestScore) { bestScore = score; best = r; }
+    }
+    return best;
+  }
+
+  // A tile just outside rect r where a door or gate can open, preferring real streets; margin keeps a 3-tile
+  // gate clear of the corners. Returns {side, x, y} or null.
+  function doorFor(g, r, margin) {
+    const open = (x, y) => (isStreet(g.get(x, y)) ? 2 : SOLID[g.get(x, y)] === 0 ? 1 : 0);
+    const sides = { n: [], s: [], w: [], e: [] };
+    for (let x = r.x0 + margin; x <= r.x1 - margin; x++) { sides.n.push({ side: 'n', x, y: r.y0 - 1 }); sides.s.push({ side: 's', x, y: r.y1 + 1 }); }
+    for (let y = r.y0 + margin; y <= r.y1 - margin; y++) { sides.w.push({ side: 'w', x: r.x0 - 1, y }); sides.e.push({ side: 'e', x: r.x1 + 1, y }); }
+    let best = null, bs = 0;
+    for (const side of Object.keys(sides)) {
+      const list = sides[side].filter((o) => open(o.x, o.y) > 0);
+      const score = list.reduce((a, o) => a + open(o.x, o.y), 0);
+      if (score > bs) { bs = score; best = list; }
+    }
+    return best ? best[Math.floor(best.length / 2)] : null;
+  }
+
+  // Walled compound: wall ring, gate facing the street, plaza, central building, counter zone at its door.
+  function buildCompound(g, r, kind, name, color) {
+    const gate = doorFor(g, r, 2) || doorFor(g, r, 1) || { side: 's', x: Math.floor((r.x0 + r.x1) / 2), y: r.y1 + 1 };
+    g.release(r);
+    for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) {
+      const edge = x === r.x0 || x === r.x1 || y === r.y0 || y === r.y1;
+      g.set(x, y, edge ? K.WALL : K.PLAZA);
+    }
+    const gx = gate.side === 'n' || gate.side === 's' ? gate.x : gate.side === 'w' ? r.x0 : r.x1;
+    const gy = gate.side === 'e' || gate.side === 'w' ? gate.y : gate.side === 'n' ? r.y0 : r.y1;
+    for (let d = -1; d <= 1; d++) {
+      if (gate.side === 'n' || gate.side === 's') g.set(gx + d, gy, K.PLAZA); else g.set(gx, gy + d, K.PLAZA);
+    }
+    const iw = r.x1 - r.x0 - 1, ih = r.y1 - r.y0 - 1;
+    const bw = Math.max(3, Math.floor(iw * 0.6)), bh = Math.max(3, Math.floor(ih * 0.4));
+    let bx = r.x0 + 1 + Math.floor((iw - bw) / 2), by = r.y0 + 1 + Math.floor((ih - bh) / 2);
+    if (gate.side === 'n') by = r.y1 - 1 - bh;
+    if (gate.side === 's') by = r.y0 + 2;
+    if (gate.side === 'e') bx = r.x0 + 2;
+    if (gate.side === 'w') bx = r.x1 - 1 - bw;
+    g.fill(bx, by, bw, bh, K.BUILD);
+    const bld = { x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color, kind, name };
+    g.buildings.push(bld);
+    let zx = (bx + bw / 2) * TILE, zy = (by + bh / 2) * TILE;
+    if (gate.side === 'n') zy = (by - 1) * TILE; else if (gate.side === 's') zy = (by + bh + 1) * TILE;
+    else if (gate.side === 'w') zx = (bx - 1) * TILE; else zx = (bx + bw + 1) * TILE;
+    return { kind, name, x: zx, y: zy, r: 52, gate: { x: (gx + 0.5) * TILE, y: (gy + 0.5) * TILE }, rect: { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 }, bld };
+  }
+  function buildStation(g, r) {
+    g.release(r);
+    g.fill(r.x0, r.y0, r.x1 - r.x0 + 1, r.y1 - r.y0 + 1, K.PLAZA);
+    const bw = Math.max(3, r.x1 - r.x0 - 3), bh = Math.max(3, Math.floor((r.y1 - r.y0) / 2));
+    const bx = r.x0 + 2, by = r.y0 + 1;
+    g.fill(bx, by, bw, bh, K.BUILD);
+    g.buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#c5d3e8', kind: 'station', name: 'Police Station' });
+    const s = { kind: 'station', name: 'Police Station', x: (bx + bw / 2) * TILE, y: (by + bh + 1) * TILE, r: 40 };
+    g.stations.push(s); g.sites.push(s);
+  }
+  function buildBusStand(g, r, name) {
+    g.release(r);
+    const w = r.x1 - r.x0 + 1, h = r.y1 - r.y0 + 1;
+    g.fill(r.x0, r.y0, w, h, K.PLAZA);
+    const bw = Math.min(5, w - 2), bh = Math.min(4, h - 2);
+    const bx = Math.floor(r.x0 + (w - bw) / 2), by = Math.floor(r.y0 + (h - bh) / 2);
+    g.fill(bx, by, bw, bh, K.BUILD);
+    g.buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#ffccbc', kind: 'busstand', name });
+  }
+  // The party office, where you start: a small plaza with a building, in the corner of town farthest from the RO office.
+  function buildPartyOffice(g, officeTile) {
+    const corners = [[14, 14], [N - 14, 14], [14, N - 14], [N - 14, N - 14]];
+    const far = corners.reduce((a, b) => (hypot(a[0] - officeTile.x, a[1] - officeTile.y) > hypot(b[0] - officeTile.x, b[1] - officeTile.y) ? a : b));
+    const waterNear = (x0, y0) => {
+      for (let y = y0 - 3; y < y0 + 9; y++) for (let x = x0 - 3; x < x0 + 10; x++) if (g.get(x, y) === K.WATER) return 40;
+      return 0;
+    };
+    const unsuitable = (x0, y0) => (hypot(x0 + 3.5 - officeTile.x, y0 + 3 - officeTile.y) * TILE > WORLD * 0.55 ? 0 : 1e6) + waterNear(x0, y0);
+    const r = findRect(g, 7, 6, { x: far[0], y: far[1], r: N }, unsuitable);
+    if (!r) throw new Error('buildTown: no room for the party office');
+    g.release(r);
+    g.fill(r.x0, r.y0, 7, 6, K.PLAZA);
+    const bw = 5, bh = 4, bx = r.x0 + 1, by = r.y0 + 1;
+    g.fill(bx, by, bw, bh, K.BUILD);
+    g.buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#bbdefb', kind: 'party', name: 'NPP Party Office' });
+    const start = { kind: 'start', name: 'NPP Party Office', x: (bx + bw / 2) * TILE, y: Math.min(r.y1 + 0.5, by + bh + 1) * TILE, r: 40 };
+    g.sites.push(start);
+    return start;
+  }
+
+  // Places the RO office, polling booth, police stations, bus stands and party office. Mapped police and bus
+  // stations keep their real positions; the rest go to the largest clear space near their anchor.
+  function placeSites(g, data) {
+    const landmarks = data.landmarks || [];
+    const near = (p, r) => ({ x: p.x * g.scale, y: p.y * g.scale, r });
+    for (const l of landmarks) {
+      if (l.kind === 'police') {
+        const r = findRect(g, 6, 6, near(l, 8));
+        if (r) buildStation(g, r);
+      } else if (l.kind === 'bus_station') {
+        const r = bestRect(g, BUS_STAND_SIZES, near(l, 8));
+        if (r) buildBusStand(g, r, l.name || 'RTC Bus Stand');
+      }
+    }
+
+    const compound = (where, kind, name, color) => {
+      const r = bestRect(g, COMPOUND_SIZES, where);
+      if (!r) throw new Error('buildTown: no room for the ' + name);
+      return buildCompound(g, r, kind, name, color);
+    };
+    const office = compound(near(data.anchor, N), 'office', 'RO Office', '#f5e6c8');
+    // the polling booth goes to a school if one is mapped, else near the middle of the map, but away from the office
+    const officeTile = { x: office.gate.x / TILE, y: office.gate.y / TILE };
+    const spots = landmarks.filter((l) => l.kind === 'school').map((l) => near(l, N)).concat([{ x: N / 2, y: N / 2, r: N }, { x: N * 0.3, y: N * 0.7, r: N }, { x: N * 0.7, y: N * 0.7, r: N }]);
+    const spot = spots.find((p) => hypot(p.x - officeTile.x, p.y - officeTile.y) > 20) || spots[spots.length - 1];
+    const booth = compound(Object.assign({}, spot, { r: 24 }), 'booth', 'Govt High School (Polling Booth)', '#ffe0b2');
+    g.sites.unshift(booth); g.sites.unshift(office);
+
+    // at least three police stations: spread them over the town where none is mapped
+    for (const [fx, fy] of [[0.5, 0.5], [0.25, 0.75], [0.75, 0.75], [0.75, 0.25], [0.25, 0.25]]) {
+      if (g.stations.length >= 3) break;
+      const r = findRect(g, 6, 6, { x: fx * N, y: fy * N, r: N });
+      if (r) buildStation(g, r);
+    }
+    return { office, booth, start: buildPartyOffice(g, officeTile) };
+  }
+
+  // Blocks with no mapped building get generated house plots, parks or (when large) open land.
+  function fillEmptyBlocks(g, rng) {
+    const { t } = g, seen = new Uint8Array(N * N);
+    const plot = (x0, y0, w, h) => {
+      g.fill(x0, y0, w, h, K.BUILD);
+      g.buildings.push({ x: x0 * TILE, y: y0 * TILE, w: w * TILE, h: h * TILE, color: ROOF[rng.int(ROOF.length)], kind: 'house', tank: rng() < 0.5, seed: rng.int(1e6) });
+    };
+    for (let s = 0; s < N * N; s++) {
+      if (seen[s] || (t[s] !== K.LOT && t[s] !== K.BUILD)) continue;
+      const lots = [], stack = [s];
+      let built = false;
+      seen[s] = 1;
+      while (stack.length) {
+        const i = stack.pop(), x = i % N, y = (i / N) | 0;
+        if (t[i] === K.BUILD) built = true; else lots.push(i);
+        for (const [ox, oy] of NEIGH4) {
+          if (!inb(x + ox, y + oy)) continue;
+          const j = idx(x + ox, y + oy);
+          if (!seen[j] && (t[j] === K.LOT || t[j] === K.BUILD)) { seen[j] = 1; stack.push(j); }
+        }
+      }
+      if (built || lots.length < 2) continue;
+      lots.sort((a, b) => a - b);
+      if (lots.length > 400) { // open land on the edge of town: grass with a few trees away from the streets
+        for (const i of lots) {
+          const x = i % N, y = (i / N) | 0;
+          let nearStreet = false;
+          for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) if (isStreet(g.get(x + ox, y + oy))) nearStreet = true;
+          if (!nearStreet && rng() < 0.06) t[i] = K.TREE;
+        }
+        continue;
+      }
+      if (lots.length >= 12 && rng() < 0.1) { for (const i of lots) t[i] = rng() < 0.12 ? K.TREE : K.PARK; continue; }
+      const lot = (x, y) => inb(x, y) && t[idx(x, y)] === K.LOT && seen[idx(x, y)] === 1;
+      for (const i of lots) {
+        const x = i % N, y = (i / N) | 0;
+        if (t[i] !== K.LOT) continue;
+        let run = 0;
+        while (lot(x + run, y)) run++;
+        if (run >= 6 && rng() < 0.12) { // an alley between plots
+          for (let yy = y; lot(x, yy) && yy < y + 3; yy++) g.set(x, yy, K.WALK);
+          continue;
+        }
+        let pw = Math.min(run, 3 + rng.int(4)), ph = 3;
+        for (;;) {
+          let ok = true;
+          for (let yy = y; yy < y + ph && ok; yy++) for (let xx = x; xx < x + pw; xx++) if (!lot(xx, yy)) { ok = false; break; }
+          if (ok) break;
+          if (ph > 1) ph--; else pw--;
+        }
+        plot(x, y, pw, ph);
+      }
+    }
+  }
+
+  // Mapped buildings become rectangles of tiles; only the largest piece of a building carries its name.
+  function mappedBuildingRects(g) {
+    const out = [];
+    g.mapped.forEach((m, id) => {
+      const left = new Set(m.tiles.filter((i) => g.t[i] === K.BUILD && g.owner[i] === id));
+      const pieces = [];
+      while (left.size) {
+        const first = Math.min(...left), x0 = first % N, y0 = (first / N) | 0;
+        let w = 1, h = 1;
+        while (left.has(idx(x0 + w, y0))) w++;
+        for (let ok = true; ok;) {
+          for (let x = x0; x < x0 + w && ok; x++) if (!left.has(idx(x, y0 + h))) ok = false;
+          if (ok) h++;
+        }
+        for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) left.delete(idx(x, y));
+        pieces.push({ x: x0 * TILE, y: y0 * TILE, w: w * TILE, h: h * TILE, color: m.color || ROOF[m.seed % ROOF.length], kind: m.kind, seed: m.seed % 1000000 });
+      }
+      pieces.sort((a, b) => b.w * b.h - a.w * a.h);
+      pieces.forEach((b, k) => {
+        if (m.kind === 'house') b.tank = (m.seed >> 4) % 2 === 0;
+        if (m.name && k === 0) b.name = m.name;
+        out.push(b);
+      });
+    });
+    return out;
+  }
+
+  // A town with too few mapped houses: a new 3x3 house on open grass beside a street, as near the anchor as possible.
+  function newShopPlot(g, office, anchor, reachable) {
+    let best = null, bestDoor = null, bs = Infinity;
+    for (let y0 = 2; y0 <= N - 5; y0++) for (let x0 = 2; x0 <= N - 5; x0++) {
+      const d = dist((x0 + 1.5) * TILE, (y0 + 1.5) * TILE, anchor[0] * WORLD, anchor[1] * WORLD);
+      if (d >= bs || dist(x0 * TILE, y0 * TILE, office.x, office.y) <= 20 * TILE) continue;
+      let grass = true;
+      for (let y = y0; y < y0 + 3 && grass; y++) for (let x = x0; x < x0 + 3; x++) if (g.t[idx(x, y)] !== K.GRASS) { grass = false; break; }
+      if (!grass) continue;
+      const door = doorFor(g, { x0, y0, x1: x0 + 2, y1: y0 + 2 }, 0);
+      if (door && isStreet(g.get(door.x, door.y)) && reachable(door.x, door.y)) { bs = d; best = { x0, y0 }; bestDoor = door; }
+    }
+    if (!best) return null;
+    g.fill(best.x0, best.y0, 3, 3, K.BUILD);
+    const b = { x: best.x0 * TILE, y: best.y0 * TILE, w: 3 * TILE, h: 3 * TILE, color: ROOF[(best.x0 + best.y0) % ROOF.length], kind: 'house', tank: false, seed: best.x0 * N + best.y0 };
+    g.buildings.push(b);
+    return { b, door: bestDoor };
+  }
+  // One house in each of five spread-out places becomes a document shop, with its door on a street the start can reach.
+  function placeDocShops(g, office, reachable) {
+    const rectOf = (b) => ({ x0: b.x / TILE, y0: b.y / TILE, x1: (b.x + b.w) / TILE - 1, y1: (b.y + b.h) / TILE - 1 });
+    const shops = [];
     for (let i = 0; i < DOC_SHOPS.length; i++) {
-      const [fx, fy] = anchors[i];
-      let best = null, bs = Infinity;
-      for (const b of buildings) {
+      let best = null, bestDoor = null, bs = Infinity;
+      for (const b of g.buildings) {
         if (b.kind !== 'house' || b.shop) continue;
-        const d = dist(b.x + b.w / 2, b.y + b.h / 2, fx * WORLD, fy * WORLD);
-        if (d < bs && dist(b.x, b.y, goal.x, goal.y) > 20 * TILE) {
-          const r = { x0: b.x / TILE, y0: b.y / TILE, x1: (b.x + b.w) / TILE - 1, y1: (b.y + b.h) / TILE - 1 };
-          if (doorFor(r)) { bs = d; best = b; }
-        }
+        const d = dist(b.x + b.w / 2, b.y + b.h / 2, DOC_ANCHORS[i][0] * WORLD, DOC_ANCHORS[i][1] * WORLD);
+        if (d >= bs || dist(b.x, b.y, office.x, office.y) <= 20 * TILE) continue;
+        const door = doorFor(g, rectOf(b), 0);
+        if (door && reachable(door.x, door.y)) { bs = d; best = b; bestDoor = door; }
       }
-      if (!best) continue;
-      const r = { x0: best.x / TILE, y0: best.y / TILE, x1: (best.x + best.w) / TILE - 1, y1: (best.y + best.h) / TILE - 1 };
-      const door = doorFor(r);
+      if (!best) {
+        const plot = newShopPlot(g, office, DOC_ANCHORS[i], reachable);
+        if (!plot) continue;
+        best = plot.b; bestDoor = plot.door;
+      }
       best.shop = true; best.name = DOC_SHOPS[i].name; best.color = '#fff3c4';
-      const s = { kind: 'doc', doc: DOC_SHOPS[i].doc, name: DOC_SHOPS[i].name, x: (door.x + 0.5) * TILE, y: (door.y + 0.5) * TILE, r: 30 };
-      docSites.push(s); sites.push(s);
+      const s = { kind: 'doc', doc: DOC_SHOPS[i].doc, name: DOC_SHOPS[i].name, x: (bestDoor.x + 0.5) * TILE, y: (bestDoor.y + 0.5) * TILE, r: 30 };
+      shops.push(s); g.sites.push(s);
     }
-    // BLO tent for the voter slip (polling day): a walkable spot in a park or plaza near the town centre
-    let blo = null;
-    {
-      let bd = Infinity;
-      for (let y = B; y < N - B; y++) for (let x = B; x < N - B; x++) {
-        if (t[idx(x, y)] !== K.PARK) continue;
-        const d = dist((x + 0.5) * TILE, (y + 0.5) * TILE, WORLD * 0.45, WORLD * 0.55);
+    if (shops.length < DOC_SHOPS.length) throw new Error('buildTown: placed ' + shops.length + ' of ' + DOC_SHOPS.length + ' document shops');
+    return shops;
+  }
+
+  // The BLO tent for the voter slip (polling day): open ground near the middle of town, else any street tile.
+  function placeBloTent(g, reachable) {
+    for (const kinds of [[K.GRASS, K.PARK], [K.WALK, K.ROAD, K.BRIDGE]]) {
+      let blo = null, bd = Infinity;
+      for (let y = 2; y < N - 2; y++) for (let x = 2; x < N - 2; x++) {
+        if (!kinds.includes(g.t[idx(x, y)]) || !reachable(x, y)) continue;
+        const d = hypot(x + 0.5 - N * 0.45, y + 0.5 - N * 0.55);
         if (d < bd) { bd = d; blo = { kind: 'doc', doc: 'Voter Slip', name: 'BLO Help Tent', x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, r: 30, mode: 'vote' }; }
       }
-      if (blo) sites.push(blo);
+      if (blo) { g.sites.push(blo); return blo; }
     }
+    throw new Error('buildTown: no spot for the BLO tent');
+  }
 
-    // neighbourhood labels on super blocks
-    const names = (opts && opts.names && opts.names.length ? opts.names.slice() : []).concat(NEIGHBOURHOODS);
-    const seen = new Set();
-    let ni = 0;
-    for (const s of supers) {
-      while (ni < names.length && seen.has(names[ni])) ni++;
-      const name = names[ni++] || '';
-      seen.add(name);
-      labels.push({ x: cx(s), y: cyy(s), text: name });
+  // Patrol posts for police and goons: junctions of major roads, thinned out; spread over the roads if there are too few.
+  function patrolPosts(g, reachable) {
+    const passes = new Map(); // tile -> indices of major roads whose centre-line crosses it
+    g.roads.forEach((r, ri) => {
+      if (!MAJOR_ROADS.has(r.class)) return;
+      for (let k = 1; k < r.pts.length; k++) {
+        const [x0, y0] = r.pts[k - 1], [x1, y1] = r.pts[k];
+        const n = Math.max(1, Math.ceil(hypot(x1 - x0, y1 - y0) * 2));
+        for (let s = 0; s <= n; s++) {
+          const x = Math.floor(x0 + ((x1 - x0) * s) / n), y = Math.floor(y0 + ((y1 - y0) * s) / n);
+          if (!inb(x, y)) continue;
+          if (!passes.has(idx(x, y))) passes.set(idx(x, y), new Set());
+          passes.get(idx(x, y)).add(ri);
+        }
+      }
+    });
+    const posts = [], taken = [];
+    const take = (x, y) => { taken.push([x, y]); posts.push({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE }); };
+    for (const i of [...passes.keys()].sort((a, b) => a - b)) {
+      if (taken.length >= 18) break;
+      const x = i % N, y = (i / N) | 0;
+      if (!reachable(x, y) || (g.t[i] !== K.ROAD && g.t[i] !== K.BRIDGE)) continue;
+      const roadsHere = new Set();
+      for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) for (const ri of passes.get(idx(x + ox, y + oy)) || []) roadsHere.add(ri);
+      if (roadsHere.size >= 2 && taken.every(([px, py]) => hypot(px - x, py - y) >= 12)) take(x, y);
     }
+    while (posts.length < 8) { // not enough junctions: the road tile farthest from every post so far
+      let bx = -1, by = -1, bgap = -1;
+      for (let i = 0; i < N * N; i++) {
+        if (g.t[i] !== K.ROAD || !reachable(i % N, (i / N) | 0)) continue;
+        const x = i % N, y = (i / N) | 0;
+        const gap = taken.length ? Math.min(...taken.map(([px, py]) => hypot(px - x, py - y))) : -hypot(x - N / 2, y - N / 2);
+        if (gap > bgap) { bgap = gap; bx = x; by = y; }
+      }
+      if (bx < 0 || (taken.length && bgap < 6)) break;
+      take(bx, by);
+    }
+    return posts;
+  }
 
-    // posts: arterial intersections (patrol waypoints)
-    const posts = [];
-    for (const a of ax) for (const b of ay) posts.push({ x: (a + 1.5) * TILE, y: (b + 1.5) * TILE });
+  // Builds the playable map from a town file (see scripts/osm-to-town.js): road centre-lines become road tiles of
+  // their class's width, water becomes water (bridges where a road crosses), mapped buildings become solid tiles,
+  // and the sites the game needs are placed on the grid. A pure function of `data`: its only randomness is a
+  // seed derived from the town id. Returns what the simulation and renderer read, plus `roads` for drawing traffic.
+  function buildTown(data) {
+    if (!data || !(data.size > 0) || !data.anchor || !Array.isArray(data.roads)) throw new Error('buildTown: not a town file (needs size, anchor and roads)');
+    const seed = hashStr(data.id || 'town'), g = newGrid(data);
+    drawMap(g, data);
+    markMainNetwork(g);
+    const { office, booth, start } = placeSites(g, data);
+    fillEmptyBlocks(g, makeRng(seed));
+    for (let i = 0; i < g.t.length; i++) if (g.t[i] === K.LOT) g.t[i] = K.GRASS;
+    g.buildings.push(...mappedBuildingRects(g));
 
-    return { seed, n: N, tile: TILE, world: WORLD, t, buildings, sites, docSites, blo, office, booth, stations, start, labels, posts, canal, arterials: { x: ax, y: ay }, dyn: new Uint8Array(N * N) };
+    // what the start can reach decides where shops, the BLO tent and patrol posts may go
+    const reach = field({ t: g.t, dyn: new Uint8Array(N * N) }, [[Math.floor(start.x / TILE), Math.floor(start.y / TILE)]]);
+    const reachable = (x, y) => inb(x, y) && reach[idx(x, y)] >= 0;
+    const docSites = placeDocShops(g, office, reachable);
+    const blo = placeBloTent(g, reachable);
+    const labels = (data.places || []).map((p) => ({ x: p.x * g.scale * TILE, y: p.y * g.scale * TILE, text: p.name }));
+
+    return {
+      seed, id: data.id || null, n: N, tile: TILE, world: WORLD, t: g.t, buildings: g.buildings, sites: g.sites, docSites, blo, office, booth, stations: g.stations, start, labels,
+      posts: patrolPosts(g, reachable),
+      roads: g.roads.map((r) => ({ class: r.class, w: r.w, pts: r.pts.map(([x, y]) => [x * TILE, y * TILE]) })),
+      dyn: new Uint8Array(N * N),
+    };
   }
 
   // ------------------------------------------------------------------ queries
@@ -474,5 +654,5 @@
     return groups;
   }
 
-  return { TILE, N, WORLD, DT, K, SOLID, clamp, hypot, dist, norm, makeRng, hashStr, generateTown, kindAt, solidAt, solidPx, walkable, moveBody, field, flowDir, lineOfSight, barricadeRing, DOC_SHOPS };
+  return { TILE, N, WORLD, DT, K, SOLID, clamp, hypot, dist, norm, makeRng, hashStr, buildTown, kindAt, solidAt, solidPx, walkable, moveBody, field, flowDir, lineOfSight, barricadeRing, DOC_SHOPS };
 });

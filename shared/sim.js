@@ -1,11 +1,11 @@
 // Deterministic top-down game simulation (30 Hz). No DOM and no Math.random: the same seed and inputs
 // always give the same game, so this module can later run on a Node server for online rooms or replays.
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./world.js'), require('./content.js'));
-  else root.Sim = factory(root.World, root.Content);
-})(typeof self !== 'undefined' ? self : this, function (Wd, Ct) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./world.js'), require('./content.js'), (id) => require('../data/towns/' + id + '.json'));
+  else root.Sim = factory(root.World, root.Content, () => null);
+})(typeof self !== 'undefined' ? self : this, function (Wd, Ct, loadTown) {
   'use strict';
-  const { TILE, N, WORLD, DT, K, clamp, hypot, dist, norm, makeRng, generateTown, kindAt, solidAt, moveBody, field, flowDir, lineOfSight, barricadeRing } = Wd;
+  const { TILE, N, WORLD, DT, K, clamp, hypot, dist, norm, makeRng, buildTown, kindAt, solidAt, moveBody, field, flowDir, lineOfSight, barricadeRing } = Wd;
 
   const CAP = 30; // max crowd
   const SPEED = { walk: 135, run: 215, follow: 1.18, civ: 34, flee: 120, cop: 70, copChase: 112, goon: 85, goonChase: 125, held: 0.75 };
@@ -14,14 +14,20 @@
   const GRAB_TIME = 1.1; // seconds a cop must hold on to arrest you
   const EMPTY_INPUT = { mx: 0, my: 0, run: false, act: false };
 
+  // opts: { seed, town: 'pulivendula', townData, mode: 'nomination' | 'vote', police, goons, mobs, civilians }.
+  // townData is the town's map file; Node loads data/towns/<town>.json itself, the browser passes the fetched file.
   function createGame(opts) {
     opts = opts || {};
+    const townId = opts.town || Ct.DEFAULT_TOWN, info = Object.prototype.hasOwnProperty.call(Ct.TOWNS, townId) ? Ct.TOWNS[townId] : null;
+    if (!info) throw new Error('unknown town: ' + townId);
+    const townData = opts.townData || loadTown(townId);
+    if (!townData) throw new Error('no map data for ' + townId + ': pass opts.townData');
     const rng = makeRng((opts.seed >>> 0) || 1);
     const modeKey = opts.mode === 'vote' ? 'vote' : 'nomination';
     const M = Ct.MODES[modeKey];
-    const place = Object.assign({}, Ct.DEFAULT_PLACE, opts.place || {});
+    const place = { town: info.town, mandal: info.mandal, district: info.district };
     const text = (s, extra) => Ct.fill(s, Object.assign({}, place, extra || {}));
-    const map = generateTown(opts.mapSeed !== undefined ? opts.mapSeed >>> 0 : (opts.seed >>> 0) || 1, { names: opts.names });
+    const map = buildTown(townData);
     const target = modeKey === 'vote' ? map.booth : map.office;
     const docSites = modeKey === 'vote' ? [map.blo] : map.docSites.filter((s) => M.docs.includes(s.doc));
 
@@ -245,7 +251,7 @@
         G.score += timeBonus + crowdBonus + paperBonus;
         G.bonus = { timeBonus, crowdBonus, paperBonus };
       }
-      G.result = { won, reason, score: G.score, crowd: G.stats.crowd, docs: P.docs.length, missions: G.missionsDone, mode: modeKey, place: G.place };
+      G.result = { won, reason, score: G.score, crowd: G.stats.crowd, docs: P.docs.length, missions: G.missionsDone, mode: modeKey, place: G.place, town: townId };
       emit({ t: won ? 'won' : 'over', reason });
     }
 

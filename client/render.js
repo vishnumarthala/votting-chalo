@@ -10,7 +10,7 @@
   };
 
   let cv, ctx, W = 0, H = 0, DPR = 1, zoom = 1, quality = 'hi', bottomPad = 0;
-  let map = null, G = null;
+  let map = null, G = null, pavedMask = null;
   const cam = { x: 0, y: 0, shake: 0 };
   const chunks = new Map();
   let chunkRes = 0, time = 0, mini = null;
@@ -36,13 +36,33 @@
     chunks.clear(); particles = []; bubbles.clear();
     cam.x = G.player.x; cam.y = G.player.y;
     buildMini();
-    const rng = makeRng(map.seed ^ 0xabc);
-    ambient = [];
-    const A = map.arterials;
+    pavedMask = markPavements();
+    ambient = makeTraffic(makeRng(map.seed ^ 0xabc));
+  }
+  // Autos and bikes drive back and forth along the longest mapped roads, in the lane for their direction. Only
+  // roads at least 2 tiles wide: compounds and stations may clear the 1-tile lanes.
+  function makeTraffic(rng) {
+    const lines = map.roads.filter((r) => r.w >= 2).map((r) => {
+      const cum = [0];
+      for (let i = 1; i < r.pts.length; i++) cum.push(cum[i - 1] + Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]));
+      return { pts: r.pts, cum, len: cum[cum.length - 1], lane: r.w * T * 0.25 };
+    }).filter((l) => l.len > 6 * T).sort((a, b) => b.len - a.len).slice(0, 24);
+    const out = [];
+    if (!lines.length) return out;
     for (let i = 0; i < 16; i++) {
-      const vert = rng() < 0.5, line = rng.pick(vert ? A.x : A.y), lane = rng() < 0.5 ? 0 : 2, dir = lane === 0 ? 1 : -1;
-      ambient.push({ vert, c: (line + lane + 0.5) * T, p: rng() * WORLD, dir: vert ? -dir : dir, v: 70 + rng() * 60, kind: rng() < 0.75 ? 'auto' : 'bike', hue: rng.int(3) });
+      const line = lines[rng.int(lines.length)], dir = rng() < 0.5 ? 1 : -1;
+      out.push({ line, s: rng() * line.len, dir, v: 70 + rng() * 60, kind: rng() < 0.75 ? 'auto' : 'bike', hue: rng.int(3) });
     }
+    return out;
+  }
+  // Point and heading at distance s along a traffic line, shifted into the lane for `dir`.
+  function onLine(line, s, dir) {
+    let i = 1;
+    while (i < line.pts.length - 1 && line.cum[i] < s) i++;
+    const [x0, y0] = line.pts[i - 1], [x1, y1] = line.pts[i];
+    const seg = line.cum[i] - line.cum[i - 1] || 1, k = (s - line.cum[i - 1]) / seg;
+    const ang = Math.atan2(y1 - y0, x1 - x0), side = dir > 0 ? 1 : -1;
+    return { x: x0 + (x1 - x0) * k - Math.sin(ang) * line.lane * side, y: y0 + (y1 - y0) * k + Math.cos(ang) * line.lane * side, ang: dir > 0 ? ang : ang + Math.PI };
   }
   function buildMini() {
     mini = document.createElement('canvas');
@@ -69,18 +89,81 @@
     const g = c.getContext('2d');
     g.scale(c.width / px, c.height / px); // fill the canvas exactly so chunk edges have no transparent seam
     g.translate(-cx * px, -cy * px);
+    const area = { left: cx * px, top: cy * px, size: px };
+    drawGround(g, cx * CH, cy * CH);
+    drawRibbons(g, area);
     drawTiles(g, cx * CH, cy * CH);
     for (const b of map.buildings) if (b.x < (cx + 1) * px && b.x + b.w > cx * px && b.y < (cy + 1) * px && b.y + b.h > cy * px) drawBuilding(g, b);
     chunks.set(key, c);
     if (chunks.size > 36) chunks.delete(chunks.keys().next().value);
     return c;
   }
+  // Roads are drawn as smooth ribbons from map.roads; the tile grid only decides collision and AI. A chunk is
+  // layered: ground for every tile, then the ribbons (pavement, asphalt, centre-lines), then the tiles that
+  // stand on top of them (water, bridges, buildings, walls, plazas, parks, trees, alleys), so compounds built on
+  // cleared lanes hide the ribbon beneath. Every ribbon is stroked in full in each chunk it touches, so the
+  // chunk canvases join without a seam.
+  const PAVEMENT_MARGIN = 0.75; // tiles of slack when matching pavement tiles to their road
+  // Walk tiles that belong to the pavement of a road at least 3 tiles wide, which the ribbon already draws.
+  // The other walk tiles are alleys between plots and are drawn as tiles.
+  function markPavements() {
+    const mask = new Uint8Array(N * N);
+    for (const r of map.roads) {
+      if (r.w < 3) continue;
+      const reach = ((r.w + 2) / 2 + PAVEMENT_MARGIN) * T;
+      for (let i = 1; i < r.pts.length; i++) {
+        const [ax, ay] = r.pts[i - 1], [bx, by] = r.pts[i];
+        const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy || 1;
+        const tx0 = Math.max(0, Math.floor((Math.min(ax, bx) - reach) / T)), tx1 = Math.min(N - 1, Math.floor((Math.max(ax, bx) + reach) / T));
+        const ty0 = Math.max(0, Math.floor((Math.min(ay, by) - reach) / T)), ty1 = Math.min(N - 1, Math.floor((Math.max(ay, by) + reach) / T));
+        for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+          const px = (tx + 0.5) * T - ax, py = (ty + 0.5) * T - ay, k = Math.max(0, Math.min(1, (px * dx + py * dy) / len2));
+          if (Math.hypot(px - dx * k, py - dy * k) <= reach) mask[ty * N + tx] = 1;
+        }
+      }
+    }
+    return mask;
+  }
+  function strokeRoad(g, r) {
+    g.beginPath();
+    r.pts.forEach(([x, y], i) => { if (i) g.lineTo(x, y); else g.moveTo(x, y); });
+    g.stroke();
+  }
+  function drawRibbons(g, area) {
+    const near = map.roads.filter((r) => {
+      const m = r.w * T + 16;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const [x, y] of r.pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      return x1 + m >= area.left && x0 - m <= area.left + area.size && y1 + m >= area.top && y0 - m <= area.top + area.size;
+    });
+    g.save();
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    g.strokeStyle = COL[K.WALK];
+    for (const r of near) { g.lineWidth = r.w >= 3 ? (r.w + 1) * T : r.w * T + 6; strokeRoad(g, r); }
+    g.strokeStyle = COL[K.ROAD];
+    for (const r of near) { g.lineWidth = r.w * T; strokeRoad(g, r); }
+    // dashed centre line along every road at least 3 tiles wide
+    g.strokeStyle = '#e8e2c8'; g.lineWidth = 4; g.setLineDash([16, 16]);
+    for (const r of near) if (r.w >= 3) strokeRoad(g, r);
+    g.restore();
+  }
+  // Ground colour under every tile, with grass flecks; roads and pavements are drawn over it by the ribbons.
+  function drawGround(g, x0, y0) {
+    g.fillStyle = COL[K.GRASS]; g.fillRect(x0 * T, y0 * T, CH * T, CH * T);
+    for (let ty = y0; ty < y0 + CH; ty++) for (let tx = x0; tx < x0 + CH; tx++) {
+      const k = map.t[ty * N + tx];
+      if (k !== K.GRASS) continue;
+      const x = tx * T, y = ty * T, h = th(tx, ty);
+      g.fillStyle = 'rgba(60,120,40,.25)';
+      g.fillRect(x + (h % 26), y + ((h >> 5) % 26), 3, 3); g.fillRect(x + ((h >> 10) % 28), y + ((h >> 15) % 28), 2, 2);
+    }
+  }
   function drawTiles(g, x0, y0) {
-    const A = map.arterials;
     for (let ty = y0; ty < y0 + CH; ty++) for (let tx = x0; tx < x0 + CH; tx++) {
       const k = map.t[ty * N + tx], x = tx * T, y = ty * T, h = th(tx, ty);
+      if (k === K.GRASS || k === K.ROAD || (k === K.WALK && pavedMask[ty * N + tx])) continue; // ground and ribbons
       g.fillStyle = COL[k]; g.fillRect(x, y, T + 0.5, T + 0.5);
-      if (k === K.GRASS || k === K.PARK || k === K.TREE) {
+      if (k === K.PARK || k === K.TREE) {
         g.fillStyle = 'rgba(60,120,40,.25)';
         g.fillRect(x + (h % 26), y + ((h >> 5) % 26), 3, 3); g.fillRect(x + ((h >> 10) % 28), y + ((h >> 15) % 28), 2, 2);
       } else if (k === K.FIELD) {
@@ -98,11 +181,6 @@
         if (dn === K.WATER) g.fillRect(x, y + T - 3, T, 3);
       } else if (k === K.WALL) {
         g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(x, y + 15, T, 2); g.fillRect(x + (ty % 2 ? 8 : 24), y, 2, 15); g.fillRect(x + (ty % 2 ? 24 : 8), y + 17, 2, 15);
-      } else if (k === K.ROAD) {
-        // dashed centre line on arterials
-        if (A.x.some((a) => tx === a + 1) && ty % 2 === 0 && !A.y.some((a) => ty >= a && ty <= a + 2)) { g.fillStyle = '#e8e2c8'; g.fillRect(x + 14, y + 4, 4, 16); }
-        if (A.y.some((a) => ty === a + 1) && tx % 2 === 0 && !A.x.some((a) => tx >= a && tx <= a + 2)) { g.fillStyle = '#e8e2c8'; g.fillRect(x + 4, y + 14, 16, 4); }
-        g.fillStyle = 'rgba(255,255,255,.04)'; g.fillRect(x + (h % 24), y + ((h >> 6) % 24), 6, 3);
       }
       if (k === K.TREE) {
         g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.arc(x + 19, y + 19, 17, 0, Math.PI * 2); g.fill();
@@ -223,11 +301,11 @@
 
     // ambient traffic (client-only decoration)
     for (const a of ambient) {
-      a.p += a.dir * a.v * dt;
-      if (a.p < 0) a.p += WORLD; if (a.p > WORLD) a.p -= WORLD;
-      const x = a.vert ? a.c : a.p, y = a.vert ? a.p : a.c;
+      a.s += a.dir * a.v * dt;
+      if (a.s < 0 || a.s > a.line.len) { a.dir = -a.dir; a.s = Math.max(0, Math.min(a.line.len, a.s)); }
+      const { x, y, ang } = onLine(a.line, a.s, a.dir);
       if (!inView(x, y, 40)) continue;
-      ctx.save(); ctx.translate(x, y); ctx.rotate(a.vert ? (a.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (a.dir > 0 ? 0 : Math.PI));
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(-13, -7, 28, 16);
       if (a.kind === 'auto') {
         ctx.fillStyle = ['#2e7d32', '#f9a825', '#1565c0'][a.hue]; rr(-14, -9, 26, 18, 5); ctx.fill();

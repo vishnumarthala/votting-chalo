@@ -1,0 +1,13 @@
+{
+ "verdict": "approve",
+ "tree": "git:61fb35fa2a733016deecf0ef72a4563c0d8fa295",
+ "summary": "Delta review of c6e2c711..61fb35fa against the judge's rework instructions. All five instruction groups are carried out. (1) client/render.js now paints ground for every tile, then strokes round-cap/round-join ribbons from map.roads (pavement (w+1)*T for w>=3 else w*T+6, then asphalt w*T, then the dashed centre-line for w>=3), then draws the other tile kinds on top, with each ribbon stroked in full per chunk so chunks join. A headless Chromium screenshot of Pulivendula at 1100x760 shows the diagonal road as a smooth ribbon, with compounds and buildings drawn over it. (2) Ambient traffic uses only w>=2 roads. (3) placeDocShops throws 'buildTown: placed N of 5 document shops' and placeBloTent throws 'buildTown: no spot for the BLO tent'. (4) test/world-roads.test.js adds the bridge test and the 'no building or wall under a major road' test exactly as specified, and test/world.test.js is untouched, so locked tests are not weakened. (5) Nits: hasOwnProperty in sim.js and main.js, pointInPolygon rename (no leftover reference; the remaining inRing is the barricade-ring local), loadMap caches the in-flight promise, map.attribution dropped (nothing read it; the JSON keeps it), README sentence reworded. Beyond the instructions there are only the allowed newShopPlot fallback with its test, plus two small extras: markPavements (keeps alley WALK tiles drawn as tiles, since the instruction list did not cover WALK) and hasOwnProperty in scripts/osm-to-town.js main (consistent with the nit). npm test (28 pass), npm run e2e (T-5 pass) and design_check (no findings) were run and are green. D-19, D-7 and D-18 still hold.",
+ "findings": [
+  {
+   "severity": "nit",
+   "location": "client/render.js:100-120",
+   "issue": "markPavements/pavedMask is a small addition not named in the judge's instruction: it decides which WALK tiles the ribbon already covers and keeps the other WALK tiles (alleys) drawn as tiles. It is reasonable and contained, and it does not change the contract or the sim.",
+   "fix": "None needed; optionally mention it in the CP-1 notes."
+  }
+ ]
+}

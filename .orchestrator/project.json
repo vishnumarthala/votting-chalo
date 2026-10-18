@@ -7,7 +7,7 @@
     "typecheck": "",
     "build": "",
     "run": "",
-    "e2e": "",
+    "e2e": "npm run e2e",
     "eval": "",
     "smoke_train": "",
     "bench": "",

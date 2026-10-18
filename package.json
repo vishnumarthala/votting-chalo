@@ -6,9 +6,13 @@
   "license": "UNLICENSED",
   "scripts": {
     "test": "node --test",
-    "serve": "node scripts/serve.js"
+    "serve": "node scripts/serve.js",
+    "e2e": "node --test e2e/*.spec.js"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "playwright-core": "1.56.1"
   }
 }

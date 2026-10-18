@@ -1,6 +1,6 @@
 # Votting Chalo 🗳️
 
-A satirical top-down game set in **your own Andhra Pradesh town**. Walk your candidate through the streets,
+A satirical top-down game set in **a real Andhra Pradesh town**. Walk your candidate through the streets,
 gather a crowd, dodge the police and rival goons, push through the Section 144 barricades, and reach the
 office before it closes.
 
@@ -10,12 +10,12 @@ office before it closes.
 - **Polling Day:** pick up your voter slip at the BLO tent, get past the goons "capturing" the booth, and
   cast your vote before 6 PM.
 
-Enter your **pincode** and the game builds a town for it: the same pincode always gives the same layout.
-Post-office names from India Post become the neighbourhood names, and your town, mandal and district
-appear in the dialogue.
+Pick your **town** in the menu. The map is built from OpenStreetMap data: the real streets, building
+outlines, river, bus station and neighbourhood names. Blocks with no mapped buildings are filled with
+generated houses. Your town, mandal and district appear in the dialogue. Pulivendula is playable now.
 
-> Satire. The Neelam Praja Party, its rivals and all characters, shops and events are fictional; no real
-> person or party is depicted.
+> Satire. All characters and the events shown are fictional; no real person is depicted.
+> Map data © OpenStreetMap contributors (ODbL).
 
 ## Play
 
@@ -23,8 +23,12 @@ No build step and no dependencies. You need Node 18 or newer for the dev server 
 
 ```bash
 npm run serve   # http://localhost:8080
-npm test        # node:test suites
+npm test        # node:test suites (no dependencies)
+npm run e2e     # the page in headless Chromium (needs `npm install` for playwright-core and a Chromium)
 ```
+
+`npm run e2e` uses Chromium at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`; set `CHROMIUM_PATH` to use another one.
+No browser is downloaded.
 
 | Action | Desktop | Touch |
 | --- | --- | --- |
@@ -59,37 +63,59 @@ and a deterministic simulation shared between browser and Node. All code, text a
 ```
 index.html          menu, pause, touch buttons, CSS
 shared/             DOM-free UMD modules (browser + Node)
-  world.js          seeded town generator, tile collision, BFS flow fields, line of sight, barricade ring
+  towns.js          the playable towns: names, map crop centre, RO office anchor
+  world.js          town builder, tile collision, BFS flow fields, line of sight, barricade ring
   content.js        all text and modes; {town} {mandal} {district} templating
   sim.js            30 Hz deterministic game: crowd, police, goons, gas, barricades, documents, filing
 client/
-  pincode.js        India Post lookup + Andhra Pradesh check + cache + offline district fallback
-  render.js         cached map chunks, people, sites, ring, gas, ambient autos, minimap, bubbles
+  render.js         cached map chunks, people, sites, ring, gas, ambient autos on the roads, minimap, bubbles
   hud.js            status, minimap, documents, objective arrow, missions, toasts, intro
   input.js          keyboard, mouse steering, touch joystick
   audio.js          Web Audio synthesized effects (no audio files)
-  main.js           loop, menu, events -> effects, leaderboard
-test/               world (40 seeds), sim rules, bot completion of both modes, pincode parsing
+  main.js           loop, town picker and menu, events -> effects, leaderboard per town
+data/
+  osm/              the osm.org exports, gzipped (input of the converter)
+  towns/            the town files the game loads (output of the converter)
+scripts/
+  osm-to-town.js    offline converter: data/osm/<id>.osm.gz -> data/towns/<id>.json
+  serve.js          static dev server
+test/               converter, town builder, sim rules, bot completion of both modes
+e2e/                the menu-to-play journey in headless Chromium
 ```
 
-### Town generator
+### Town data
 
-A 128×128-tile map (4096 px) built from the pincode seed:
+`node scripts/osm-to-town.js pulivendula` crops a 2.0 km square from the town's export and writes
+`data/towns/pulivendula.json`: roads with their class, building footprints, water, landmarks (police and bus
+stations, temples, hospitals, schools, government offices) and place names, in metres from the square's corner,
+plus the export's bounds and the OpenStreetMap attribution. The crop centre and the RO office anchor of each
+town are in `shared/towns.js`. The converter needs no dependencies. Ways with missing nodes keep the nodes
+that exist; input that is not an OSM export is rejected.
 
-- arterial roads with sidewalks, split into blocks by lanes;
-- a winding canal, with bridges wherever roads cross it;
-- houses with rooftop water tanks, parks, a temple, Rythu Bazar, bus stand and hospital;
-- walled compounds for the RO office and the polling booth, police stations, and the NPP party office
-  where you start;
-- five document shops spread across town, and the Section 144 ring.
+The page loads its scripts and the town file from its own server and makes no other requests; once a game is running it needs no connection.
 
-Tests check 40 seeds to confirm every site exists and is reachable from the start.
+### Town builder
+
+`World.buildTown(townData)` draws the 128×128-tile map (4096 px, about 15.6 m per tile) from a town file:
+
+- road centre-lines become road tiles: trunk, primary and secondary roads 3 tiles wide with pavements,
+  tertiary 2, residential and the rest 1-tile lanes; footways, paths and service roads are left out;
+- water becomes water tiles, with bridges wherever a road crosses;
+- mapped buildings become solid tiles, one block of tiles per footprint; blocks with no mapped building get generated
+  house plots, parks or, at the edge of town, open land;
+- the RO office and the polling booth are walled compounds placed in the largest clear space near their anchors,
+  mapped police and bus stations keep their real positions, and the party office (where you start) is in the corner
+  of town farthest from the RO office;
+- five document shops are spread across town, with the BLO tent and the patrol posts at road junctions.
+
+Building a town is deterministic: the same file always gives the same map.
 
 ### Simulation
 
-`Sim.createGame({ seed, mapSeed, place, mode, names })` advances with `step(input)`, where `input` is
+`Sim.createGame({ seed, town, mode, police, goons })` advances with `step(input)`, where `input` is
 `{ mx, my, run, act }`. The client reads `game.state` and drains `game.drainEvents()` for sounds, particles
-and toasts. The simulation never calls `Math.random`, so the same seed and inputs replay exactly. That
+and toasts. Node loads `data/towns/<town>.json` itself; the browser passes the fetched file as `townData`.
+The simulation never calls `Math.random`, so the same seed and inputs replay exactly. That
 makes it ready to run on a Node WebSocket server for online rooms, the way the original's sim does.
 
 ## Roadmap
