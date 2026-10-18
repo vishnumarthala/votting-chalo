@@ -14,11 +14,12 @@
   const cam = { x: 0, y: 0, shake: 0 };
   const chunks = new Map();
   let chunkRes = 0, time = 0, mini = null;
-  let particles = [], ambient = [], debris = [], hurtT = 0;
+  let particles = [], ambient = [], debris = [], hurtT = 0, clockSpin = 0;
   const bubbles = new Map();
   let bubbleSeq = 0;
   let freeMap = null, fields = new Map(), objSite = null, routeCache = {};
   const TAU = Math.PI * 2;
+  const NAVY = '#0f1b61', NAVY2 = '#1a2d8a', GREEN = '#00a651', GOLD = '#ffd700'; // YSRCP Germany brand colours
 
   function resize(q) {
     if (q) quality = q;
@@ -39,7 +40,7 @@
     G = game.state; map = G.map;
     chunks.clear(); particles = []; bubbles.clear(); debris = []; hurtT = 0;
     freeMap = Object.assign({}, map, { dyn: new Uint8Array(N * N) }); // plan through barricades: pushing breaks them
-    fields = new Map(); objSite = null; routeCache = {}; radarT = -1;
+    fields = new Map(); objSite = null; routeCache = {}; radarT = -1; gateSig = '';
     cam.x = G.player.x; cam.y = G.player.y;
     buildMini();
     const rng = makeRng(map.seed ^ 0xabc);
@@ -178,12 +179,13 @@
     const sw = -ph * 0.8;
     if (!o.hurt) for (const s of [-1, 1]) {
       const a = s < 0 ? sw : -sw, wind = o.windup && s > 0;
+      if (o.salute && s > 0) { blob(2, r * 0.7, 3.2, 2.4, o.sleeve || o.shirt); blob(4, 3.6, 2.1, 2.1, o.skin); continue; } // hand to the cap
       blob(wind ? -3 : a * 0.45, s * r * 0.86, 3.2, 2.4, o.sleeve || o.shirt);
       blob(wind ? -7 : a + 1, s * (r + (wind ? 2.5 : 0.6)), 2.1, 2.1, o.skin);
     }
     if (o.windup) { blob(-8.5, r + 3.5, 2.8, 2.6, '#9e9e9e', true); blob(-9.2, r + 2.8, 0.9, 0.9, '#e0e0e0'); }
     const hx = -sw + 1, hy = r + 0.6;
-    if (o.prop === 'lathi') { ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(hx - 3, hy + 1); ctx.lineTo(hx + 13, hy - 3); ctx.stroke(); ctx.strokeStyle = OUT; ctx.lineWidth = 1.1; }
+    if (o.prop === 'lathi' && !o.salute) { ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(hx - 3, hy + 1); ctx.lineTo(hx + 13, hy - 3); ctx.stroke(); ctx.strokeStyle = OUT; ctx.lineWidth = 1.1; }
     if (o.prop === 'papers') { ctx.save(); ctx.translate(hx + 3, hy - 1); ctx.rotate(-0.3); ctx.fillStyle = '#fff'; ctx.fillRect(-1, -3, 8, 6); ctx.strokeRect(-1, -3, 8, 6); ctx.fillStyle = '#90a4ae'; ctx.fillRect(1, -1, 4, 1); ctx.fillRect(1, 1, 3, 1); ctx.restore(); }
     // torso
     blob(0, 0, r * 0.56, r, o.shirt, true);
@@ -195,8 +197,9 @@
     }
     if (o.towel) { ctx.fillStyle = o.towel; ctx.fillRect(-3.5, -r * 1.02, 6, 4.5); ctx.strokeRect(-3.5, -r * 1.02, 6, 4.5); }
     if (o.belt) { ctx.fillStyle = o.belt; ctx.fillRect(-1, -r * 0.95, 2.2, r * 1.9); }
-    if (o.scarf) { // party kanduva around the neck
-      ctx.strokeStyle = o.scarf; ctx.lineWidth = 2.8; ctx.beginPath(); ctx.arc(0.5, 0, 5.4, -Math.PI * 0.75, Math.PI * 0.75); ctx.stroke();
+    if (o.scarf) { // party kanduva around the neck (YSRCP: green with a navy edge)
+      if (o.scarf === GREEN) { ctx.strokeStyle = NAVY; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0.5, 0, 5.4, -Math.PI * 0.75, Math.PI * 0.75); ctx.stroke(); }
+      ctx.strokeStyle = o.scarf; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.arc(0.5, 0, 5.4, -Math.PI * 0.75, Math.PI * 0.75); ctx.stroke();
       ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
     }
     if (o.garland) for (let i = 0; i < 9; i++) { const a = -Math.PI * 0.8 + (i * Math.PI * 1.6) / 8; blob(0.5 + Math.cos(a) * 6.3, Math.sin(a) * 6.3, 1.5, 1.5, i % 2 ? '#ffeb3b' : '#ff9800'); }
@@ -204,8 +207,9 @@
     if (o.prop === 'flag') {
       ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx - 6, hy + 6); ctx.stroke();
       const wv = Math.sin(time * 8 + e.id) * 1.5;
-      ctx.fillStyle = '#1e5bd8'; ctx.beginPath(); ctx.moveTo(hx - 6, hy + 6); ctx.lineTo(hx - 15, hy + 3 + wv); ctx.lineTo(hx - 14, hy + 9 + wv); ctx.lineTo(hx - 6, hy + 11); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx - 10, hy + 7 + wv * 0.5, 1.3, 0, TAU); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.moveTo(hx - 6, hy + 6); ctx.lineTo(hx - 15, hy + 3 + wv); ctx.lineTo(hx - 14, hy + 9 + wv); ctx.lineTo(hx - 6, hy + 11); ctx.closePath(); ctx.clip();
+      ctx.fillStyle = NAVY; ctx.fillRect(hx - 16, hy + 2 + wv, 11, 3.2); ctx.fillStyle = '#fff'; ctx.fillRect(hx - 16, hy + 5.2 + wv * 0.6, 11, 2.6); ctx.fillStyle = GREEN; ctx.fillRect(hx - 16, hy + 7.8 + wv * 0.3, 11, 4);
+      ctx.restore();
       ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
     }
     // head: face sliver at the front, hair or headgear on top
@@ -247,22 +251,24 @@
   function look(e) {
     const v = e.look || 0, id = e.id || 0;
     switch (e.kind) {
-      case 'player': return { shirt: '#fafafa', legs: '#eceff1', skin: '#9c6644', hair: '#1b1410', scarf: '#1e5bd8', garland: true, prop: 'papers' };
+      case 'player': return { shirt: '#fafafa', legs: '#eceff1', skin: '#9c6644', hair: '#1b1410', scarf: GREEN, garland: true, prop: 'papers' };
       case 'civ': {
         const type = e.type || (id % 3 === 1 ? 'woman' : 'man');
         let o;
         if (type === 'woman') o = { shirt: SAREES[(v + id) % 8], saree: SAREES[(v + id + 3) % 8], skin: SKIN[(v + id) % 5], hair: '#1b1410', bun: true };
         else if (type === 'child') o = { shirt: '#fafafa', legs: id % 2 ? '#1a237e' : '#5d4037', kidLegs: SKIN[(v + id) % 5], skin: SKIN[(v + id) % 5], hair: '#1b1410', satchel: id % 3 ? '#8d6e63' : '#c62828', scale: 0.74 };
         else o = { shirt: SHIRTS[(v + id) % 8], legs: LUNGI[id % 5], skin: SKIN[(v + id) % 5], hair: id % 7 === 0 ? '#9e9e9e' : '#1b1410', towel: id % 5 === 0 ? '#fafafa' : null };
-        if (e.mode === 'follow') { o.scarf = '#1e5bd8'; if (type === 'man' && id % 3 === 0) o.prop = 'flag'; }
+        if (e.mode === 'follow') { o.scarf = GREEN; if (type === 'man' && id % 3 === 0) o.prop = 'flag'; }
         if (e.mode === 'hurt') o.hurt = true;
         if (e.bandage) o.bandage = true;
         return o;
       }
-      case 'cop': return e.role === 'gas'
+      case 'cop': return Object.assign(e.role === 'gas'
         ? { shirt: '#b0915a', legs: '#9c7f4c', skin: '#8d5a3b', cap: '#1c2b4a', brim: '#0d1526', badge: '#ffd54f', belt: '#4e342e', prop: 'lathi' }
-        : { shirt: '#c8ab72', legs: '#b0915a', skin: '#8d5a3b', cap: '#a88a52', brim: '#4e3b1f', badge: '#ffd54f', belt: '#4e342e', prop: 'lathi' };
-      case 'goon': return { shirt: ['#263238', '#4a148c', '#3e2723', '#212121'][id % 4], legs: '#212121', skin: '#7b4a2e', hair: '#1b1410', bandana: '#c62828', chain: true, windup: e.throwT > 0 };
+        : { shirt: '#c8ab72', legs: '#b0915a', skin: '#8d5a3b', cap: '#a88a52', brim: '#4e3b1f', badge: '#ffd54f', belt: '#4e342e', prop: 'lathi' }, { salute: e.salute > 0 });
+      case 'official': return { shirt: '#eceff1', legs: '#5d4037', skin: '#a86b45', hair: '#616161', towel: null };
+      case 'goon': if (e.role === 'vip') return { shirt: '#fafafa', legs: '#fafafa', skin: '#8d5a3b', hair: '#424242', scarf: '#c62828', garland: true };
+        return { shirt: ['#263238', '#4a148c', '#3e2723', '#212121'][id % 4], legs: '#212121', skin: '#7b4a2e', hair: '#1b1410', bandana: '#c62828', chain: true, windup: e.throwT > 0 };
       default: return { shirt: '#999', legs: '#555', skin: '#8d5a3b', hair: '#1b1410' };
     }
   }
@@ -284,6 +290,82 @@
     if (!onGround) { ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(x - 2, y - 2, 1.2, 0, TAU); ctx.fill(); }
   }
 
+  // ------------------------------------------------------------ the gate showdown
+  function policeLine(b) { // cops with linked arms across the street; they part for the ruling front's guests
+    const g = G.gate, o = g ? g.out : { x: 0, y: 1 }, sd = { x: -o.y, y: o.x };
+    const parted = g && g.openT > 0, jig = b.pushT > 0 ? Math.sin(time * 50) * 1.5 : 0;
+    const n = b.tiles.length * 2, span = b.tiles.length * T - 14;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const k = (i / (n - 1) - 0.5) * span, push = parted ? Math.sign(k || 1) * 26 : 0;
+      pts.push([b.x + sd.x * (k + push) + jig * o.x, b.y + sd.y * (k + push) + jig * o.y]);
+    }
+    if (!parted) {
+      ctx.strokeStyle = '#c8ab72'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts) ctx.lineTo(p[0], p[1]); ctx.stroke();
+    }
+    for (const [x, y] of pts) person(x, y, { id: Math.round(x + y), fx: parted ? sd.x : o.x, fy: parted ? sd.y : o.y, vx: b.pushT > 0 ? 50 : 0, vy: 0 }, look({ kind: 'cop', role: 'patrol', salute: parted ? 1 : 0 }));
+    if (b.hp < b.max) {
+      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(b.x - 30, b.y - 34, 60, 7);
+      ctx.fillStyle = '#ff7043'; ctx.fillRect(b.x - 29, b.y - 33, 58 * (b.hp / b.max), 5);
+    }
+  }
+  function gateLabels() { // drawn above people so the crowd doesn't hide them
+    const g = G.gate, o = g.out;
+    const b = g.line && G.barrs.includes(g.line) ? g.line : null;
+    if (b) label(g.openT > 0 ? 'Make way for sir!' : 'POLICE LINE', b.x + o.x * 30, b.y + o.y * 30 - (b.hp < b.max ? 14 : 0), 11, '#fff', g.openT > 0 ? 'rgba(198,40,40,.9)' : 'rgba(21,101,192,.9)');
+    if (g.shut && g.openT <= 0) {
+      const gx = G.target.gate.x + o.x * 40, gy = G.target.gate.y + o.y * 40;
+      label('🔒 GATE SHUT: LUNCH BREAK', gx, gy - 6, 11, '#c62828', 'rgba(255,248,225,.95)');
+      if (g.pressure > 0) label('📣 ' + '●'.repeat(g.pressure) + '○'.repeat(Math.max(0, 4 - g.pressure)), gx, gy + 14, 11, '#fff', 'rgba(0,166,81,.92)');
+    }
+  }
+  function drawGate() {
+    const g = G.gate, o = g.out, sd = { x: -o.y, y: o.x };
+    // iron gate: bars across the three gate tiles when shut, swung open while "guests" pass
+    if (g.shut) {
+      const xs = g.tiles.map((j) => ((j % N) + 0.5) * T), ys = g.tiles.map((j) => (Math.floor(j / N) + 0.5) * T);
+      const cx = (xs[0] + xs[2]) / 2, cy = (ys[0] + ys[2]) / 2, half = 1.5 * T;
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.atan2(sd.y, sd.x));
+      const swing = g.openT > 0 ? 0.25 : 1;
+      ctx.fillStyle = '#263238';
+      for (const side of [-1, 1]) {
+        ctx.save(); ctx.translate(side * half, 0); ctx.scale(swing, 1);
+        ctx.fillRect(side < 0 ? 0 : -half, -4, half, 8);
+        for (let i = 3; i < half; i += 7) ctx.fillRect(side < 0 ? i : -i - 4, -13, 4, 26);
+        ctx.fillStyle = '#ffca28'; ctx.fillRect(side < 0 ? half - 6 : -half, -2, 6, 4); ctx.fillStyle = '#263238';
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+    // the side wicket
+    const w = g.wicket;
+    if (w) {
+      const locked = map.dyn[w.tile] === 2;
+      ctx.fillStyle = locked ? '#5d4037' : 'rgba(93,64,55,.35)'; ctx.fillRect(w.x - 12, w.y - 12, 24, 24);
+      if (locked) label('🔒', w.x, w.y, 12, '#000');
+      else label('Side wicket', w.x + w.out.x * 24, w.y + w.out.y * 24, 10, '#fff', 'rgba(93,64,55,.9)');
+    }
+    // the office wall clock (runs fast, only today) and the clerk's desk
+    const t = G.target, inv = { x: -o.x, y: -o.y }, ck = { x: t.x + inv.x * 66, y: t.y + inv.y * 66 };
+    const M = G.M, mins = M.clockStart + (M.clockEnd - M.clockStart) * (G.elapsed / M.time) - clockSpin * 16; // hands race forward after a jump
+    clockSpin = Math.max(0, clockSpin - 1 / 60);
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ck.x, ck.y, 13, 0, TAU); ctx.fill();
+    ctx.strokeStyle = clockSpin > 0 ? '#c62828' : '#263238'; ctx.lineWidth = 2.5; ctx.stroke();
+    const ha = ((mins / 60) % 12) / 12 * TAU - Math.PI / 2, ma = ((mins % 60) / 60) * TAU - Math.PI / 2;
+    ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(ck.x, ck.y); ctx.lineTo(ck.x + Math.cos(ha) * 6, ck.y + Math.sin(ha) * 6); ctx.stroke();
+    ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ck.x, ck.y); ctx.lineTo(ck.x + Math.cos(ma) * 10, ck.y + Math.sin(ma) * 10); ctx.stroke();
+    const clerk = G.ents.find((e) => e.kind === 'official');
+    if (clerk) {
+      const dx = clerk.x - inv.x * 14, dy = clerk.y - inv.y * 14;
+      ctx.save(); ctx.translate(dx, dy); ctx.rotate(Math.atan2(sd.y, sd.x));
+      ctx.fillStyle = '#8d6e63'; ctx.fillRect(-22, -6, 44, 12); ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.strokeRect(-22, -6, 44, 12);
+      ctx.fillStyle = '#fff'; ctx.fillRect(-14, -4, 8, 6); ctx.fillRect(4, -3, 10, 5);
+      ctx.restore();
+      if (G.player.stallT > 0) label(G.gameMode === 'vote' ? '⏸ ⚙️' : '⏸ ☕', clerk.x, clerk.y - 22, 12, '#000', 'rgba(255,248,225,.95)');
+    }
+  }
+
   // ------------------------------------------------------------ fx api
   function burst(x, y, n, colors, speed, size) {
     for (let i = 0; i < n; i++) {
@@ -300,6 +382,7 @@
   function shake(a) { cam.shake = Math.max(cam.shake, a); }
   function addDebris(x, y, kind) { debris.push({ x, y, kind, rot: Math.random() * TAU, life: 6 }); if (debris.length > 40) debris.shift(); }
   function hurtFlash(a) { hurtT = Math.max(hurtT, a || 0.6); }
+  function clockJump() { clockSpin = 1.2; }
 
   // ------------------------------------------------------------ text helpers
   function rr(x, y, w, h, r) {
@@ -320,7 +403,20 @@
   }
   const tileOf = (x, y) => Math.max(0, Math.min(N - 1, Math.floor(y / T))) * N + Math.max(0, Math.min(N - 1, Math.floor(x / T)));
   // Nearest missing document by walking distance (sticky, so it doesn't flicker between two shops), else the goal.
+  let gateSig = '';
+  function syncGate() { // the shut gate and the locked wicket can't be pushed: plan around them
+    const g = G.gate;
+    const tiles = g ? g.tiles.concat(g.wicket ? [g.wicket.tile] : []) : [];
+    let sig = '';
+    for (const j of tiles) sig += map.dyn[j];
+    if (sig === gateSig) return;
+    gateSig = sig;
+    freeMap.dyn = new Uint8Array(N * N);
+    for (const j of tiles) if (map.dyn[j] === 2) freeMap.dyn[j] = 1;
+    fields = new Map(); routeCache = {}; radarT = -1;
+  }
   function objective() {
+    syncGate();
     const P = G.player, here = tileOf(P.x, P.y);
     const missing = G.docSites.filter((s) => !P.docs.includes(s.doc));
     let site = G.target;
@@ -335,7 +431,7 @@
     return {
       site, x: site.x, y: site.y, goal,
       name: goal ? G.M.goal : site.doc, where: goal ? (G.gameMode === 'vote' ? 'Stand in the blue circle to vote' : 'Stand in the blue circle to file') : site.name,
-      icon: goal ? (G.gameMode === 'vote' ? '🗳️' : '🏛️') : '📄', color: goal ? '#64b5f6' : '#ffd54f',
+      icon: goal ? (G.gameMode === 'vote' ? '🗳️' : '🏛️') : '📄', color: goal ? GOLD : '#ffb74d',
     };
   }
   // Route from the player to the objective as world points, following the distance field (smoothed).
@@ -417,11 +513,11 @@
     ctx.globalAlpha = 1;
     const y = o.y - (o.goal ? 92 : 98) + bob;
     ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 2, 10 - bob * 0.5, 4, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = o.goal ? '#1e5bd8' : '#f9a825'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+    ctx.fillStyle = o.goal ? NAVY2 : '#f9a825'; ctx.strokeStyle = o.goal ? GOLD : '#fff'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(o.x, y, 17, Math.PI * 0.8, Math.PI * 0.2); ctx.lineTo(o.x, y + 30); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
     label(o.icon, o.x, y, 17, '#000');
-    label('NEXT', o.x, y - 27, 10, '#fff', o.goal ? 'rgba(30,91,216,.95)' : 'rgba(191,120,0,.95)');
+    label('NEXT', o.x, y - 27, 10, o.goal ? GOLD : '#fff', o.goal ? 'rgba(15,27,97,.95)' : 'rgba(191,120,0,.95)');
   }
 
   // ------------------------------------------------------------ frame
@@ -479,6 +575,7 @@
     // barricades
     for (const b of G.barrs) {
       if (!inView(b.x, b.y, 200)) continue;
+      if (b.kind === 'police') { policeLine(b); continue; }
       const jig = b.pushT > 0 ? Math.sin(time * 60) * 2 : 0;
       for (const j of b.tiles) {
         const x = (j % N) * T + jig, y = Math.floor(j / N) * T;
@@ -494,6 +591,8 @@
         ctx.fillStyle = '#ff7043'; ctx.fillRect(b.x - 23, b.y - 29, 46 * (b.hp / b.max), 5);
       }
     }
+
+    if (G.gate) drawGate();
 
     // sites
     for (const st of map.sites) {
@@ -517,17 +616,17 @@
           ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(st.x, st.y, st.r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, P.collect.t / 1.2)); ctx.stroke();
         }
       } else if (st === tg) {
-        ctx.fillStyle = 'rgba(30,91,216,.22)'; ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(30,91,216,.8)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(26,45,138,.22)'; ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(26,45,138,.85)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.stroke(); ctx.setLineDash([]);
         if (P.submitT > 0) { ctx.strokeStyle = '#66bb6a'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(st.x, st.y, st.r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, P.submitT / G.M.hold)); ctx.stroke(); }
         label(G.gameMode === 'vote' ? '🗳️' : '🏛️', st.x, st.y - 8, 26, '#000');
-        label(G.gameMode === 'vote' ? 'POLLING BOOTH' : 'RETURNING OFFICER', st.x, st.y + 22, 11, '#fff', 'rgba(29,59,112,.9)');
+        label(G.gameMode === 'vote' ? 'POLLING BOOTH' : 'RETURNING OFFICER', st.x, st.y + 22, 11, '#fff', 'rgba(15,27,97,.92)');
       } else if (st.kind === 'station') {
         label('🚓 Police Station', st.x, st.y - 6, 11, '#fff', 'rgba(21,101,192,.85)');
       } else if (st.kind === 'start') {
         ctx.fillStyle = '#6d4c41'; ctx.fillRect(st.x - 1, st.y - 40, 3, 34);
-        ctx.fillStyle = '#1e5bd8'; ctx.fillRect(st.x + 2, st.y - 40, 22, 14);
-        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(st.x + 13, st.y - 33, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = NAVY; ctx.fillRect(st.x + 2, st.y - 40, 22, 5); ctx.fillStyle = '#fff'; ctx.fillRect(st.x + 2, st.y - 35, 22, 4); ctx.fillStyle = GREEN; ctx.fillRect(st.x + 2, st.y - 31, 22, 5);
+        ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(st.x + 13, st.y - 33, 2, 0, Math.PI * 2); ctx.fill();
       }
     }
     // names on landmark roofs
@@ -593,7 +692,7 @@
       ctx.fillStyle = '#1565c0'; ctx.fillRect(px - 26, py - 4, 52, 6);
       ctx.fillStyle = Math.floor(time * 6) % 2 ? '#e53935' : '#1e88e5'; ctx.fillRect(px - 6, py - 20, 12, 5);
     } else {
-      const glow = P.grab > 0 ? `rgba(229,57,53,${0.4 + 0.3 * Math.sin(time * 20)})` : 'rgba(30,91,216,.35)';
+      const glow = P.grab > 0 ? `rgba(229,57,53,${0.4 + 0.3 * Math.sin(time * 20)})` : 'rgba(0,166,81,.38)';
       ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(px, py, 18 + Math.sin(time * 4) * 2, 0, Math.PI * 2); ctx.fill();
       if (P.guardT > 0) { // the crowd closes ranks
         ctx.save(); ctx.globalAlpha = Math.min(1, P.guardT); ctx.setLineDash([6, 5]); ctx.lineDashOffset = -time * 30;
@@ -603,6 +702,11 @@
       person(px, py, P, look(P));
       ctx.globalAlpha = 1;
       if (P.daze > 0) dazeStars(px, py - 15, 4);
+      if (P.state === 'frisk') { // a cop "verifies" the papers
+        const fx = P.fy === undefined ? 0 : -P.fy, fy = P.fx || 1, cx = px + fx * 18, cy = py + fy * 18;
+        person(cx, cy, { id: -1, fx: -fx, fy: -fy, vx: Math.sin(time * 9) * 40, vy: 0 }, look({ kind: 'cop', role: 'patrol' }));
+        label('🔍', cx, cy - 18, 12, '#000');
+      }
     }
     // stones, sticks and chappals in flight
     for (const pj of G.projs) {
@@ -613,6 +717,7 @@
       missile(pj.kind, gx, gy - z, time * 14 + pj.id, false);
     }
     if (guideObj && inView(guideObj.x, guideObj.y, 160)) drawBeacon(guideObj);
+    if (G.gate) gateLabels();
 
     // particles
     for (let i = particles.length - 1; i >= 0; i--) {
@@ -692,13 +797,13 @@
       if (big) { label(have ? '✅' : '📄', X(s.x), Y(s.y), 15, '#000'); if (!have) tag(s.doc, s.x, s.y, 15, 10, 'rgba(120,80,0,.9)'); }
       else if (!have) { ctx.fillStyle = '#ffd54f'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.fillRect(X(s.x) - 3.5, Y(s.y) - 3.5, 7, 7); ctx.strokeRect(X(s.x) - 3.5, Y(s.y) - 3.5, 7, 7); }
     }
-    if (big) { label(G.gameMode === 'vote' ? '🗳️' : '🏛️', X(G.target.x), Y(G.target.y), 20, '#000'); tag(G.M.goal, G.target.x, G.target.y, 18, 11, 'rgba(29,59,112,.95)'); }
-    else { ctx.fillStyle = '#1e5bd8'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.fillRect(X(G.target.x) - 4.5, Y(G.target.y) - 4.5, 9, 9); ctx.strokeRect(X(G.target.x) - 4.5, Y(G.target.y) - 4.5, 9, 9); }
+    if (big) { label(G.gameMode === 'vote' ? '🗳️' : '🏛️', X(G.target.x), Y(G.target.y), 20, '#000'); tag(G.M.goal, G.target.x, G.target.y, 18, 11, 'rgba(15,27,97,.95)'); }
+    else { ctx.fillStyle = NAVY2; ctx.strokeStyle = GOLD; ctx.lineWidth = 1.5; ctx.fillRect(X(G.target.x) - 4.5, Y(G.target.y) - 4.5, 9, 9); ctx.strokeRect(X(G.target.x) - 4.5, Y(G.target.y) - 4.5, 9, 9); }
     // people nearby
     if (!big) for (const e of G.ents) {
       if (e.kind === 'civ' && e.mode !== 'follow') continue;
       if (clipR && Math.hypot(e.x - P.x, e.y - P.y) > clipR) continue;
-      ctx.fillStyle = e.kind === 'cop' ? '#e53935' : e.kind === 'goon' ? '#212121' : '#90caf9';
+      ctx.fillStyle = e.kind === 'cop' ? '#e53935' : e.kind === 'goon' ? '#212121' : '#69f0ae';
       ctx.beginPath(); ctx.arc(X(e.x), Y(e.y), e.kind === 'civ' ? 1.4 : 2.2, 0, TAU); ctx.fill();
     }
     // objective ring
@@ -708,10 +813,10 @@
     // player: arrow in the facing direction
     const a = Math.atan2(P.fy === undefined ? 1 : P.fy, P.fx || 0), s = big ? 1.5 : 1;
     ctx.save(); ctx.translate(X(P.x), Y(P.y)); ctx.rotate(a); ctx.scale(s, s);
-    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1e5bd8'; ctx.lineWidth = 2;
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = GREEN; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, -5); ctx.lineTo(-2.5, 0); ctx.lineTo(-5, 5); ctx.closePath(); ctx.stroke(); ctx.fill();
     ctx.restore();
-    if (big) tag('YOU', P.x, P.y, -16, 10, 'rgba(30,91,216,.95)');
+    if (big) tag('YOU', P.x, P.y, -16, 10, 'rgba(0,166,81,.95)');
   }
   function blitMini(ox, oy, sc, x, y, w, h) {
     // draw the part of the town image that falls inside the screen rect (x, y, w, h)
@@ -775,7 +880,7 @@
 
   window.Render = {
     init(canvas) { cv = canvas; ctx = cv.getContext('2d'); resize(); },
-    resize, setGame, draw, drawRadar, drawBigMap, objective, burst, popup, say, shake, worldToScreen, addDebris, hurtFlash,
+    resize, setGame, draw, drawRadar, drawBigMap, objective, burst, popup, say, shake, worldToScreen, addDebris, hurtFlash, clockJump,
     setBottomPad(px) { bottomPad = Math.max(0, px || 0); resize(); },
     get ctx() { return ctx; }, get DPR() { return DPR; }, get W() { return W; }, get H() { return H; }, get zoom() { return zoom; },
     get quality() { return quality; }, get bottomPad() { return bottomPad; },

@@ -37,7 +37,20 @@
     return o.isTouch ? Math.max(0.74, Math.min(1, short / 470)) : Math.max(0.62, Math.min(1, short / 760));
   }
   const metres = (G, o) => Math.round(Math.hypot(o.x - G.player.x, o.y - G.player.y) / 8);
+  // the gate showdown overrides the NEXT banner while it is in your way
+  function gateStep(G, o) {
+    const g = G.gate, P = G.player;
+    if (!g || !o.goal) return null;
+    const m = metres(G, o) + ' m';
+    if (P.state === 'frisk') return { main: 'Papers check at the gate', sub: 'A cop is "verifying" your papers… wait' };
+    if (P.stallT > 0) return { main: 'Hold the counter', sub: 'Clerk: "' + g.stallText + '"' + (P.followers.some((f) => f.inner !== false) ? ' · your proposers argue' : '') };
+    if (g.phase === 'line' && g.line && !g.inside) return { main: 'Push through the police line', sub: 'Bring your crowd: they push much faster · or slip through when it parts for "guests" · ' + m };
+    if (g.shut && !g.inside) return { main: 'Gate shut for "lunch"!', sub: 'Chant with 8+ supporters (' + g.pressure + '/4) · side wicket · or slip in behind "guests"' };
+    return null;
+  }
   function nextLine(G, o) {
+    const gs = gateStep(G, o);
+    if (gs) return gs.main;
     if (o.goal) return G.gameMode === 'vote' ? 'Cast your vote at the ' + G.M.goal : 'File your nomination at the ' + G.M.goal;
     return 'Get the ' + o.name;
   }
@@ -68,7 +81,7 @@
     if (demoPulse > 0) { ctx.fillStyle = `rgba(239,83,80,${demoPulse * 0.5})`; rr(ctx, x - 6, y - (compact ? 9 : 12), w + 12, compact ? 20 : 30, 6); ctx.fill(); }
     if (compact) {
       text(ctx, '🗳️', x, y + 1, 11);
-      bar(ctx, x + 17, y - 4, w - 75, 9, v / 100, col);
+      bar(ctx, x + 17, y - 4, w - 100, 9, v / 100, col);
       text(ctx, Math.round(v) + '%', x + w - 54, y + 1, 10.5, col, 'right', 900);
       ecg(ctx, x + w - 50, y, 50, 14, v);
       return;
@@ -92,7 +105,9 @@
     const nw = ctx.measureText('NEXT ').width;
     text(ctx, nextLine(G, o), tx + nw + 2, y + 13, 13.5, '#fff', 'left', 900, tw - nw - 2);
     let sub;
-    if (P.collect && P.collect.site === o.site) sub = 'Collecting… stay here';
+    const gs = gateStep(G, o);
+    if (gs) sub = gs.sub;
+    else if (P.collect && P.collect.site === o.site) sub = 'Collecting… stay here';
     else if (o.goal && P.submitT > 0) sub = 'Hold your ground!';
     else sub = (o.goal ? o.where : 'at ' + o.where) + ' · ' + metres(G, o) + ' m · follow the arrows';
     text(ctx, sub, tx, y + h - 13, 11.5, '#ffe0b2', 'left', 700, tw);
@@ -104,7 +119,7 @@
       if (s === o.site) { ctx.strokeStyle = o.color; ctx.lineWidth = 2; rr(ctx, cx - 1.5, y + h / 2 - 6.5, 13, 13, 4); ctx.stroke(); }
       cx += 13;
     }
-    ctx.fillStyle = G.mode === 'won' ? '#66bb6a' : o.goal ? '#1e5bd8' : 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.arc(cx + 5, y + h / 2, 5.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = G.mode === 'won' ? '#66bb6a' : o.goal ? '#1a2d8a' : 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.arc(cx + 5, y + h / 2, 5.5, 0, Math.PI * 2); ctx.fill();
     if (o.goal) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); }
   }
 
@@ -200,7 +215,7 @@
         if (s > 1e-6) k = Math.min(k, (box.b - cy) / s); else if (s < -1e-6) k = Math.min(k, (box.t - cy) / s);
         const ax = cx + c * k, ay = cy + s * k;
         ctx.save(); ctx.translate(ax, ay); ctx.rotate(ang);
-        ctx.fillStyle = obj.goal ? 'rgba(30,91,216,.95)' : 'rgba(249,168,37,.95)'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5;
+        ctx.fillStyle = obj.goal ? 'rgba(26,45,138,.95)' : 'rgba(249,168,37,.95)'; ctx.strokeStyle = obj.goal ? '#ffd700' : '#fff'; ctx.lineWidth = 2.5;
         ctx.beginPath(); ctx.moveTo(20, 0); ctx.lineTo(-10, -14); ctx.lineTo(-4, 0); ctx.lineTo(-10, 14); ctx.closePath(); ctx.stroke(); ctx.fill();
         ctx.restore();
         const lbl = obj.icon + ' ' + metres(G, obj) + ' m';
@@ -239,8 +254,9 @@
     if (P.submitT > 0) {
       const by2 = BOT - (touch ? 190 : 60);
       panel(ctx, cx - cw(340) / 2, by2 - 26, cw(340), 52);
-      text(ctx, G.gameMode === 'vote' ? 'Casting your vote… hold your ground!' : 'Filing nomination… hold the counter!', cx, by2 - 8, 14, '#c5e1a5', 'center', 900, cw(340) - 20);
-      bar(ctx, cx - cw(300) / 2, by2 + 8, cw(300), 10, P.submitT / G.M.hold, '#66bb6a');
+      const stalled = P.stallT > 0 && G.gate;
+      text(ctx, stalled ? '⏸ Clerk: "' + G.gate.stallText + '"' : G.gameMode === 'vote' ? 'Casting your vote… hold your ground!' : 'Filing nomination… hold the counter!', cx, by2 - 8, 14, stalled ? '#ffcc80' : '#c5e1a5', 'center', 900, cw(340) - 20);
+      bar(ctx, cx - cw(300) / 2, by2 + 8, cw(300), 10, P.submitT / G.M.hold, stalled ? '#ffb300' : '#66bb6a');
     }
 
     // ---- toasts
@@ -301,13 +317,15 @@
     let y = Math.max(8, (VH - h) / 2);
     ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, 0, VW, VH);
     ctx.fillStyle = '#f6eedd'; rr(ctx, x, y, w, h, 16); ctx.fill();
-    ctx.fillStyle = '#1e5bd8'; rr(ctx, x, y, w, 10, 5); ctx.fill();
-    text(ctx, M.title.toUpperCase() + ' · ' + G.place.town, x + w / 2, y + 34, 19, '#0f2f6e', 'center', 900, inner);
+    const band = ctx.createLinearGradient(x, 0, x + w, 0);
+    band.addColorStop(0, '#0f1b61'); band.addColorStop(0.45, '#1a2d8a'); band.addColorStop(0.75, '#00a651'); band.addColorStop(1, '#ffd700');
+    ctx.fillStyle = band; rr(ctx, x, y, w, 10, 5); ctx.fill();
+    text(ctx, M.title.toUpperCase() + ' · ' + G.place.town, x + w / 2, y + 34, 19, '#0f1b61', 'center', 900, inner);
     let cy = y + 62;
     intro.forEach((l) => { text(ctx, l, x + w / 2, cy, 14, '#3e2f22', 'center', 700); cy += 19; });
     cy += 10;
     steps.forEach((s, i) => {
-      ctx.fillStyle = '#1e5bd8'; ctx.beginPath(); ctx.arc(x + pad + 10, cy + 2, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#00a651'; ctx.beginPath(); ctx.arc(x + pad + 10, cy + 2, 10, 0, Math.PI * 2); ctx.fill();
       text(ctx, String(i + 1), x + pad + 10, cy + 3, 12, '#fff', 'center', 900);
       text(ctx, s[0], x + pad + 34, cy + 2, 15, '#000', 'center');
       text(ctx, s[1], x + pad + 50, cy + 2, 13.5, '#1d1a16', 'left', 800, inner - 52);

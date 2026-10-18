@@ -236,7 +236,30 @@
       let zx = (bx + bw / 2) * TILE, zy = (by + bh / 2) * TILE;
       if (gate.side === 'n') zy = (by - 1) * TILE; else if (gate.side === 's') zy = (by + bh + 1) * TILE;
       else if (gate.side === 'w') zx = (bx - 1) * TILE; else zx = (bx + bw + 1) * TILE;
-      return { kind, name, x: zx, y: zy, r: 52, gate: { x: (gx + 0.5) * TILE, y: (gy + 0.5) * TILE }, rect: { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 }, bld };
+      // gate tiles, the outward direction, and a 1-tile side wicket on a neighbouring wall
+      const gateTiles = [];
+      for (let d = -1; d <= 1; d++) gateTiles.push(gate.side === 'n' || gate.side === 's' ? idx(gx + d, gy) : idx(gx, gy + d));
+      const out = { n: { x: 0, y: -1 }, s: { x: 0, y: 1 }, w: { x: -1, y: 0 }, e: { x: 1, y: 0 } }[gate.side];
+      const walkOut = (k) => k === K.WALK || k === K.ROAD || k === K.BRIDGE || k === K.PLAZA || k === K.PARK;
+      const sides = gate.side === 'n' || gate.side === 's' ? ['w', 'e', gate.side === 'n' ? 's' : 'n'] : ['n', 's', gate.side === 'w' ? 'e' : 'w'];
+      let wicket = null;
+      for (const sd of sides) {
+        const o = { n: { x: 0, y: -1 }, s: { x: 0, y: 1 }, w: { x: -1, y: 0 }, e: { x: 1, y: 0 } }[sd];
+        const cands = [];
+        if (sd === 'n' || sd === 's') { const wy = sd === 'n' ? r.y0 : r.y1; for (let x = r.x0 + 2; x <= r.x1 - 2; x++) cands.push([x, wy]); }
+        else { const wx = sd === 'w' ? r.x0 : r.x1; for (let y = r.y0 + 2; y <= r.y1 - 2; y++) cands.push([wx, y]); }
+        const mid = cands[Math.floor(cands.length / 2)] || [0, 0];
+        cands.sort((p, q) => Math.abs(p[0] - mid[0]) + Math.abs(p[1] - mid[1]) - (Math.abs(q[0] - mid[0]) + Math.abs(q[1] - mid[1])));
+        for (const [wx, wy] of cands) {
+          if (walkOut(get(wx + o.x, wy + o.y)) && get(wx - o.x, wy - o.y) === K.PLAZA) {
+            set(wx, wy, K.PLAZA);
+            wicket = { x: (wx + 0.5) * TILE, y: (wy + 0.5) * TILE, tile: idx(wx, wy), out: o, side: sd };
+            break;
+          }
+        }
+        if (wicket) break;
+      }
+      return { kind, name, x: zx, y: zy, r: 52, gate: { x: (gx + 0.5) * TILE, y: (gy + 0.5) * TILE }, gateTiles, out, wicket, rect: { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 }, bld };
     }
 
     const office = officeR ? compound(officeR, 'office', 'RO Office', '#f5e6c8') : null;
@@ -264,8 +287,8 @@
       const bw = Math.max(2, Math.min(6, r.x1 - r.x0 - 1)), bh = Math.max(2, Math.min(4, r.y1 - r.y0 - 1));
       const bx = r.x0 + 1, by = r.y0 + 1;
       for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) set(x, y, K.BUILD);
-      buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#bbdefb', kind: 'party', name: 'NPP Party Office' });
-      start = { kind: 'start', name: 'NPP Party Office', x: (bx + bw / 2) * TILE, y: Math.min(r.y1 + 0.5, by + bh + 1) * TILE, r: 40 };
+      buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#c5cae9', kind: 'party', name: 'YSRCP Party Office' });
+      start = { kind: 'start', name: 'YSRCP Party Office', x: (bx + bw / 2) * TILE, y: Math.min(r.y1 + 0.5, by + bh + 1) * TILE, r: 40 };
       sites.push(start);
     }
 

@@ -174,7 +174,7 @@ test('barricades fall to pushing, much faster with a crowd', () => {
 });
 
 test('the office refuses incomplete documents; with all of them you hold the counter and win', () => {
-  const g = play({ police: false, goons: false, civilians: 0 });
+  const g = play({ police: false, goons: false, civilians: 0, gate: false });
   const G = g.state, P = G.player;
   place(P, G.target.x, G.target.y);
   const ev = steps(g, 30 * 3);
@@ -347,8 +347,184 @@ test('the result carries what the front page needs', () => {
   g.state.timer = 0.05;
   steps(g, 3);
   const r = g.state.result;
-  for (const k of ['demo', 'thrown', 'hits', 'civHurt', 'protected', 'arrests', 'barricades', 'closest', 'goal']) assert.ok(k in r, k);
+  for (const k of ['demo', 'thrown', 'hits', 'civHurt', 'protected', 'arrests', 'barricades', 'closest', 'goal', 'gateStops', 'stalls', 'frisks', 'clockJump']) assert.ok(k in r, k);
   assert.ok(r.closest > 0);
+});
+
+// ---------------------------------------------------------------- the gate showdown
+const out = (g, d) => { const T = g.state.target; return { x: T.gate.x + T.out.x * d, y: T.gate.y + T.out.y * d }; };
+const only = (g, keep) => { g.state.ents = g.state.ents.filter((e) => e.kind === 'civ' || e.kind === 'official' || keep(e)); };
+function shutGate(g) {
+  const P = g.state.player, G = g.state;
+  const a = out(g, 180); place(P, a.x, a.y); steps(g, 1);
+  if (G.gate.line) { g._test.breakBarricade(G.gate.line); steps(g, 1); }
+  const b = out(g, 90); place(P, b.x, b.y); steps(g, 1);
+  assert.equal(G.gate.phase, 'shut');
+}
+
+test('a police line forms at the gate; a crowd pushes through far faster than one person, under lathis', () => {
+  const push = (crowd) => {
+    const g = play({ goons: false, civilians: 60 });
+    const G = g.state, P = G.player, T = G.target;
+    only(g, () => false);
+    const a = out(g, 72); place(P, a.x, a.y);
+    if (crowd) for (const c of loneMen(g).slice(0, 10)) { g._test.join(c); place(c, P.x + T.out.x * 10, P.y + T.out.y * 10); }
+    let ev = steps(g, 1);
+    assert.equal(G.gate.phase, 'line');
+    const line = G.gate.line;
+    assert.equal(line.kind, 'police');
+    assert.equal(G.map.dyn[line.tiles[0]], 3);
+    let n = 0;
+    while (G.barrs.includes(line) && n < 30 * 20) { ev = ev.concat(steps(g, 1, inp({ mx: -T.out.x, my: -T.out.y }))); n++; }
+    return { broken: !G.barrs.includes(line), n, lathi: ev.some((e) => e.t === 'lathi') };
+  };
+  const alone = push(false), crowd = push(true);
+  assert.ok(!alone.broken, 'one person cannot break the line in 20 s');
+  assert.ok(crowd.broken && crowd.n < 30 * 8, `crowd broke it in ${crowd.n} ticks`);
+  assert.ok(crowd.lathi, 'the line lathis supporters');
+});
+
+test('the gate shuts in your face; 4 slogans with 8+ supporters open it, a small crowd cannot', () => {
+  const g = play({ police: false, goons: false, civilians: 60 });
+  const G = g.state, P = G.player;
+  shutGate(g);
+  for (const j of G.gate.tiles) assert.equal(G.map.dyn[j], 2);
+  assert.equal(G.map.dyn[G.gate.wicket.tile], 0, 'the side wicket is left open');
+  const men = loneMen(g);
+  for (const c of men.slice(0, 3)) { g._test.join(c); place(c, P.x, P.y); }
+  let ev = steps(g, 1, inp({ act: true }));
+  assert.equal(G.gate.pressure, 0);
+  assert.ok(ev.some((e) => e.t === 'toast' && /8\+/.test(e.text)));
+  for (const c of men.slice(3, 12)) { g._test.join(c); place(c, P.x, P.y); }
+  steps(g, 80); // slogan cooldown
+  ev = [];
+  for (let k = 0; k < 4; k++) { ev = ev.concat(steps(g, 1, inp({ act: true }))); ev = ev.concat(steps(g, 80)); }
+  assert.equal(G.gate.phase, 'open');
+  assert.ok(ev.some((e) => e.t === 'gateopen'));
+  for (const j of G.gate.tiles) assert.equal(G.map.dyn[j], 0);
+});
+
+test('with the gate shut, the side wicket still leads to the counter', () => {
+  const g = play({ police: false, goons: false, civilians: 0 });
+  const G = g.state, T = G.target;
+  const before = W.field(G.map, [[Math.floor(T.x / TILE), Math.floor(T.y / TILE)]]);
+  const w = T.wicket;
+  shutGate(g);
+  const f = W.field(G.map, [[Math.floor(T.x / TILE), Math.floor(T.y / TILE)]]);
+  const o = out(g, 96), oi = Math.floor(o.y / TILE) * N + Math.floor(o.x / TILE);
+  assert.ok(f[oi] > 0, 'reachable from outside the gate');
+  assert.ok(f[oi] > before[oi], 'but the way round is longer');
+  assert.ok(f[w.tile] > 0, 'through the wicket');
+});
+
+test('the gate and the police line part for the ruling front\u2019s guests, the police salute, and you can slip in behind', () => {
+  const g = play({ civilians: 0 });
+  const G = g.state, P = G.player, T = G.target;
+  only(g, (e) => e.role === 'vip' || e.role === 'guard' && !e.wicketCop);
+  shutGate(g);
+  const vip = G.ents.find((e) => e.role === 'vip');
+  const v = out(g, 50); place(vip, v.x, v.y); vip.wp = 1; vip.dir = 1; vip.wait = 0;
+  const ev = steps(g, 1);
+  assert.ok(G.gate.openT > 0);
+  assert.ok(ev.some((e) => e.t === 'vipgate'));
+  assert.ok(G.ents.some((e) => e.kind === 'cop' && e.salute > 0), 'a cop salutes');
+  for (const j of G.gate.tiles) assert.equal(G.map.dyn[j], 0);
+  const a = out(g, 36); place(P, a.x, a.y);
+  for (let i = 0; i < 40 && !G.gate.inside; i++) steps(g, 1, inp({ mx: -T.out.x, my: -T.out.y }));
+  assert.ok(G.gate.inside, 'slipped in');
+});
+
+test('only the candidate and four supporters go in; the rest wait at the gate and rejoin outside', () => {
+  const g = play({ police: false, goons: false, civilians: 60 });
+  const G = g.state, P = G.player, T = G.target;
+  for (const c of loneMen(g).slice(0, 9)) g._test.join(c);
+  const inPt = { x: T.gate.x - T.out.x * 50, y: T.gate.y - T.out.y * 50 };
+  place(P, inPt.x, inPt.y);
+  for (const f of P.followers) place(f, P.x, P.y);
+  const ev = steps(g, 1);
+  assert.ok(G.gate.inside);
+  assert.equal(P.followers.filter((f) => f.inner !== false).length, 4);
+  assert.ok(ev.some((e) => e.t === 'toast' && /\+ 4/.test(e.text)));
+  steps(g, 30 * 6);
+  const insideNow = P.followers.filter((f) => g._test.inCompound(f.x, f.y)).length;
+  assert.ok(insideNow <= 4, `${insideNow} supporters inside`);
+  assert.equal(P.followers.length, 9, 'the others are still your supporters');
+  const o = out(g, 150); place(P, o.x, o.y);
+  steps(g, 1);
+  assert.ok(!G.gate.inside);
+  assert.ok(P.followers.every((f) => f.inner !== false));
+});
+
+test('papers are checked once per entry; the side wicket check is harsher', () => {
+  const enter = (via) => {
+    const g = play({ goons: false, civilians: 0 });
+    const G = g.state, P = G.player, T = G.target;
+    only(g, () => false);
+    if (via === 'wicket') shutGate(g);
+    const w = T.wicket, at = via === 'wicket' ? { x: w.x - w.out.x * 40, y: w.y - w.out.y * 40 } : { x: T.gate.x - T.out.x * 40, y: T.gate.y - T.out.y * 40 };
+    place(P, at.x, at.y);
+    const ev = steps(g, 1);
+    return { g, G, P, ev };
+  };
+  const a = enter('gate');
+  assert.equal(a.P.state, 'frisk');
+  assert.equal(a.P.papers, 85);
+  assert.ok(a.ev.some((e) => e.t === 'frisk' && !e.wicket));
+  steps(a.g, 30 * 3);
+  assert.equal(a.P.state, 'free');
+  assert.equal(a.G.gate.frisks, 1, 'once per entry');
+  const b = enter('wicket');
+  assert.equal(b.P.state, 'frisk');
+  assert.equal(b.P.papers, 75);
+  assert.ok(b.P.friskT > 2.5);
+});
+
+test('the clerk stalls the filing twice; four proposers inside halve each stall', () => {
+  const file = (proposers) => {
+    const g = play({ police: false, goons: false, civilians: 60 });
+    const G = g.state, P = G.player;
+    P.docs.push(...G.M.docs);
+    if (proposers) for (const c of loneMen(g).slice(0, 4)) g._test.join(c);
+    place(P, G.target.x, G.target.y);
+    for (const f of P.followers) place(f, P.x + 10, P.y + 10);
+    let n = 0, ev = [];
+    while (G.mode === 'play' && n < 30 * 30) { ev = ev.concat(steps(g, 1)); n++; }
+    assert.equal(G.mode, 'won');
+    assert.equal(G.gate.stalls, 2);
+    assert.ok(ev.some((e) => e.t === 'stall'));
+    return n;
+  };
+  const alone = file(false), withProps = file(true), base = Math.ceil(30 * 6);
+  assert.ok(alone > base + 30 * 4, `alone ${alone}`);
+  assert.ok(withProps < alone - 30, `with proposers ${withProps} vs ${alone}`);
+});
+
+test('gate guards who chased you outside find their way back in, even with the gate shut', () => {
+  const g = play({ goons: false, civilians: 0 });
+  const G = g.state, P = G.player, T = G.target;
+  place(P, 60, 60);
+  G.gate.phase = 'shut'; G.gate.shut = true; G.gate.wicketOpen = true;
+  const guards = G.ents.filter((e) => e.role === 'guard');
+  const o = out(g, 150);
+  for (const e of guards) { place(e, o.x, o.y); e.mode = 'return'; }
+  steps(g, 30 * 40);
+  for (const e of guards) assert.ok(W.dist(e.x, e.y, e.home.x, e.home.y) < 10, 'guard got home');
+});
+
+test('the office clock jumps once and never leaves less than 25 s', () => {
+  const g = play({ police: false, goons: false, civilians: 0 });
+  const G = g.state, P = G.player, T = G.target;
+  G.timer = 50;
+  const inPt = { x: T.gate.x - T.out.x * 50, y: T.gate.y - T.out.y * 50 };
+  place(P, inPt.x, inPt.y);
+  const ev = steps(g, 1);
+  assert.ok(ev.some((e) => e.t === 'clockjump'));
+  assert.ok(G.timer >= 24.9 && G.timer <= 25.1, `timer ${G.timer}`);
+  const o = out(g, 150); place(P, o.x, o.y); steps(g, 2);
+  place(P, inPt.x, inPt.y);
+  const t0 = G.timer;
+  steps(g, 1);
+  assert.ok(G.timer > t0 - 0.1, 'no second jump');
 });
 
 for (const mode of ['nomination', 'vote']) {

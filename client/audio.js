@@ -80,6 +80,10 @@
     protect: () => [523, 784, 1047].forEach((f, i) => tone('sine', f, f, 0.12, 0.14, i * 0.05)),
     heartbeat: () => { tone('sine', 70, 50, 0.12, 0.45); tone('sine', 70, 50, 0.12, 0.35, 0.2); },
     flatline: () => tone('sine', 988, 988, 1.8, 0.12),
+    clang: () => { noise(0.35, 0.4, 2500, 0, 'highpass'); tone('square', 220, 110, 0.4, 0.12); tone('square', 233, 117, 0.4, 0.08, 0.02); },
+    whistle: () => { tone('sine', 1900, 2300, 0.14, 0.1); tone('sine', 1900, 2300, 0.14, 0.1, 0.2); },
+    stall: () => { tone('triangle', 330, 330, 0.18, 0.12); tone('triangle', 262, 262, 0.3, 0.12, 0.2); },
+    clock: () => { for (let i = 0; i < 10; i++) tone('square', 2200, 2200, 0.02, 0.06, i * 0.06); },
     won: () => [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone('square', f, f, 0.18, 0.1, i * 0.1)),
     over: () => [392, 349, 311, 262].forEach((f, i) => tone('sawtooth', f, f, 0.25, 0.1, i * 0.18)),
   };

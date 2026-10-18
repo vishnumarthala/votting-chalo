@@ -6,7 +6,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const PARTY = { name: 'Neelam Praja Party', short: 'NPP', color: '#1e5bd8' };
+  const PARTY = { name: 'YSR Congress Party', short: 'YSRCP', color: '#00a651' };
   const DEFAULT_PLACE = { town: 'Kothapalli', mandal: 'Kothapalli', district: 'Godavari', pin: '' };
 
   const MODES = {
@@ -30,11 +30,11 @@
 
   // Simple English with a light Telugu touch (anna, Ammo, Ayyo and a couple of slogans).
   const LINES = {
-    start: ['To the {district} RO Office! ✊', 'Papers ready. Crowd ready. Let\u2019s go!', '{short}! {short}! {short}!'],
-    startVote: ['Off to vote! 🗳️', 'My vote, my right!'],
-    slogan: ['{short}! {short}! ✊', 'Neelam Jenda, Praja Agenda!', 'Our town, our right!', 'Make way for the people!', 'To the RO Office!'],
-    sloganVote: ['Vote is our right!', 'Everyone come, everyone vote!', 'To the booth!', 'Naa vote, naa hakku!'],
-    join: ['I\u2019m coming too!', 'Anna, we are with you!', 'Selfie later, nomination first!', 'Give me a flag!', 'For {town}!', 'Count me in!'],
+    start: ['To the {district} RO Office! Jai Jagan! ✊', 'Papers ready. Crowd ready. Jai {short}!', 'Jai Jagan!'],
+    startVote: ['Off to vote! Jai Jagan! 🗳️', 'My vote, my right!'],
+    slogan: ['Jai Jagan! ✊', 'Jai {short}!', 'Jagananna, we are with you!', 'Our town, our right!', 'Make way for the people!'],
+    sloganVote: ['Jai Jagan! 🗳️', 'Vote for the fan!', 'Everyone come, everyone vote!', 'Naa vote, naa hakku!'],
+    join: ['I\u2019m coming too!', 'Anna, we are with you!', 'Selfie later, nomination first!', 'Give me a flag!', 'For {town}!', 'Jai Jagan! Count me in!'],
     cop: ['Section 144, sir! No crowds!', 'Where are you going? Got permission?', 'Stop! Show your papers!', 'Come to the station. Just a small enquiry.', 'Road closed for "security reasons".'],
     copLifted: ['Ayyo, too many people!', 'Sir, put me down!', 'Control room, send backup!'],
     lathi: ['Clear the road!', 'Lathi charge!'],
@@ -60,6 +60,28 @@
     copIgnore: ['Didn\u2019t see anything.', 'No complaint received.', 'Minor incident.', 'Situation under control.'],
     childNews: ['A child was hit by a stone. Officials: "Situation under control."', 'Schoolkid hurt by a stone. Police: "No complaint received."'],
     womanNews: ['A woman was hit by a stone. Officials: "Minor incident."', 'Women hit by stones. Police: "Didn\u2019t see anything."'],
+    // the gate showdown
+    lineCop: ['Section 144! No entry!', 'Only officials allowed!', 'Go back, go back!', 'Orders from above, sir.'],
+    gateShut: ['Lunch break! Come after lunch.', 'Office closed, sir. Rules.', 'Gate closed for security reasons.'],
+    chant: ['Jai Jagan! Open the gate!', 'Media is watching!', 'Democracy, open up!', 'Let the candidate in!'],
+    vipSalute: ['Welcome, sir!', 'Please, sir, this way.', 'Sir has come, open the gate!'],
+    vip: ['Just a courtesy visit.', 'We are only observers.', 'Tea with the officer, that\u2019s all.'],
+    vipVote: ['Booth agent, sir.', 'We are only helping voters.', 'Just checking the arrangements.'],
+    waitOut: ['We will wait here, anna!', 'Go in, we are right here!', 'File it, anna!'],
+    frisk: ['This signature looks suspicious.', 'Attested copy?', 'Photo is not clear, sir.', 'Wait, I have to verify.'],
+    stall: ['Lunch break.', 'Server down.', 'Photo size wrong: 3.5 \u00d7 4.5 only.', 'Sir is in a meeting.', 'Bring one more attested copy.'],
+    stallVote: ['Machine is being checked.', 'Your name has a spelling mistake.', 'Wait, the list is not loading.', 'Show one more ID.'],
+    proposers: ['Rule 33 says it is fine, sir!', 'We are the proposers, check again!', 'Sir, everything is attested!'],
+  };
+
+  const GATE = {
+    line: '🚔 Police line at the gate! Push through together.',
+    shut: '🔒 Gate shut for "lunch"! Chant at the gate with 8+ supporters, or sneak round to the side wicket they forgot to lock.',
+    needCrowd: 'Too few voices. The officials need 8+ supporters at the gate to listen.',
+    open: '📣 The crowd and the cameras win: the gate is open!',
+    four: '🚶 "Only candidate + 4 allowed." The rest of your crowd waits at the gate.',
+    clock: '🕒 The office clock jumps forward: "It is {close} by our clock."',
+    lineBroken: 'LINE BROKEN!',
   };
 
   // Democracy meter: labels by stage (0 = healthy), toasts when a stage is reached
@@ -72,13 +94,14 @@
   // Satirical front page shown when you don't make it. {name} {stop} {goal} {town} {district}
   const NEWS = {
     masthead: 'THE DAILY BALLOT',
-    tagline: 'Fearless. Fictional. Price: one vote.',
+    tagline: 'Fearless. Satirical. Price: one vote.',
     headlines: {
       time: ['DOORS CLOSE ON DEMOCRACY', 'NOMINATION? COME BACK IN 5 YEARS', 'OFFICE SHUTS AT 3 PM SHARP. DEMOCRACY ALSO.'],
       jailed: ['CANDIDATE ARRESTED FOR TRYING TO CONTEST', 'JAIL, NOT BALLOT: CANDIDATE HELD "FOR SAFETY"'],
       timeVote: ['POLLS CLOSE BEFORE VOTER ARRIVES', '"YOUR VOTE HAS ALREADY BEEN CAST," SAYS GANG AT BOOTH'],
       jailedVote: ['VOTER ARRESTED ON THE WAY TO VOTE', 'SECTION 144 STOPS VOTER. GANG AT BOOTH UNAFFECTED.'],
       low: ['DEMOCRACY ON VENTILATOR. OFFICIALS: "ALL IS WELL"', 'DEMOCRACY RUSHED TO ICU. POLICE: "NO COMPLAINT"'],
+      gate: ['GATE SHUT ON CANDIDATE, OPEN FOR "GUESTS"', 'OFFICE CLOCK RUNS 30 MINUTES FAST, ONLY TODAY', 'POLICE SALUTE "GUESTS", STOP CANDIDATE AT GATE'],
     },
     sub: {
       time: '{name} was stopped {stop} m from the {goal} as stones rained on {town}.',
@@ -87,10 +110,11 @@
     police: ['Police: "No complaint received."', 'SP: "Situation fully under control."', 'Officials: "Minor incident, nothing to see."'],
     explainer: {
       title: 'HOW TO STOP AN ELECTION WITHOUT CANCELLING IT',
-      steps: ['Declare Section 144', 'Barricade every road', 'Say "documents incomplete"', 'Throw stones on the way', 'Scare the people watching', 'Arrest the candidate'],
+      steps: ['Declare Section 144', 'Barricade every road', 'Throw stones on the way', 'Shut the gate. Open it for friends.', 'Say "server down"', 'Arrest the candidate'],
       footer: 'Every step is "legal". That is the trick. Notice it. Talk about it. Go vote.',
     },
-    disclaimer: 'Satire. Fictional town, party and people. Any resemblance to real events is your own conclusion.',
+    disclaimer: 'Satire. The "ruling front", its goons, the town and its people are fictional. Any resemblance to real events is your own conclusion.',
+    credit: 'Presented by YSRCP Germany · ysrcpgermany.de',
   };
 
   const MISSIONS = [
@@ -115,5 +139,5 @@
     });
   }
 
-  return { PARTY, DEFAULT_PLACE, MODES, LINES, MISSIONS, TIERS, DEMO, NEWS, fill };
+  return { PARTY, DEFAULT_PLACE, MODES, LINES, MISSIONS, TIERS, DEMO, NEWS, GATE, fill };
 });

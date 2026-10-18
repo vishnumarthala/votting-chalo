@@ -96,7 +96,7 @@
     const C = window.Content, NEWS = C.NEWS, r = o.result, vote = r.mode === 'vote';
     const seed = (r.score | 0) + (r.thrown | 0) * 7 + (r.closest | 0);
     const fill = (s) => C.fill(s, Object.assign({}, r.place || {}, { name: o.name, stop: r.closest, goal: r.goal }));
-    const key = r.demo < 20 ? 'low' : (r.reason === 'jailed' ? 'jailed' : 'time') + (vote ? 'Vote' : '');
+    const key = r.demo < 20 ? 'low' : r.gateStops > 0 && r.reason !== 'jailed' ? 'gate' : (r.reason === 'jailed' ? 'jailed' : 'time') + (vote ? 'Vote' : '');
     headline = pick(NEWS.headlines[key] || NEWS.headlines.time, seed);
     const sub = fill(NEWS.sub[r.reason === 'jailed' ? 'jailed' : 'time']);
     const town = (r.place && r.place.town) || C.DEFAULT_PLACE.town;
@@ -139,16 +139,19 @@
       [r.civHurt, 'women & children hurt'],
       [r.hits, 'times the candidate was hit'],
       [r.arrests, r.arrests === 1 ? 'arrest' : 'arrests'],
+      [r.gateStops || 0, 'times stopped at the gate'],
+      [r.stalls || 0, '"server down" moments at the counter'],
       [r.protected, 'times the crowd protected people'],
-      [r.barricades, 'barricades pushed aside'],
       [r.demo + '%', 'democracy left'],
     ];
     const step = Math.min(56, (ch - 50) / rows.length);
     let ry = top + 36 + step * 0.8;
     for (const [n, lbl] of rows) {
       txt(String(n), sx, ry, `900 36px ${SERIF}`, lbl === 'democracy left' || lbl === 'women & children hurt' ? RED : INK);
+      ctx.font = `900 36px ${SERIF}`;
+      const lx = sx + Math.max(84, ctx.measureText(String(n)).width + 12);
       ctx.font = `16px ${SANS}`;
-      wrap(lbl, sw - 84).forEach((l, i) => txt(l, sx + 84, ry - 13 + i * 19, `16px ${SANS}`, '#3e2f22'));
+      wrap(lbl, W - 40 - lx).forEach((l, i) => txt(l, lx, ry - 13 + i * 19, `16px ${SANS}`, '#3e2f22'));
       ry += step;
     }
     // bottom stories
@@ -168,14 +171,18 @@
     for (const l of wrap(pick(NEWS.police, seed + 1), colW)) { txt(l, rx, qy, `900 25px ${SERIF}`); qy += 30; }
     qy += 2;
     const story = (r.civHurt ? r.civHurt + (r.civHurt === 1 ? ' woman or child was' : ' women and children were') + ' hit by stones on the road to the ' + r.goal + '. ' : 'Stones flew all morning on the road to the ' + r.goal + '. ') +
-      'The gang at the gate was not stopped. The candidate was. Officials said the election was "free and fair" and the office "closed on time, as per rules".';
+      (r.gateStops ? 'At the gate, police linked arms and the gate was shut "for lunch", but it swung open for the ruling front\u2019s guests, and officers saluted them. ' : 'The gang at the gate was not stopped. The candidate was. ') +
+      (r.clockJump ? 'The office clock also ran fast, only today. ' : '') +
+      'Officials said the election was "free and fair".';
     ctx.font = `19px ${SERIF}`;
     for (const l of wrap(story, colW)) { if (qy > bottom) break; txt(l, rx, qy, `19px ${SERIF}`, INK); qy += 25; }
     // footer
     rule(H - 90, 40, W - 40, 2);
     ctx.font = `15px ${SANS}`;
     wrap(NEWS.disclaimer, W - 80).slice(0, 2).forEach((l, i) => txt(l, W / 2, H - 64 + i * 19, `15px ${SANS}`, '#5b4a3a', 'center'));
-    txt('Play: votting-chalo.vercel.app', W / 2, H - 20, `bold 18px ${SANS}`, '#1e3a6e', 'center');
+    txt('Play: votting-chalo.vercel.app', W / 2 - 230, H - 20, `bold 18px ${SANS}`, '#0f1b61', 'center');
+    ctx.fillStyle = '#0f1b61'; ctx.fillRect(W / 2 + 40, H - 34, 30, 6); ctx.fillStyle = '#fff'; ctx.fillRect(W / 2 + 40, H - 28, 30, 5); ctx.fillStyle = '#00a651'; ctx.fillRect(W / 2 + 40, H - 23, 30, 6);
+    txt(NEWS.credit, W / 2 + 80, H - 20, `bold 18px ${SANS}`, '#00a651', 'left');
   }
 
   // ---------------------------------------------------------------- overlay

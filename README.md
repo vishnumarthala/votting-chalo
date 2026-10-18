@@ -1,8 +1,9 @@
 # Votting Chalo 🗳️
 
-A satirical top-down game set in **your own Andhra Pradesh town**. Walk your candidate through the streets,
-gather a crowd, dodge the police and rival goons, push through the Section 144 barricades, and reach the
-office before it closes.
+A satirical top-down game set in **your own Andhra Pradesh town**, presented by
+[YSRCP Germany](https://www.ysrcpgermany.de/). Walk your YSRCP candidate through the streets, gather a crowd
+("Jai Jagan!"), dodge the police and the ruling front's goons, push through the Section 144 barricades and
+the police at the gate, and reach the office before it closes.
 
 - **Nomination Day:** you start with your Form-A. Collect the 4 supporting documents around town (affidavit,
   caste certificate, deposit receipt, proposer signatures), then reach the RO office before 3 PM and hold
@@ -14,9 +15,10 @@ Enter your **pincode** and the game builds a town for it: the same pincode alway
 Post-office names from India Post become the neighbourhood names, and your town, mandal and district
 appear in the dialogue.
 
-> Satire. The Neelam Praja Party, its rivals and all characters, shops and events are fictional; no real
-> person or party is depicted. The game contains cartoon violence against civilians (no blood), shown to
-> criticise it: the player can only protect people, never hurt them.
+> Satire by YSRCP Germany supporters. The player's side is the YSRCP (brand colours: navy `#0F1B61`, green
+> `#00A651`, gold). The "ruling front", its goons, the officials and all other characters, shops and events
+> are fictional; the ruling front stands for no specific real party. The game contains cartoon violence
+> against civilians (no blood), shown to criticise it: the player can only protect people, never hurt them.
 
 ## Play
 
@@ -60,6 +62,18 @@ npm test        # node:test suites
     are led home with a bandage. Nearby police turn their backs ("No complaint received.").
   - **Protect them:** step in front of a stone aimed at them, or raise a slogan so your crowd closes ranks
     around the women and children for 3 seconds. Each save scores points and lifts the meter.
+- **The gate.** Escaping the goons is not the end. Near the RO office (or the booth):
+  1. **Police line.** Cops link arms across the street. Push through with your crowd (alone it barely
+     moves) while they lathi your supporters.
+  2. **Gate shut "for lunch".** Chant it open with 4 slogans and 8+ supporters, sneak round to the side
+     wicket they "forgot" to lock, or slip in behind the ruling front's guests. The gate and the police line
+     part for them, and the police salute.
+  3. **"Only candidate + 4."** The rest of your crowd waits outside chanting and rejoins when you come out.
+  4. **Papers check.** A frisk at the gate costs time and papers; the wicket check is harsher.
+  5. **Clerk stalls at the counter** ("server down", "lunch break", "photo size wrong"). 4 proposers inside
+     halve each stall.
+  6. **The office clock jumps** once: "It is 3 PM by our clock." It never leaves less than 25 seconds.
+  Once you are checked and inside, the gate police step back and the officials take over.
 - **Democracy meter.** Starts at 100% and drops with every stone (more when it hits a woman or child),
   lathi charge, tear gas shell and arrest, and when you enter the Section 144 zone. Broken barricades and
   protected people raise it. Its stages are Unwell, In hospital, In ICU and On ventilator.
@@ -102,7 +116,7 @@ A 128×128-tile map (4096 px) built from the pincode seed:
 - arterial roads with sidewalks, split into blocks by lanes;
 - a winding canal, with bridges wherever roads cross it;
 - houses with rooftop water tanks, parks, a temple, Rythu Bazar, bus stand and hospital;
-- walled compounds for the RO office and the polling booth, police stations, and the NPP party office
+- walled compounds for the RO office and the polling booth, police stations, and the YSRCP party office
   where you start;
 - four document shops spread across town, and the Section 144 ring.
 

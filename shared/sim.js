@@ -122,7 +122,15 @@
         spawn('cop', p.x + rng.range(-20, 20), p.y + rng.range(-20, 20), { mode: 'patrol', role: i < 3 ? 'gas' : 'patrol', postIdx: rng.int(map.posts.length), lathiCd: 0, gasCd: 4, seeT: 0, stunT: 0 });
       }
       for (const g of checkposts) for (let k = 0; k < 2; k++) spawn('cop', g.x + (k ? 14 : -14), g.y, { mode: 'post', role: 'post', home: { x: g.x, y: g.y }, lathiCd: 0, seeT: 0, stunT: 0 });
-      for (let k = 0; k < 3; k++) spawn('cop', target.gate.x + (k - 1) * 18, target.gate.y, { mode: 'post', role: 'guard', home: { x: target.gate.x + (k - 1) * 18, y: target.gate.y }, lathiCd: 0, seeT: 0, stunT: 0 });
+      const o = target.out || { x: 0, y: 1 }, sd = { x: -o.y, y: o.x };
+      for (let k = 0; k < 3; k++) {
+        const h = { x: target.gate.x - o.x * 44 + sd.x * (k - 1) * 18, y: target.gate.y - o.y * 44 + sd.y * (k - 1) * 18 };
+        spawn('cop', h.x, h.y, { mode: 'post', role: 'guard', home: h, lathiCd: 0, seeT: 0, stunT: 0 });
+      }
+      if (opts.gate !== false && target.wicket) {
+        const w = target.wicket, h = { x: w.x - w.out.x * 36, y: w.y - w.out.y * 36 };
+        spawn('cop', h.x, h.y, { mode: 'post', role: 'guard', home: h, lathiCd: 0, seeT: 0, stunT: 0, wicketCop: true });
+      }
     }
     if (opts.goons !== false) {
       const n = modeKey === 'vote' ? 8 : 10;
@@ -135,10 +143,48 @@
       for (let i = 0; i < m; i++) {
         const a = (i / m) * Math.PI * 2;
         let x = target.gate.x + Math.cos(a) * 60, y = target.gate.y + Math.sin(a) * 60;
-        if (solidAt(map, Math.floor(x / TILE), Math.floor(y / TILE))) { x = target.gate.x; y = target.gate.y; }
+        if (solidAt(map, Math.floor(x / TILE), Math.floor(y / TILE))) { const o = target.out || { x: 0, y: 1 }; x = target.gate.x + o.x * (80 + i * 14); y = target.gate.y + o.y * (80 + i * 14); }
         spawn('goon', x, y, { mode: 'post', home: { x, y }, seeT: 0, stunT: 0 });
       }
     }
+
+    // ------------------------------------------------------------ the gate showdown
+    // police line -> gate shut ("lunch") -> only candidate + 4 -> papers check -> clerk stalls -> clock trick;
+    // meanwhile the ruling front's "guests" walk in and out and the police salute them.
+    const GATE_ON = opts.gate !== false && !!target.gateTiles;
+    const gOut = target.out || { x: 0, y: 1 }, gSide = { x: -gOut.y, y: gOut.x };
+    const gateOutSpot = { x: target.gate.x + gOut.x * 96, y: target.gate.y + gOut.y * 96 };
+    const inCompound = (x, y) => {
+      const r = target.rect;
+      if (!r) return false;
+      const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+      return tx > r.x0 && tx < r.x1 && ty > r.y0 && ty < r.y1;
+    };
+    if (GATE_ON) {
+      const lineTiles = [];
+      for (const j of target.gateTiles) {
+        const tx = (j % N) + gOut.x, ty = Math.floor(j / N) + gOut.y;
+        if (!solidAt(map, tx, ty)) lineTiles.push(ty * N + tx);
+      }
+      G.gate = { phase: 'idle', pressure: 0, openT: 0, shut: false, line: null, lineTiles, tiles: target.gateTiles, wicket: target.wicket, wicketOpen: false, out: gOut, inside: false, stops: 0, stalls: 0, frisks: 0, clockJump: 0, stallText: '', hintCd: 0, salCd: 0, ver: 0 };
+      if (target.wicket) map.dyn[target.wicket.tile] = 2; // locked, until they shut the main gate and "forget" this one
+      const inv = norm(target.x - target.gate.x, target.y - target.gate.y);
+      spawn('official', target.x + inv.x * 34, target.y + inv.y * 34, { mode: 'desk', fx: -inv.x, fy: -inv.y });
+      if (opts.goons !== false) {
+        const way = [{ x: target.gate.x + gOut.x * 150, y: target.gate.y + gOut.y * 150 }, { x: target.gate.x, y: target.gate.y }, { x: target.x + gSide.x * 30, y: target.y + gSide.y * 30 }];
+        for (let k = 0; k < 2; k++) spawn('goon', way[k * 2].x, way[k * 2].y, { mode: 'vip', role: 'vip', way, wp: 1, dir: k ? -1 : 1, wait: k * 5, stuckT: 0, seeT: 0, stunT: 0 });
+      }
+    } else G.gate = null;
+    let waitField = null, waitVer = -1;
+    function waitDir(e, x, y) {
+      if (waitVer !== G.gate.ver) { waitField = field(map, [[Math.floor(gateOutSpot.x / TILE), Math.floor(gateOutSpot.y / TILE)]]); waitVer = G.gate.ver; }
+      return flowDir(map, waitField, e.x, e.y) || norm(x - e.x, y - e.y);
+    }
+    const closeTime = () => { const h = Math.floor(M.clockEnd / 60); return ((h + 11) % 12 + 1) + (h >= 12 ? ' PM' : ' AM'); };
+    const overlaps = (b, tiles) => tiles.some((j) => {
+      const tx = j % N, ty = Math.floor(j / N);
+      return b.x + b.r > tx * TILE && b.x - b.r < (tx + 1) * TILE && b.y + b.r > ty * TILE && b.y - b.r < (ty + 1) * TILE;
+    });
 
     // ------------------------------------------------------------ spatial hash
     const CELL = 64, CW = WORLD / CELL;
@@ -349,6 +395,7 @@
         won, reason, score: G.score, crowd: G.stats.crowd, docs: P.docs.length, missions: G.missionsDone, mode: modeKey, place: G.place,
         demo: Math.round(G.demo), thrown: G.stats.thrown, hits: G.stats.hits, civHurt: G.stats.civHurt, protected: G.stats.protected,
         arrests: P.cases, barricades: G.stats.brk, closest: Math.max(0, Math.round((G.closest - target.r) / 8)), goal: M.goal,
+        gateStops: G.gate ? G.gate.stops : 0, stalls: G.gate ? G.gate.stalls : 0, frisks: G.gate ? G.gate.frisks : 0, clockJump: G.gate ? Math.round(G.gate.clockJump) : 0,
       };
       emit({ t: won ? 'won' : 'over', reason });
     }
@@ -360,9 +407,15 @@
       P.guardT = Math.max(0, P.guardT - DT);
       P.sloganCd = Math.max(0, P.sloganCd - DT);
       P.sayCd -= DT;
+      P.stallT = Math.max(0, (P.stallT || 0) - DT);
       if (P.state === 'held') {
         P.heldT -= DT; P.vx = P.vy = 0;
         if (P.heldT <= 0 && G.mode === 'play') release();
+        return;
+      }
+      if (P.state === 'frisk') { // papers check at the gate
+        P.friskT -= DT; P.vx = P.vy = 0;
+        if (P.friskT <= 0) { P.state = 'free'; P.invuln = Math.max(P.invuln, 0.8); }
         return;
       }
       let mx = inp.mx || 0, my = inp.my || 0;
@@ -383,6 +436,11 @@
       if (mx || my) { P.fx = mx; P.fy = my; }
       moveBody(P, ix * DT, iy * DT, map);
       if (Math.floor(ox / TILE) !== Math.floor(P.x / TILE) || Math.floor(oy / TILE) !== Math.floor(P.y / TILE)) pFieldDirty = pFieldDirty || G.tick - pFieldTick > 3;
+      if (G.gate) {
+        const inside = inCompound(P.x, P.y);
+        if (inside && !G.gate.inside) enterCompound();
+        else if (!inside && G.gate.inside) { G.gate.inside = false; for (const f of P.followers) f.inner = true; }
+      }
       const toTarget = dist(P.x, P.y, target.x, target.y);
       G.closest = Math.min(G.closest, toTarget);
       if (!G.ringIn && toTarget < 15.6 * TILE) { G.ringIn = true; toast(Ct.DEMO.ring, '#ffcc80'); demo(-5); }
@@ -396,8 +454,18 @@
         if (b) {
           let near = 0;
           for (const f of P.followers) if (dist(f.x, f.y, P.x, P.y) < 90) near++;
-          b.hp -= (5 + 2.2 * near) * DT;
+          b.hp -= (b.kind === 'police' ? 1 + 3 * near : 5 + 2.2 * near) * DT;
           b.pushT = 0.2; P.pushing = b.id;
+          if (b.kind === 'police') { // the line shoves back with lathis
+            b.lathiCd -= DT;
+            if (b.lathiCd <= 0) {
+              b.lathiCd = 2.5;
+              let hit = 0;
+              for (const f of P.followers.slice()) { if (hit >= 2) break; if (dist(f.x, f.y, b.x, b.y) < 110) { leave(f, b, true); hit++; } }
+              if (hit) { demo(-2); emit({ t: 'lathi', x: b.x, y: b.y, n: hit }); }
+              emit({ t: 'say', x: b.x, y: b.y - 10, text: text(rng.pick(Ct.LINES.lineCop)), color: '#fff59d' });
+            }
+          }
           if (P.sayCd <= 0 && near >= 3) { say(P, rng.pick(Ct.LINES.barricade)); P.sayCd = 5; }
           if (b.hp <= 0) breakBarricade(b);
         }
@@ -411,8 +479,9 @@
         let n = 0;
         query(P.x, P.y, 150, (e) => {
           if (e.kind === 'civ' && (e.mode === 'wander' || e.mode === 'flee') && n < 6 && P.followers.length < CAP) { if (join(e)) n++; }
-          else if (e.kind === 'goon' && P.followers.length >= 4 && e.mode !== 'flee') scareGoon(e);
+          else if (e.kind === 'goon' && e.role !== 'vip' && P.followers.length >= 4 && e.mode !== 'flee') scareGoon(e);
         });
+        chantAtGate();
         emit({ t: 'slogan', x: P.x, y: P.y, n });
         if (n) emit({ t: 'join', n, crowd: P.followers.length, pts: gain(10 * n, true), x: P.x, y: P.y });
       }
@@ -450,7 +519,10 @@
           }
         } else {
           if (P.submitT === 0) { emit({ t: 'filing' }); say(P, rng.pick(Ct.LINES.filing)); }
-          P.submitT += DT;
+          if (P.stallT <= 0) {
+            P.submitT += DT;
+            if (G.gate && G.gate.stalls < 2 && P.submitT < G.M.hold && P.submitT >= (G.M.hold * (G.gate.stalls + 1)) / 3) startStall();
+          }
           if (P.submitT >= G.M.hold) end(true, 'filed');
         }
       } else P.submitT = Math.max(0, P.submitT - DT * 0.5);
@@ -467,8 +539,119 @@
       G.barrs.splice(G.barrs.indexOf(b), 1);
       G.stats.brk++;
       pFieldDirty = true;
-      emit({ t: 'break', x: b.x, y: b.y, pts: gain(250, true) });
+      emit({ t: 'break', x: b.x, y: b.y, pts: gain(b.kind === 'police' ? 400 : 250, true), kind: b.kind || 'barricade' });
       demo(3);
+      if (b.kind === 'police') { // the cops stagger aside, then go back to work
+        for (let k = 0; k < 3; k++) spawn('cop', b.x + gSide.x * (k - 1) * 22 + gOut.x * 20, b.y + gSide.y * (k - 1) * 22 + gOut.y * 20, { mode: 'stun', stunT: 3, role: 'patrol', postIdx: nearestPost(b.x, b.y), lathiCd: 2, seeT: 0 });
+      }
+    }
+
+    // ------------------------------------------------------------ gate showdown
+    function applyGateTiles() {
+      const g = G.gate, closed = g.openT <= 0;
+      let changed = false;
+      const setT = (j, v) => { if (map.dyn[j] !== v) { map.dyn[j] = v; changed = true; } };
+      for (const j of g.tiles) setT(j, g.shut && closed ? 2 : 0);
+      if (g.wicket) setT(g.wicket.tile, g.wicketOpen ? 0 : 2);
+      if (g.line && G.barrs.includes(g.line)) for (const j of g.line.tiles) setT(j, closed ? 3 : 0);
+      if (changed) { pFieldDirty = true; g.ver++; }
+    }
+    function updateGate() {
+      const g = G.gate;
+      g.hintCd -= DT; g.salCd -= DT;
+      const dg = dist(P.x, P.y, target.gate.x, target.gate.y), inside = inCompound(P.x, P.y);
+      if (g.phase === 'idle' && dg < 260 && !inside) {
+        g.stops++;
+        if (opts.police !== false && g.lineTiles.length) {
+          let sx = 0, sy = 0;
+          for (const j of g.lineTiles) { sx += (j % N) + 0.5; sy += Math.floor(j / N) + 0.5; }
+          const b = { id: nextId++, tiles: g.lineTiles.slice(), x: (sx / g.lineTiles.length) * TILE, y: (sy / g.lineTiles.length) * TILE, hp: 100, max: 100, pushT: 0, kind: 'police', lathiCd: 1.5 };
+          G.barrs.push(b); g.line = b; g.phase = 'line';
+          toast(Ct.GATE.line, '#90caf9');
+          emit({ t: 'line', x: b.x, y: b.y });
+          emit({ t: 'say', x: b.x, y: b.y - 10, text: text(rng.pick(Ct.LINES.lineCop)), color: '#fff59d' });
+        } else g.phase = 'approach';
+      }
+      if (g.phase === 'line' && !G.barrs.includes(g.line)) { g.phase = 'approach'; g.line = null; }
+      if (g.phase === 'approach' && dg < 110 && !inside) {
+        if (overlaps(P, g.tiles)) g.phase = 'open';
+        else {
+          g.phase = 'shut'; g.shut = true; g.wicketOpen = true; g.stops++;
+          toast(Ct.GATE.shut, '#ffcc80');
+          emit({ t: 'gateshut', x: target.gate.x, y: target.gate.y });
+          emit({ t: 'say', x: target.gate.x, y: target.gate.y - 14, text: text(rng.pick(Ct.LINES.gateShut)), color: '#fff59d' });
+        }
+      }
+      // the gate (and the police line) part for the ruling front's guests
+      const wasOpen = g.openT > 0;
+      for (const e of G.ents) if (e.role === 'vip' && dist(e.x, e.y, target.gate.x, target.gate.y) < 64) g.openT = Math.max(g.openT, 0.5);
+      if (g.openT > 0 && !wasOpen && (g.shut || g.line)) {
+        emit({ t: 'vipgate', x: target.gate.x, y: target.gate.y });
+        let said = false;
+        query(target.gate.x, target.gate.y, 240, (e) => {
+          if (e.kind !== 'cop' || e.mode === 'chase' || e.mode === 'stun') return;
+          e.salute = 1.8;
+          const v = G.ents.find((o) => o.role === 'vip' && dist(o.x, o.y, target.gate.x, target.gate.y) < 64);
+          if (v) { const k = norm(v.x - e.x, v.y - e.y); e.fx = k.x || 1; e.fy = k.y; }
+          if (!said && g.salCd <= 0) { say(e, rng.pick(Ct.LINES.vipSalute), null, '#fff59d'); said = true; g.salCd = 6; }
+        });
+      }
+      if (g.openT > 0) {
+        g.openT -= DT;
+        if (g.openT <= 0 && (overlaps(P, g.tiles) || overlaps(P, g.lineTiles))) g.openT = 0.2; // never close on the candidate
+      }
+      applyGateTiles();
+    }
+    function chantAtGate() {
+      const g = G.gate;
+      if (!g || !g.shut || dist(P.x, P.y, target.gate.x, target.gate.y) > 160) return;
+      if (P.followers.length < 8) { if (g.hintCd <= 0) { toast(Ct.GATE.needCrowd, '#ffcc80'); g.hintCd = 6; } return; }
+      g.pressure++;
+      const f = P.followers[g.pressure % P.followers.length];
+      if (f) say(f, rng.pick(Ct.LINES.chant), null, '#e3f2fd');
+      emit({ t: 'chant', n: g.pressure, need: 4, x: target.gate.x, y: target.gate.y });
+      if (g.pressure >= 4) {
+        g.shut = false; g.phase = 'open';
+        applyGateTiles();
+        toast(Ct.GATE.open, '#b9f6ca');
+        demo(3);
+        emit({ t: 'gateopen', x: target.gate.x, y: target.gate.y, pts: gain(300, true) });
+      }
+    }
+    function enterCompound() {
+      const g = G.gate;
+      g.inside = true;
+      const viaWicket = !!g.wicket && dist(P.x, P.y, g.wicket.x, g.wicket.y) < dist(P.x, P.y, target.gate.x, target.gate.y);
+      // "only candidate + 4": the nearest four come in, the rest wait at the gate
+      const sorted = P.followers.slice().sort((a, b) => dist(a.x, a.y, P.x, P.y) - dist(b.x, b.y, P.x, P.y));
+      sorted.forEach((f, i) => { f.inner = i < 4; });
+      if (sorted.length > 4) { toast(Ct.GATE.four, '#bbdefb'); say(sorted[4], rng.pick(Ct.LINES.waitOut), null, '#e3f2fd'); }
+      if (opts.police !== false) { // papers check
+        P.state = 'frisk'; P.friskT = viaWicket ? 3 : 2; P.vx = P.vy = 0; P.submitT = 0; g.frisks++;
+        tearPapers({ x: P.x - P.fx, y: P.y - P.fy }, viaWicket ? 25 : 15);
+        P.kx = P.ky = 0;
+        emit({ t: 'frisk', x: P.x, y: P.y, wicket: viaWicket });
+        emit({ t: 'say', x: P.x, y: P.y - 18, text: text(rng.pick(Ct.LINES.frisk)), color: '#fff59d' });
+      }
+      if (!g.clockJump && G.timer > 40) { // the office clock runs fast, only today
+        const before = G.timer;
+        G.timer = Math.max(25, G.timer - 30);
+        g.clockJump = before - G.timer; G.elapsed += g.clockJump;
+        toast(Ct.GATE.clock, '#ffcc80', { close: closeTime() });
+        emit({ t: 'clockjump', s: g.clockJump });
+      }
+    }
+    function startStall() {
+      const g = G.gate;
+      g.stalls++;
+      let props = 0;
+      for (const f of P.followers) if (inCompound(f.x, f.y) && dist(f.x, f.y, P.x, P.y) < 160) props++;
+      P.stallT = props >= 4 ? 1.25 : 2.5;
+      g.stallText = rng.pick(modeKey === 'vote' ? Ct.LINES.stallVote : Ct.LINES.stall);
+      const clerk = G.ents.find((e) => e.kind === 'official');
+      if (clerk) say(clerk, g.stallText, null, '#fff9c4');
+      if (props >= 4) { const f = P.followers.find((o) => inCompound(o.x, o.y)); if (f) say(f, rng.pick(Ct.LINES.proposers), null, '#e3f2fd'); }
+      emit({ t: 'stall', text: g.stallText, short: props >= 4 });
     }
 
     // ------------------------------------------------------------ update: NPCs
@@ -482,6 +665,15 @@
 
     function updateCiv(e) {
       if (e.cool > 0) e.cool -= DT;
+      if (e.mode === 'follow' && G.gate && G.gate.inside && e.inner === false) {
+        // waiting at the gate, chanting
+        const k = e.slot % 24, sx = gateOutSpot.x + gSide.x * ((k % 6) - 2.5) * 18 + gOut.x * Math.floor(k / 6) * 18, sy = gateOutSpot.y + gSide.y * ((k % 6) - 2.5) * 18 + gOut.y * Math.floor(k / 6) * 18;
+        const d = dist(e.x, e.y, sx, sy);
+        if (d < 5) { move(e, 0, 0, 0); e.fx = -gOut.x; e.fy = -gOut.y; if (rng() < 0.08 * DT) say(e, rng.pick(Ct.LINES.chant), null, '#e3f2fd'); return; }
+        const dir = inCompound(e.x, e.y) || d > 140 ? waitDir(e, sx, sy) : norm(sx - e.x, sy - e.y);
+        move(e, dir.x, dir.y, Math.min(SPEED.walk, d * 4 + 20));
+        return;
+      }
       if (e.mode === 'follow') {
         const i = e.slot, a = i * 2.39996, rad = 20 + 9 * Math.sqrt(i + 1);
         const tx = P.x + Math.cos(a) * rad - P.fx * 10, ty = P.y + Math.sin(a) * rad - P.fy * 10;
@@ -554,9 +746,13 @@
       e.sayCd -= DT;
       if (e.mode === 'stun') { e.stunT -= DT; move(e, 0, 0, 0); if (e.stunT <= 0) backToWork(e); return; }
       if (e.ignoreT > 0 && e.mode !== 'chase') { e.ignoreT -= DT; move(e, 0, 0, 0); return; } // "didn't see anything"
+      if (e.salute > 0 && e.mode !== 'chase') { e.salute -= DT; move(e, 0, 0, 0); return; } // saluting the ruling front's guests
       const d = dist(e.x, e.y, P.x, P.y);
       const look = e.role === 'guard' ? 190 : 220;
-      if (e.mode !== 'chase' && sees(e, look)) {
+      // once you are checked and inside, the gate police step back: the officials take over
+      const calm = e.role === 'guard' && G.gate && G.gate.inside && P.state !== 'frisk';
+      if (calm && e.mode === 'chase') backToWork(e);
+      if (!calm && e.mode !== 'chase' && sees(e, look)) {
         e.mode = 'chase'; e.seeT = 0;
         if (e.sayCd <= 0) { say(e, rng.pick(Ct.LINES.cop), null, '#fff59d'); e.sayCd = 6; }
       }
@@ -605,10 +801,17 @@
       if (e.mode === 'post') { move(e, 0, 0, 0); return; }
       if (e.mode === 'return') {
         const h = e.home;
-        if (!h || dist(e.x, e.y, h.x, h.y) < 8) { e.mode = h ? 'post' : 'patrol'; move(e, 0, 0, 0); return; }
-        const dir = norm(h.x - e.x, h.y - e.y);
+        if (!h || dist(e.x, e.y, h.x, h.y) < 8) { e.mode = h ? 'post' : 'patrol'; e.stuckT = 0; move(e, 0, 0, 0); return; }
+        let dir;
+        if (e.role === 'guard') { // posts behind the compound wall: walk round by the streets, not into the wall
+          const ver = G.gate ? G.gate.ver : 0;
+          if (!e.homeField || e.homeVer !== ver) { e.homeField = field(map, [[Math.floor(h.x / TILE), Math.floor(h.y / TILE)]]); e.homeVer = ver; }
+          dir = flowDir(map, e.homeField, e.x, e.y) || norm(h.x - e.x, h.y - e.y);
+        } else dir = norm(h.x - e.x, h.y - e.y);
+        const ox = e.x, oy = e.y;
         const r = move(e, dir.x, dir.y, SPEED.cop);
-        if (r.hitX && r.hitY) { e.x = h.x; e.y = h.y; }
+        e.stuckT = dist(ox, oy, e.x, e.y) < 0.5 ? (e.stuckT || 0) + DT : 0;
+        if ((r.hitX && r.hitY) || e.stuckT > 4) { e.x = h.x; e.y = h.y; e.stuckT = 0; } // never jam for good
         return;
       }
       // patrol between intersections along precomputed fields
@@ -712,7 +915,24 @@
       }
     }
 
+    function updateVip(e) { // strolls gate <-> office; the gate opens for them
+      e.sayCd -= DT;
+      if (e.wait > 0) { e.wait -= DT; move(e, 0, 0, 0); return; }
+      const wp = e.way[e.wp], d = dist(e.x, e.y, wp.x, wp.y);
+      if (d < 8) {
+        if (e.wp === 2) { e.dir = -1; e.wait = 4; if (e.sayCd <= 0) { say(e, rng.pick(modeKey === 'vote' ? Ct.LINES.vipVote : Ct.LINES.vip), null, '#ffcdd2'); e.sayCd = 10; } }
+        else if (e.wp === 0) { e.dir = 1; e.wait = 6; }
+        e.wp += e.dir; e.stuckT = 0;
+        return;
+      }
+      const dir = norm(wp.x - e.x, wp.y - e.y), ox = e.x, oy = e.y;
+      move(e, dir.x, dir.y, SPEED.goon * 0.8);
+      e.stuckT = dist(ox, oy, e.x, e.y) < 0.5 ? e.stuckT + DT : 0;
+      if (e.stuckT > 3) { e.x = wp.x; e.y = wp.y; e.stuckT = 0; } // never jam
+    }
+
     function updateGoon(e) {
+      if (e.role === 'vip') { updateVip(e); return; }
       e.sayCd -= DT;
       if (e.cool > 0) e.cool -= DT;
       if (e.throwCd > 0) e.throwCd -= DT;
@@ -831,11 +1051,12 @@
       rebuildGrid();
       updatePlayer(inp);
       if (G.mode !== 'play') return;
+      if (G.gate) updateGate();
       for (const e of G.ents) {
         if (e.dead) continue;
         if (e.kind === 'civ') updateCiv(e);
         else if (e.kind === 'cop') updateCop(e);
-        else updateGoon(e);
+        else if (e.kind === 'goon') updateGoon(e);
         if (G.mode !== 'play') return;
       }
       updateProjs();
@@ -847,7 +1068,7 @@
     function drainEvents() { const ev = G.events; G.events = []; return ev; }
 
     updateMissions();
-    return { state: G, step, drainEvents, text, rng, CASES, CAP, SHIELD, _test: { join, leave, detain, breakBarricade, barricadeAt, tearPapers, launch, startThrow, hurtCiv, demo, spawnCiv } };
+    return { state: G, step, drainEvents, text, rng, CASES, CAP, SHIELD, _test: { join, leave, detain, breakBarricade, barricadeAt, tearPapers, launch, startThrow, hurtCiv, demo, spawnCiv, inCompound, updateGate } };
   }
 
   return { createGame, EMPTY_INPUT, SPEED, CAP, CASES, SHIELD, THROW, DEMO_STAGES };

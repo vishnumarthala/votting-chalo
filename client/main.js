@@ -188,7 +188,7 @@
         case 'tier': if (ev.name) { Hud.tier(ev.name); SFX.tier(); } break;
         case 'mission': Hud.toast('🎯 ' + ev.text + '  +' + ev.rew, '#b2ff59', 3.2); SFX.mission(); break;
         case 'join': SFX.join(); Render.popup(ev.x, ev.y - 30, '+' + ev.n + ' 👥', '#bbdefb'); break;
-        case 'slogan': SFX.slogan(); Render.burst(ev.x, ev.y, 14, ['#1e5bd8', '#fff', '#90caf9'], 220, 4); break;
+        case 'slogan': SFX.slogan(); Render.burst(ev.x, ev.y, 14, ['#00a651', '#fff', '#1a2d8a'], 220, 4); break;
         case 'doc':
           SFX.doc(); Render.burst(ev.x, ev.y, 18, ['#fff59d', '#fff'], 200, 5); Render.popup(ev.x, ev.y - 40, '+' + ev.pts, '#ffd54f');
           Hud.toast('📄 Got ' + ev.doc + ' (' + ev.have + '/' + ev.need + ')' + (ev.have === ev.need ? ' → now go to the ' + game.state.M.goal + '!' : ''), '#fff59d', 3.4);
@@ -202,10 +202,10 @@
         case 'torn': SFX.torn(); Render.shake(6); Render.burst(ev.x, ev.y, 12, ['#fff', '#eceff1'], 220, 5); Render.popup(ev.x, ev.y - 34, '📄 −' + ev.amount + '%', '#ff8a80'); break;
         case 'lostdoc': SFX.lostdoc(); break;
         case 'gas': SFX.gas(); Hud.toast('💨 Tear gas! Supporters are scattering', '#eeeeee'); break;
-        case 'break': SFX.break(); Render.shake(12); Render.burst(ev.x, ev.y, 28, ['#ffca28', '#212121', '#90a4ae'], 300, 6); Render.popup(ev.x, ev.y - 30, 'Barricade down! +' + ev.pts, '#ffd54f'); break;
+        case 'break': if (ev.kind === 'police') Hud.tier(Ct.GATE.lineBroken); SFX.break(); Render.shake(12); Render.burst(ev.x, ev.y, 28, ['#ffca28', '#212121', '#90a4ae'], 300, 6); Render.popup(ev.x, ev.y - 30, (ev.kind === 'police' ? 'Line broken! +' : 'Barricade down! +') + ev.pts, '#ffd54f'); break;
         case 'filing': SFX.stamp(); break;
         case 'backup': SFX.backup(); break;
-        case 'won': SFX.won(); for (let i = 0; i < 6; i++) Render.burst(P.x + (i - 3) * 30, P.y - 30, 20, ['#1e5bd8', '#ffd54f', '#fff', '#66bb6a', '#ff7043'], 320, 6); Hud.tier(game.state.gameMode === 'vote' ? 'VOTE CAST! ☑️' : 'NOMINATION FILED! ✅'); break;
+        case 'won': SFX.won(); for (let i = 0; i < 6; i++) Render.burst(P.x + (i - 3) * 30, P.y - 30, 20, ['#0f1b61', '#ffd700', '#fff', '#00a651', '#1a2d8a'], 320, 6); Hud.tier(game.state.gameMode === 'vote' ? 'VOTE CAST! ☑️' : 'NOMINATION FILED! ✅'); break;
         case 'over': SFX.over(); break;
         case 'throw': if (near(ev)) SFX.whoosh(); break;
         case 'land': Render.addDebris(ev.x, ev.y, ev.kind); if (near(ev)) { (ev.kind === 'stick' ? SFX.crack : ev.kind === 'chappal' ? SFX.slap : SFX.thud)(); Render.burst(ev.x, ev.y, 6, ['#bcaaa4', '#d7ccc8'], 90, 3); } break;
@@ -215,6 +215,14 @@
         case 'protect': SFX.protect(); Render.popup(ev.x, ev.y - 30, (ev.crowd ? '🛡️ Crowd protected them! +' : '🛡️ You protected them! +') + ev.pts, '#b9f6ca'); break;
         case 'demo': if (ev.d < 0) Hud.demoHit(); break;
         case 'demostage': SFX.heartbeat(); Render.shake(4); break;
+        case 'line': SFX.backup(); Render.shake(3); break;
+        case 'gateshut': SFX.clang(); Render.shake(5); break;
+        case 'chant': SFX.slogan(); Render.popup(ev.x, ev.y - 40, '📣 ' + ev.n + '/' + ev.need, '#bbdefb'); break;
+        case 'gateopen': SFX.mission(); Hud.tier('GATE OPEN! 📣'); Render.popup(ev.x, ev.y - 40, '+' + ev.pts, '#ffd54f'); break;
+        case 'vipgate': if (near(ev)) SFX.whistle(); break;
+        case 'frisk': SFX.grab(); Render.burst(P.x, P.y - 6, 10, ['#fff', '#eceff1', '#cfd8dc'], 120, 4); break;
+        case 'stall': SFX.stall(); break;
+        case 'clockjump': SFX.clock(); Render.clockJump(); Hud.tier('🕒 +30 MIN?!'); break;
       }
     }
   }
