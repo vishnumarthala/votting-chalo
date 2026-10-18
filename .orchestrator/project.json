@@ -1,0 +1,40 @@
+{
+  "name": "votting-chalo",
+  "stack": "node",
+  "commands": {
+    "test": "npm test",
+    "lint": "",
+    "typecheck": "",
+    "build": "",
+    "run": "",
+    "e2e": "",
+    "eval": "",
+    "smoke_train": "",
+    "bench": "",
+    "audit": "",
+    "data_check": "",
+    "contract_check": "",
+    "infra_validate": "",
+    "infra_plan": "",
+    "design_check": "",
+    "docs_check": ""
+  },
+  "test_globs": [
+    "tests/**",
+    "test/**",
+    "spec/**",
+    "__tests__/**",
+    "evals/**",
+    "**/test_*.py",
+    "**/*_test.py",
+    "**/*_test.go",
+    "**/*.test.*",
+    "**/*.spec.*"
+  ],
+  "metrics_file": "",
+  "bench_file": "",
+  "tree_ignore": [],
+  "ui_url": "",
+  "tracker": "forge",
+  "notes": ""
+}

@@ -1,0 +1,18 @@
+{
+  "phase": "setup",
+  "feature": null,
+  "paused": false,
+  "awaiting_user": null,
+  "escalated": null,
+  "stop_guard": {
+    "count": 0,
+    "fingerprint": null
+  },
+  "test_lock": {
+    "files": {},
+    "at": null,
+    "cp": null
+  },
+  "features": {},
+  "history": []
+}

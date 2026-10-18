@@ -1,0 +1,4 @@
+hook-errors.log
+*.tmp
+user-log.jsonl
+.cache/
