@@ -1,0 +1,91 @@
+{
+ "feature": "real-towns",
+ "checkpoints": [
+  {
+   "id": "CP-1",
+   "title": "Pulivendula from OSM, playable end to end",
+   "type": "ui",
+   "goal": "The menu offers a town picker (pincode removed); choosing Pulivendula plays both modes on a map built by World.buildTown from data/towns/pulivendula.json, produced offline by scripts/osm-to-town.js from data/osm/pulivendula.osm.gz. playwright-core devDependency and npm run e2e exist.",
+   "done_when": [
+    "scripts/osm-to-town.js converts the fixture and the Pulivendula export with no dependencies; data/osm/pulivendula.osm.gz and data/towns/pulivendula.json are committed",
+    "World.buildTown replaces generateTown; Pulivendula passes the map invariants; the bot completes both modes there",
+    "the menu has a town picker instead of the pincode field; client/pincode.js and test/pincode.test.js are gone; render follows map.roads",
+    "npm run e2e loads the page, picks Pulivendula, starts Nomination Day and sees the game running with no requests to other sites; commands.e2e is set in forge",
+    "npm test and design_check pass"
+   ],
+   "blocked_by": [],
+   "gates": ["design"],
+   "decision_refs": ["D-19", "D-7", "D-18"]
+  },
+  {
+   "id": "CP-2",
+   "title": "Kadapa and Punganur, landmarks, credit",
+   "type": "ui",
+   "goal": "All three towns are playable from the picker, with real bus and police stations and OSM neighbourhood names placed from the data, and the new disclaimer with the OpenStreetMap credit.",
+   "done_when": [
+    "data/osm/{kadapa,punganur}.osm.gz and data/towns/{kadapa,punganur}.json are committed; Kadapa is cropped to the old town",
+    "all three towns pass the map invariants and the bot completes both modes in each",
+    "mapped bus stations and police stations inside the square appear at their real positions; labels use OSM place names",
+    "the disclaimer text and data/towns/README.md (ODbL) are in place; the menu passes the keyboard, contrast and 375 px checks"
+   ],
+   "blocked_by": ["CP-1"],
+   "gates": ["design"],
+   "decision_refs": ["D-19", "D-16"]
+  },
+  {
+   "id": "CP-3",
+   "title": "TDP mob with stones, police escort",
+   "type": "logic",
+   "goal": "YSRCP and TDP are the parties; goons are TDP workers in yellow; TDP mobs throw stones that tear papers, scatter supporters and stun the candidate; police near a rioting mob escort it and target the crowd; a big crowd drives a mob back; the fan flag is drawn.",
+   "done_when": [
+    "stone, police-escort, crowd-vs-mob and determinism tests pass",
+    "Content has PARTY = YSRCP and RIVAL = TDP with original lines; no real person's name in any line",
+    "render draws yellow shirts, the YSRCP fan flag, the TDP flag and stones"
+   ],
+   "blocked_by": ["CP-2"],
+   "gates": [],
+   "decision_refs": ["D-4", "D-5"]
+  },
+  {
+   "id": "CP-4",
+   "title": "Arson of supporters' houses and vehicles",
+   "type": "logic",
+   "goal": "Some houses are YSRCP supporters' homes and parked vehicles stand near them and the party office; mobs set only those on fire; a fire blocks its tiles for 20 s and paths route around it; flames, smoke and charred remains are drawn.",
+   "done_when": [
+    "arson target, blocking/freeing and routing tests pass",
+    "render draws supporter roof flags, vehicles, flames, smoke and charred remains"
+   ],
+   "blocked_by": ["CP-3"],
+   "gates": [],
+   "decision_refs": ["D-13"]
+  },
+  {
+   "id": "CP-5",
+   "title": "Town ally and TDP leader",
+   "type": "logic",
+   "goal": "Each town has an invented YSRCP ally at the party office who joins with 6 supporters, halves stone damage and shortens the counter hold, and an invented TDP leader who heads the largest mob near the target.",
+   "done_when": [
+    "ally and leader tests pass in all three towns",
+    "every Content line fills its placeholders",
+    "render draws name tags and distinct looks for ally and leader"
+   ],
+   "blocked_by": ["CP-4"],
+   "gates": [],
+   "decision_refs": ["D-4"]
+  },
+  {
+   "id": "CP-6",
+   "title": "Scrutiny ending: 10 filed, 6 torn, 4 accepted",
+   "type": "ui",
+   "goal": "In nomination mode, finishing the counter hold starts a scrutiny phase where the TDP mob storms the RO office, 6 nominations are snatched and torn, and the run ends won with 10 filed, 6 torn, 4 accepted, shown in a panel that respects reduced motion.",
+   "done_when": [
+    "scrutiny sim test passes; Polling Day ends as before",
+    "e2e shows the scrutiny panel text and no animation under reduced motion",
+    "npm test, npm run e2e and design_check pass"
+   ],
+   "blocked_by": ["CP-5"],
+   "gates": ["design"],
+   "decision_refs": ["D-15", "D-16"]
+  }
+ ]
+}

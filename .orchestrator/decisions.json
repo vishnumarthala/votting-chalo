@@ -127,14 +127,14 @@
       "question": "Who plays it?",
       "options": [],
       "recommended": "Telugu-speaking players in Andhra Pradesh, mostly YSRCP sympathisers sharing it on WhatsApp and social media; casual gamers.",
-      "chosen": null,
-      "rationale": "",
-      "status": "deferred",
+      "chosen": "Telugu-speaking players in Andhra Pradesh, mostly YSRCP sympathisers sharing it on WhatsApp and social media; casual gamers.",
+      "rationale": "User accepted the recommended answer: 'Yes, accept all (Recommended)'",
+      "status": "decided",
       "blocking": false,
       "affects": [],
       "remind_at": [],
       "created_at": "2026-10-18T14:58:39.313902+00:00",
-      "resolved_at": null
+      "resolved_at": "2026-10-18T15:11:36.356018+00:00"
     },
     {
       "id": "D-10",
@@ -143,14 +143,14 @@
       "question": "Which persona matters first?",
       "options": [],
       "recommended": "Mobile-first casual player on a mid-range Android phone with touch controls; desktop keyboard players second.",
-      "chosen": null,
-      "rationale": "",
-      "status": "deferred",
+      "chosen": "Mobile-first casual player on a mid-range Android phone with touch controls; desktop keyboard players second.",
+      "rationale": "User accepted the recommended answer: 'Yes, accept all (Recommended)'",
+      "status": "decided",
       "blocking": false,
       "affects": [],
       "remind_at": [],
       "created_at": "2026-10-18T14:58:39.370799+00:00",
-      "resolved_at": null
+      "resolved_at": "2026-10-18T15:11:36.412727+00:00"
     },
     {
       "id": "D-11",
@@ -159,14 +159,14 @@
       "question": "Critical flows, ranked?",
       "options": [],
       "recommended": "1) Pick town and Nomination Day, play to filing, see the scrutiny panel. 2) Same for Polling Day. 3) Leaderboard per town.",
-      "chosen": null,
-      "rationale": "",
-      "status": "deferred",
+      "chosen": "1) Pick town and Nomination Day, play to filing, see the scrutiny panel. 2) Same for Polling Day. 3) Leaderboard per town.",
+      "rationale": "User accepted the recommended answer: 'Yes, accept all (Recommended)'",
+      "status": "decided",
       "blocking": false,
       "affects": [],
       "remind_at": [],
       "created_at": "2026-10-18T14:58:39.432472+00:00",
-      "resolved_at": null
+      "resolved_at": "2026-10-18T15:11:36.496375+00:00"
     },
     {
       "id": "D-12",
@@ -175,14 +175,14 @@
       "question": "Stack?",
       "options": [],
       "recommended": "Unchanged: plain JS UMD modules, Canvas 2D, Node 18 node:test, no bundler or runtime deps; the fetch script uses Node's built-in fetch.",
-      "chosen": null,
-      "rationale": "",
-      "status": "deferred",
+      "chosen": "Unchanged: plain JS UMD modules, Canvas 2D, Node 18 node:test, no bundler or runtime deps; the fetch script uses Node's built-in fetch.",
+      "rationale": "User accepted the recommended answer: 'Yes, accept all (Recommended)'",
+      "status": "decided",
       "blocking": false,
       "affects": [],
       "remind_at": [],
       "created_at": "2026-10-18T14:58:39.511471+00:00",
-      "resolved_at": null
+      "resolved_at": "2026-10-18T15:11:36.561019+00:00"
     },
     {
       "id": "D-13",
@@ -191,14 +191,14 @@
       "question": "Performance, size, offline?",
       "options": [],
       "recommended": "Smooth on a mid-range phone with up to ~40 extra entities (mob, stones, fires); each data/towns JSON <= 400 KB; works offline after load; replays stay deterministic.",
-      "chosen": null,
-      "rationale": "",
-      "status": "deferred",
+      "chosen": "Smooth on a mid-range phone with up to ~40 extra entities (mob, stones, fires); each data/towns JSON <= 400 KB; works offline after load; replays stay deterministic.",
+      "rationale": "User accepted the recommended answer: 'Yes, accept all (Recommended)'",
+      "status": "decided",
       "blocking": false,
       "affects": [],
       "remind_at": [],
       "created_at": "2026-10-18T14:58:39.571793+00:00",
-      "resolved_at": null
+      "resolved_at": "2026-10-18T15:11:36.643975+00:00"
     },
     {
       "id": "D-14",
@@ -207,14 +207,14 @@
       "question": "What does success look like?",
       "options": [],
       "recommended": "All three towns playable start to finish (bot test green on each, both modes) and the user accepts the look of towns, mob, fires and scrutiny panel at review.",
-      "chosen": null,
-      "rationale": "",
-      "status": "deferred",
+      "chosen": "All three towns playable start to finish (bot test green on each, both modes) and the user accepts the look of towns, mob, fires and scrutiny panel at review.",
+      "rationale": "User accepted the recommended answer: 'Yes, accept all (Recommended)'",
+      "status": "decided",
       "blocking": false,
       "affects": [],
       "remind_at": [],
       "created_at": "2026-10-18T14:58:39.623295+00:00",
-      "resolved_at": null
+      "resolved_at": "2026-10-18T15:11:36.719011+00:00"
     },
     {
       "id": "D-15",
@@ -223,14 +223,14 @@
       "question": "Visual direction?",
       "options": [],
       "recommended": "Keep the existing visual system (paper-card menu, top-down canvas sprites, blue #1e5bd8); add TDP yellow #f2c200, flames and smoke, and a torn-paper scrutiny panel in the same card style; keep design_check at 0.",
-      "chosen": null,
-      "rationale": "",
-      "status": "deferred",
+      "chosen": "Keep the existing visual system (paper-card menu, top-down canvas sprites, blue #1e5bd8); add TDP yellow #f2c200, flames and smoke, and a torn-paper scrutiny panel in the same card style; keep design_check at 0.",
+      "rationale": "User accepted the recommended answer: 'Yes, accept all (Recommended)'",
+      "status": "decided",
       "blocking": false,
       "affects": [],
       "remind_at": [],
       "created_at": "2026-10-18T14:58:39.681511+00:00",
-      "resolved_at": null
+      "resolved_at": "2026-10-18T15:11:36.786917+00:00"
     },
     {
       "id": "D-16",
@@ -239,14 +239,14 @@
       "question": "Accessibility target?",
       "options": [],
       "recommended": "WCAG 2.2 AA for menu and panels (contrast, >=12px text, keyboard-operable town picker, visible focus); existing keyboard controls in play; respect prefers-reduced-motion for the scrutiny animation.",
-      "chosen": null,
-      "rationale": "",
-      "status": "deferred",
+      "chosen": "WCAG 2.2 AA for menu and panels (contrast, >=12px text, keyboard-operable town picker, visible focus); existing keyboard controls in play; respect prefers-reduced-motion for the scrutiny animation.",
+      "rationale": "User accepted the recommended answer: 'Yes, accept all (Recommended)'",
+      "status": "decided",
       "blocking": false,
       "affects": [],
       "remind_at": [],
       "created_at": "2026-10-18T14:58:39.741982+00:00",
-      "resolved_at": null
+      "resolved_at": "2026-10-18T15:11:36.855730+00:00"
     },
     {
       "id": "D-17",
@@ -255,14 +255,14 @@
       "question": "Build order while overpass-api.de is blocked here?",
       "options": [],
       "recommended": "Non-OSM features first on the current generated maps keyed by town id (towns/parties/picker, TDP mob, arson, characters, scrutiny), then the OSM builder with Pulivendula, then Kadapa and Punganur.",
-      "chosen": null,
-      "rationale": "",
-      "status": "deferred",
+      "chosen": "Towns first (original order): CP-1 Pulivendula end to end, CP-2 Kadapa and Punganur, then mob, arson, characters, scrutiny. The user's OSM exports remove the network dependency.",
+      "rationale": "User uploaded OSM exports; plan re-approved.",
+      "status": "decided",
       "blocking": false,
       "affects": [],
       "remind_at": [],
       "created_at": "2026-10-18T14:58:39.816381+00:00",
-      "resolved_at": null
+      "resolved_at": "2026-10-18T15:11:16.503422+00:00"
     },
     {
       "id": "D-18",
@@ -271,14 +271,29 @@
       "question": "How are e2e, a11y and responsive checks run?",
       "options": [],
       "recommended": "Add playwright-core as the only devDependency (no browser download; uses /opt/pw-browsers/chromium) with a separate 'npm run e2e' wired to forge's e2e command; 'npm test' stays dependency-free.",
-      "chosen": null,
-      "rationale": "",
-      "status": "deferred",
+      "chosen": "Add playwright-core as the only devDependency (no browser download; uses /opt/pw-browsers/chromium) with a separate 'npm run e2e' wired to forge's e2e command; 'npm test' stays dependency-free.",
+      "rationale": "User accepted the recommended answer: 'Yes, accept all (Recommended)'",
+      "status": "decided",
       "blocking": false,
       "affects": [],
       "remind_at": [],
       "created_at": "2026-10-18T14:59:11.966086+00:00",
-      "resolved_at": null
+      "resolved_at": "2026-10-18T15:11:36.913680+00:00"
+    },
+    {
+      "id": "D-19",
+      "feature": "real-towns",
+      "dimension": "data",
+      "question": "Where does town data come from? (supersedes D-6)",
+      "options": [],
+      "chosen": "The user's three osm.org exports (kadapa, pulivendula, punganur; ODbL), stored as data/osm/<id>.osm.gz and converted offline by scripts/osm-to-town.js (no deps) into data/towns/<id>.json: a 2.0 km square (128 tiles, ~15.6 m/tile) per town, Kadapa centred on the old town (14.4695, 78.8240). Road widths: trunk/primary/secondary 3 tiles + pavements, tertiary 2, residential/unclassified/living_street 1-tile lanes, service/track/path/footway dropped.",
+      "rationale": "User uploaded the exports; Overpass is blocked here.",
+      "status": "decided",
+      "blocking": false,
+      "affects": [],
+      "remind_at": [],
+      "created_at": "2026-10-18T15:11:17.125196+00:00",
+      "resolved_at": "2026-10-18T15:11:17.125215+00:00"
     }
   ]
 }
