@@ -9,6 +9,16 @@
       "tier": "quick",
       "status": "done",
       "added_at": "2026-10-18T14:06:54+00:00"
+    },
+    {
+      "id": "F-2",
+      "title": "Readability and accessibility polish after real-towns",
+      "slug": "design-polish",
+      "priority": "should",
+      "summary": "From the real-towns design critique (inbox/feature-design-critique.json): wrap long toasts and speech bubbles instead of overflowing or squeezing (client/hud.js toasts, client/render.js bubbles fillText maxWidth); aria-pressed and a non-colour cue on the mode buttons (index.html .mode, client/main.js setMode); scrutiny panel compact rule for 667x375 and 320x568; move ambient auto colours away from TDP yellow; reduced-motion for stone/fire shakes; focus to Play after a run; scrutiny copy 'nominations' not 'papers'.",
+      "tier": "standard",
+      "status": "todo",
+      "added_at": "2026-10-18T18:52:00+00:00"
     }
   ]
 }

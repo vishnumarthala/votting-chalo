@@ -324,6 +324,21 @@
       "remind_at": [],
       "created_at": "2026-10-18T18:24:38.420573+00:00",
       "resolved_at": "2026-10-18T18:24:38.420595+00:00"
+    },
+    {
+      "id": "D-22",
+      "feature": "real-towns",
+      "dimension": "scope",
+      "question": "What happens to the feature-level design critique's findings?",
+      "options": [],
+      "chosen": "Deferred by the user ('Skip it, review now'): long toasts and speech bubbles overflow or squeeze text, the mode buttons expose selection by colour only (no aria-pressed), the scrutiny panel buttons fall below the fold on short landscape screens, TDP yellow resembles ambient autos, stone/fire shakes ignore reduced motion, focus is not returned to Play after a run. Known limitations for a follow-up feature.",
+      "rationale": "User chose to review the feature as it is.",
+      "status": "decided",
+      "blocking": false,
+      "affects": [],
+      "remind_at": [],
+      "created_at": "2026-10-18T18:52:00.550117+00:00",
+      "resolved_at": "2026-10-18T18:52:00.550153+00:00"
     }
   ]
 }

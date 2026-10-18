@@ -2,7 +2,10 @@
   "phase": "review",
   "feature": "real-towns",
   "paused": false,
-  "awaiting_user": null,
+  "awaiting_user": {
+    "reason": "user testing real-towns",
+    "since": "2026-10-18T18:52:00+00:00"
+  },
   "escalated": null,
   "stop_guard": {
     "count": 0,
@@ -546,7 +549,8 @@
           "commit": "7a358d23b5c98c83b904b44f082b81facbdd7780"
         }
       },
-      "accepted_at": null
+      "accepted_at": null,
+      "review_requested_at": "2026-10-18T18:52:00.700336+00:00"
     }
   },
   "history": [
@@ -1398,6 +1402,10 @@
     {
       "at": "2026-10-18T18:51:09+00:00",
       "event": "plan_approval_requested"
+    },
+    {
+      "at": "2026-10-18T18:52:00+00:00",
+      "event": "feature_presented"
     }
   ]
 }
