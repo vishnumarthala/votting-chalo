@@ -7,7 +7,7 @@
       "priority": "must",
       "summary": "design_check exits 2 on main with 14 findings, so any UI checkpoint's design gate fails until cleared. 11x border-accent-on-rounded on the kbd keycap style (line 50; keycap bottom border is conventional: suppress narrowly with impeccable hooks ignore-value --reason, do not loosen the command). Real: .disc disclaimer 11px at 3.0:1 contrast (#9a8670 on #f6eedd, line 51; needs >=12px and 4.5:1); .card:before 8px top stripe flagged as side-tab (line 19; restyle or suppress with a reason).",
       "tier": "quick",
-      "status": "active",
+      "status": "done",
       "added_at": "2026-10-18T14:06:54+00:00"
     }
   ]
