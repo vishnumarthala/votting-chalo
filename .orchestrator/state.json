@@ -543,7 +543,7 @@
           "user_approved": false,
           "started_at": "2026-10-18T18:02:13+00:00",
           "completed_at": "2026-10-18T18:38:28+00:00",
-          "commit": null
+          "commit": "7a358d23b5c98c83b904b44f082b81facbdd7780"
         }
       },
       "accepted_at": null
@@ -1376,6 +1376,12 @@
       "part": "judge",
       "status": "pass",
       "attempt": 0
+    },
+    {
+      "at": "2026-10-18T18:38:28+00:00",
+      "event": "cp_complete",
+      "cp": "CP-6",
+      "commit": "7a358d23b5c98c83b904b44f082b81facbdd7780"
     }
   ]
 }
