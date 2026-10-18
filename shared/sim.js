@@ -226,8 +226,10 @@
       P.kx = k.x * 260; P.ky = k.y * 260;
       emit({ t: 'torn', amount, papers: P.papers, x: P.x, y: P.y });
       if (P.papers > 0) return;
-      const doc = modeKey === 'vote' ? 'Voter Slip' : 'Form-A Nomination';
-      const i = P.docs.indexOf(doc);
+      // the most recently collected document is ruined (documents you started with are safe)
+      let i = P.docs.length - 1;
+      while (i >= 0 && !G.M.docs.includes(P.docs[i])) i--;
+      const doc = i >= 0 ? P.docs[i] : null;
       P.papers = 100;
       if (i >= 0) {
         P.docs.splice(i, 1);
@@ -324,7 +326,7 @@
         P.collect.t += DT;
         if (P.collect.t >= 1.2) {
           P.docs.push(at.doc); P.collect = null; G.stats.doc++;
-          if (at.doc === 'Form-A Nomination' || at.doc === 'Voter Slip') P.papers = 100;
+          if (at.doc === 'Voter Slip') P.papers = 100;
           emit({ t: 'doc', doc: at.doc, x: at.x, y: at.y, pts: gain(200, false), have: G.M.docs.filter((d) => P.docs.includes(d)).length, need: G.M.docs.length });
           emit({ t: 'say', x: at.x, y: at.y - 20, text: text(rng.pick(Ct.LINES.shop)), color: '#fff9c4' });
         }

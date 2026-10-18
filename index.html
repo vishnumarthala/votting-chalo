@@ -59,13 +59,14 @@ body.touch .help{display:none}
 #touch,#bPause{display:none}
 body.playing #bPause{display:block}
 body.touch.playing #touch{display:block}
-#bPause{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:4;width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(20,14,8,.6);color:#fff;font-size:16px;cursor:pointer}
+body.touch.playing.mapopen #touch{display:none}
+#bPause{position:fixed;left:50%;top:32px;transform:translate(-50%,-50%);z-index:4;width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(20,14,8,.6);color:#fff;font-size:16px;cursor:pointer}
 .tb{position:fixed;z-index:4;border-radius:50%;border:3px solid rgba(255,255,255,.85);font-weight:900;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.3);touch-action:none;user-select:none;-webkit-user-select:none}
 .tb.down{transform:scale(.92)}
-#bAct{right:18px;bottom:28px;width:88px;height:88px;font-size:13px;background:rgba(30,91,216,.88)}
-#bRun{right:118px;bottom:22px;width:66px;height:66px;font-size:12px;background:rgba(90,90,90,.8)}
-@media (max-width:520px){.row,.modes{grid-template-columns:1fr}.card{padding:18px 14px 12px}}
-@media (orientation:landscape) and (max-height:560px){.card{padding:12px 16px 10px}.te{font-size:13px}.tag{font-size:12px;margin:4px 0 8px}h1{font-size:28px}input{padding:7px 10px;font-size:15px}#play{padding:9px;font-size:17px}.mode p{display:none}}
+#bAct{right:calc(18px + env(safe-area-inset-right));bottom:calc(28px + env(safe-area-inset-bottom));width:88px;height:88px;font-size:13px;background:rgba(30,91,216,.88)}
+#bRun{right:calc(118px + env(safe-area-inset-right));bottom:calc(22px + env(safe-area-inset-bottom));width:66px;height:66px;font-size:12px;background:rgba(90,90,90,.8)}
+@media (max-width:520px){#menu{padding:10px}.card{padding:16px 14px 12px;border-radius:16px}h1{font-size:31px;letter-spacing:-1px}.te{font-size:15px;margin-top:4px}.tag{font-size:13px;margin:6px 0 10px;line-height:1.4}.row{grid-template-columns:1fr 112px;gap:8px}input,select{font-size:16px;padding:10px 11px}#pin{letter-spacing:2px}#pinStatus{font-size:12px;margin:2px 0 8px}.modes{gap:8px;margin-bottom:10px}.mode{padding:8px 10px;border-width:2px}.mode .ic{font-size:20px}.mode b{font-size:14.5px}.mode p{font-size:11.5px;line-height:1.35}#play{font-size:18px;padding:12px}#opts{margin-top:8px}#opts button{padding:7px 4px;font-size:12px}.disc{font-size:10.5px}}
+@media (orientation:landscape) and (max-height:560px){.card{padding:12px 16px 10px}.te{font-size:13px}.tag{font-size:12px;margin:4px 0 8px}h1{font-size:28px}input{padding:7px 10px;font-size:16px}#play{padding:9px;font-size:17px}.mode p{display:none}}
 </style>
 </head>
 <body>
@@ -82,20 +83,20 @@ body.touch.playing #touch{display:block}
   <div class="te">నామినేషన్ వేద్దాం, ఓటు వేద్దాం! ✊🗳️</div>
   <p class="tag">Walk your candidate across <b>your own town</b>. Gather a crowd, dodge the police and the goons, push through the Section 144 barricades and reach the office before it closes.</p>
   <div class="row">
-   <input id="name" maxlength="18" placeholder="Your name (e.g. Ramu from Ramapuram)" autocomplete="nickname">
+   <input id="name" maxlength="18" placeholder="Your name (e.g. Ramu)" autocomplete="nickname">
    <input id="pin" inputmode="numeric" maxlength="6" placeholder="Pincode" autocomplete="postal-code" aria-label="Andhra Pradesh pincode">
   </div>
   <select id="town" aria-label="Town" style="display:none"></select>
   <div id="pinStatus"></div>
   <div class="modes">
-   <button class="mode" type="button" data-m="nomination"><span class="ic">🏛️</span><b>Nomination Day</b><p>Collect 5 documents from shops around town, then file at the RO office before 3 PM.</p></button>
+   <button class="mode" type="button" data-m="nomination"><span class="ic">🏛️</span><b>Nomination Day</b><p>Collect 4 documents from offices around town, then file at the RO office before 3 PM.</p></button>
    <button class="mode" type="button" data-m="vote"><span class="ic">🗳️</span><b>Polling Day</b><p>Get your voter slip, then get past the goons "capturing" the booth and cast your vote.</p></button>
   </div>
-  <button id="play" type="button">CHALO ▶</button>
+  <button id="play" type="button">PLAY ▶</button>
   <div id="result"></div>
   <div id="opts"><button id="optMute" type="button"></button><button id="optQ" type="button"></button></div>
   <details><summary>🏆 Local leaderboard</summary><ol id="lb"></ol></details>
-  <div class="help"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>/arrows or hold <kbd>Click</kbd> to walk · <kbd>Shift</kbd>/<kbd>Right-click</kbd> run · <kbd>Space</kbd> slogan · walk into people to recruit · walk into barricades to push · <kbd>Esc</kbd> pause · <kbd>M</kbd> mute · <kbd>G</kbd> graphics</div>
+  <div class="help"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>/arrows or hold <kbd>Click</kbd> to walk · <kbd>Shift</kbd>/<kbd>Right-click</kbd> run · <kbd>Space</kbd> slogan · walk into people to recruit · walk into barricades to push · <kbd>Tab</kbd>/click minimap: town map · <kbd>Esc</kbd> pause · <kbd>M</kbd> mute · <kbd>G</kbd> graphics</div>
   <div class="disc">Satire. The Neelam Praja Party, its rivals and all characters, shops and events are fictional; no real person or party is depicted. The town map is generated from your pincode; area names come from India Post's public lookup.</div>
  </div>
 </div>

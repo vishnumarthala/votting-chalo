@@ -11,13 +11,15 @@
 
   const cv = $('c');
   Render.init(cv);
-  Render.resize(store.get('vc_q', 'hi'));
+  // low-memory phones (Chromium reports deviceMemory in GB) start on fast graphics unless the player chose
+  const lowEnd = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
+  Render.resize(store.get('vc_q', lowEnd ? 'lo' : 'hi'));
   Input.bind(cv);
   document.body.classList.toggle('touch', Input.isTouch);
 
   const menu = $('menu'), nameEl = $('name'), pinEl = $('pin'), pinStatus = $('pinStatus'), townEl = $('town');
   const playBtn = $('play'), lbEl = $('lb'), resultEl = $('result'), pauseEl = $('pause');
-  let game = null, running = false, paused = false, acc = 0, last = performance.now(), endT = 0, view = null, lastTick = -1;
+  let game = null, running = false, paused = false, mapOpen = false, acc = 0, last = performance.now(), endT = 0, view = null, lastTick = -1;
   let place = null, placeErr = null, lookupSeq = 0, mode = store.get('vc_mode', 'nomination');
 
   // ------------------------------------------------------------ menu
@@ -27,7 +29,7 @@
     mode = m === 'vote' ? 'vote' : 'nomination';
     store.set('vc_mode', mode);
     for (const b of document.querySelectorAll('.mode')) b.classList.toggle('sel', b.dataset.m === mode);
-    playBtn.textContent = mode === 'vote' ? 'CHALO, VOTE VEYYI ▶' : 'CHALO, NOMINATION ▶';
+    playBtn.textContent = mode === 'vote' ? 'GO VOTE ▶' : 'FILE NOMINATION ▶';
     renderLb();
   }
   for (const b of document.querySelectorAll('.mode')) b.addEventListener('click', () => setMode(b.dataset.m));
@@ -117,7 +119,8 @@
   [nameEl, pinEl].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); start(); } }));
 
   function stopPlaying() {
-    running = false; paused = false;
+    running = false; paused = false; mapOpen = false;
+    document.body.classList.remove('mapopen');
     pauseEl.classList.remove('on');
     Input.setEnabled(false);
     document.body.classList.remove('playing');
@@ -136,11 +139,26 @@
   }
   function setPaused(on) {
     if (!running) return;
+    if (on) { mapOpen = false; document.body.classList.remove('mapopen'); }
     paused = on;
     pauseEl.classList.toggle('on', on);
     Input.setEnabled(!on);
     if (!on) last = performance.now();
   }
+  function setMap(on) {
+    if (!running || paused) return;
+    mapOpen = on;
+    document.body.classList.toggle('mapopen', on);
+    Input.setEnabled(!on);
+    if (!on) last = performance.now();
+  }
+  Input.onTap((x, y) => {
+    if (!running || paused) return false;
+    if (mapOpen) { setMap(false); return true; }
+    const r = Hud.layout.mini;
+    if (r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) { setMap(true); return true; }
+    return false;
+  });
   $('resume').addEventListener('click', () => setPaused(false));
   $('quit').addEventListener('click', stopPlaying);
   $('bPause').addEventListener('click', () => setPaused(!paused));
@@ -148,6 +166,8 @@
   Input.onMeta((e) => {
     if (e.code === 'KeyM') { toggleMute(); return true; }
     if (e.code === 'KeyG') { toggleQuality(); return true; }
+    if (e.code === 'Tab' && running && !paused) { if (!e.repeat) setMap(!mapOpen); return true; }
+    if (e.code === 'Escape' && mapOpen) { setMap(false); return true; }
     if ((e.code === 'Escape' || e.code === 'KeyP') && running) { setPaused(!paused); return true; }
     return false;
   });
@@ -192,7 +212,7 @@
     last = now;
     if (!game) return;
     const G = game.state;
-    const live = running && !paused;
+    const live = running && !paused && !mapOpen;
     if (live) {
       acc += dt;
       let n = 0;
@@ -203,12 +223,34 @@
       if (G.mode === 'won' || G.mode === 'over') { endT += dt; if (endT > (G.mode === 'won' ? 3.5 : 2.5)) finish(); }
     }
     view = Render.draw(live ? acc / DT : 1, live ? dt : 0);
-    if (running) Hud.draw(Render.ctx, game, view, live ? dt : 0, { DPR: Render.DPR, W: Render.W, H: Render.H, isTouch: Input.isTouch });
+    if (running) {
+      const opts = { DPR: Render.DPR, W: Render.W, H: Render.H, isTouch: Input.isTouch, safe };
+      const lay = Hud.draw(Render.ctx, game, view, live ? dt : 0, opts);
+      if (mapOpen) Hud.drawMap(Render.ctx, game, opts);
+      placePause(lay.pause);
+    }
+  }
+
+  // safe-area insets (notches, home bar) so the HUD stays clear of them
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+  document.body.appendChild(probe);
+  let safe = { t: 0, r: 0, b: 0, l: 0 };
+  const readSafe = () => { const cs = getComputedStyle(probe); safe = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 }; };
+  readSafe();
+  const pauseBtn = $('bPause');
+  let pauseAt = '';
+  function placePause(p) {
+    if (!p) return;
+    const k = Math.round(p.x) + ',' + Math.round(p.y);
+    if (k === pauseAt) return;
+    pauseAt = k;
+    pauseBtn.style.left = Math.round(p.x) + 'px'; pauseBtn.style.top = Math.round(p.y) + 'px';
   }
 
   // attract mode: the default town behind the menu
   game = newGame(Object.assign({}, Ct.DEFAULT_PLACE), mode, 7);
-  addEventListener('resize', () => Render.resize());
+  addEventListener('resize', () => { Render.resize(); readSafe(); });
   requestAnimationFrame(frame);
 
   // read-only hook for automated playtests

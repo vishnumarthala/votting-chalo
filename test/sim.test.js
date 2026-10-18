@@ -115,17 +115,21 @@ test('three supporters close by lift the cop away, at the cost of one supporter'
   assert.equal(P.cases, 0);
 });
 
-test('goons tear papers; at zero the Form-A must be fetched again', () => {
+test('goons tear papers; at zero the latest collected document must be fetched again', () => {
   const g = play({ police: false, civilians: 0 });
   const P = g.state.player;
   const goon = g.state.ents.find((e) => e.kind === 'goon');
-  P.docs.push('Form-A Nomination', 'Affidavit');
+  assert.deepEqual(P.docs, ['Form-A Nomination']);
+  P.docs.push('Affidavit', 'Caste Certificate');
   place(goon, P.x + 12, P.y); goon.mode = 'chase'; goon.los = true;
   steps(g, 1);
   assert.equal(P.papers, 75);
   g._test.tearPapers(goon, 100);
   assert.equal(P.papers, 100);
-  assert.deepEqual(P.docs, ['Affidavit']);
+  assert.deepEqual(P.docs, ['Form-A Nomination', 'Affidavit']);
+  g._test.tearPapers(goon, 100);
+  g._test.tearPapers(goon, 100);
+  assert.deepEqual(P.docs, ['Form-A Nomination'], 'the starting Form-A is never lost');
 });
 
 test('documents are collected by standing at the shop counter', () => {

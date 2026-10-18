@@ -7,7 +7,7 @@
   let actLatch = false, enabled = false;
   const mouse = { down: false, run: false, x: 0, y: 0 };
   const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
-  let runBtn = false;
+  let runBtn = false, tapHandler = null;
   const meta = [];
   const isTouch = matchMedia('(hover:none) and (pointer:coarse)').matches || 'ontouchstart' in window;
   const inField = (t) => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
@@ -29,6 +29,7 @@
   function bindCanvas(cv) {
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
     cv.addEventListener('pointerdown', (e) => {
+      if (tapHandler && (e.pointerType === 'touch' || e.button === 0) && tapHandler(e.clientX, e.clientY)) { e.preventDefault(); return; }
       if (!enabled) return;
       if (window.SFX) window.SFX.init();
       if (e.pointerType === 'touch') {
@@ -70,6 +71,8 @@
     isTouch,
     setEnabled(on) { enabled = on; if (!on) releaseAll(); },
     onMeta(fn) { meta.push(fn); },
+    // fn(clientX, clientY) -> true if it consumed the tap (e.g. the minimap); runs even while input is disabled
+    onTap(fn) { tapHandler = fn; },
     bind(cv) { bindCanvas(cv); bindButtons(); },
     // playerScreen: player's position on screen, for mouse steering
     frame(playerScreen) {

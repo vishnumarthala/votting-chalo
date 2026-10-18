@@ -38,7 +38,6 @@
   const NEIGHBOURHOODS = ['Gandhi Nagar', 'Rythu Peta', 'Bazaar Street', 'Station Road', 'Temple Street', 'Kummari Veedhi', 'Mill Colony', 'Teachers Colony', 'Main Road', 'Old Town', 'Brindavan Colony', 'Sai Nagar', 'Canal Road', 'Weavers Colony', 'Market Yard', 'Housing Board'];
   const ROOF = ['#e8c39e', '#f2d7a6', '#cfe0e8', '#f3c1b4', '#e7e2a7', '#d8c9ef', '#c8e6c0', '#f0b98d', '#ddd2c2', '#bfd8f0'];
   const DOC_SHOPS = [
-    { doc: 'Form-A Nomination', name: 'Laxmi Xerox & Notary' },
     { doc: 'Affidavit', name: 'Notary Office' },
     { doc: 'Caste Certificate', name: 'MRO Office' },
     { doc: 'Deposit Receipt', name: 'Co-op Bank' },
@@ -314,7 +313,7 @@
     }
     for (let i = 0; i < t.length; i++) if (t[i] === K.LOT) t[i] = K.GRASS;
 
-    // ---- document shops: one house building in each of five spread-out blocks, door on the street
+    // ---- document shops: one house building in each of several spread-out blocks, door on the street
     const docSites = [];
     const goal = office || booth || { x: WORLD / 2, y: WORLD / 2 };
     const anchors = [[0.2, 0.25], [0.8, 0.8], [0.15, 0.6], [0.55, 0.3], [0.45, 0.75]];

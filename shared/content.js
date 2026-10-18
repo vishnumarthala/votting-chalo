@@ -14,8 +14,8 @@
       title: 'Nomination Day',
       goal: 'RO Office',
       time: 480, clockStart: 10 * 60, clockEnd: 15 * 60, hold: 6,
-      docs: ['Form-A Nomination', 'Affidavit', 'Caste Certificate', 'Deposit Receipt', 'Proposer Signatures'],
-      intro: 'Collect your 5 documents from shops across {town}, then reach the {district} RO Office before 3 PM and hold the counter to file.',
+      docs: ['Affidavit', 'Caste Certificate', 'Deposit Receipt', 'Proposer Signatures'], given: ['Form-A Nomination'],
+      intro: 'You have your Form-A. Collect the 4 supporting documents across {town}, then reach the {district} RO Office before 3 PM and hold the counter to file.',
       win: 'NOMINATION FILED! ✅ {town} has a new candidate.',
     },
     vote: {
@@ -28,26 +28,27 @@
     },
   };
 
+  // Simple English with a light Telugu touch (anna, Ammo, Ayyo and a couple of slogans).
   const LINES = {
-    start: ['Chalo, {district} RO Office! ✊', 'Papers ready. Crowd ready. Chalo!', '{short} zindabad!'],
-    startVote: ['Vote veyyadaniki velthunna! 🗳️', 'Naa vote, naa hakku!'],
-    slogan: ['{short} zindabad! ✊', 'Neelam Jenda, Praja Agenda!', 'Prajala gonthu, mana gonthu!', 'Chalo RO Office!', 'Mana {town}, mana hakku!'],
-    sloganVote: ['Vote is our right!', 'Andaru randi, vote veyyandi!', 'Booth ki chalo!'],
-    join: ['Nenu kuda vasthunna!', 'Anna, mee tho unnam!', 'Selfie tarvatha, first nomination!', 'Jenda pattukunna!', 'Mana {town} pride!', 'Chalo chalo!'],
-    cop: ['Section 144 sir! Gumpulu vaddu!', 'Ekkadiki velthunnaru? Permission undha?', 'Aagandi! Papers chupinchandi!', 'Station ki randi, oka chinna enquiry.', 'Road closed for "security reasons".'],
-    copLifted: ['Ayyo, crowd ekkuva!', 'Sir, nannu dinchandi!', 'Control room, backup pampandi!'],
-    lathi: ['Chedaripondi!', 'Lathi charge!'],
-    goon: ['Ikkada nunchi vellakudadhu!', 'Mee papers lo spelling mistake undi! 😏', 'Nomination? Next election lo chuddam!', 'Return ticket teesko!', 'Ee road maadi!'],
-    goonScared: ['Ammo, chala mandi unnaru!', 'Tarvatha chuskuntam!'],
-    scared: ['Ammo! Lathi!', 'Nenu intiki velthunna!', 'Tear gas! Paripondi!', 'Ivvala kaadu anna!'],
-    shop: ['Ready ga undi sir. Sign here, here, and here.', 'Xerox 2 rupees, notary 200. Haha.', 'All the best anna!', 'Stamp padindi! Next!'],
+    start: ['To the {district} RO Office! ✊', 'Papers ready. Crowd ready. Let\u2019s go!', '{short}! {short}! {short}!'],
+    startVote: ['Off to vote! 🗳️', 'My vote, my right!'],
+    slogan: ['{short}! {short}! ✊', 'Neelam Jenda, Praja Agenda!', 'Our town, our right!', 'Make way for the people!', 'To the RO Office!'],
+    sloganVote: ['Vote is our right!', 'Everyone come, everyone vote!', 'To the booth!', 'Naa vote, naa hakku!'],
+    join: ['I\u2019m coming too!', 'Anna, we are with you!', 'Selfie later, nomination first!', 'Give me a flag!', 'For {town}!', 'Count me in!'],
+    cop: ['Section 144, sir! No crowds!', 'Where are you going? Got permission?', 'Stop! Show your papers!', 'Come to the station. Just a small enquiry.', 'Road closed for "security reasons".'],
+    copLifted: ['Ayyo, too many people!', 'Sir, put me down!', 'Control room, send backup!'],
+    lathi: ['Clear the road!', 'Lathi charge!'],
+    goon: ['You can\u2019t pass here!', 'Your papers have a spelling mistake! 😏', 'Nomination? Try next election!', 'Go back home!', 'This road is ours!'],
+    goonScared: ['Ammo, too many of them!', 'We\u2019ll see you later!'],
+    scared: ['Ammo! Lathi!', 'I\u2019m going home!', 'Tear gas! Run!', 'Not today, anna!'],
+    shop: ['All ready, sir. Sign here, here and here.', 'Seal and signature done. Keep it safe.', 'All the best, anna!', 'Stamped! Next!'],
     roMissing: ['Documents incomplete: {doc}. Next!', 'Where is your {doc}? Come back with it.'],
-    boothMissing: ['Voter slip ledu? BLO tent lo teesukondi.'],
-    torn: ['My Form-A! Chinchesaru! 😱', 'Papers torn! Fresh form kaavali!'],
-    detained: ['Nenu candidate ni! Idi anyayam!', 'Arrest chesina, nomination aagadu!'],
-    gas: ['Kallu mandutunnayi! 😵', '*cough cough*'],
-    barricade: ['Andaru kalisi thoyyandi!', 'Barricade ni pakkaki jarapandi!'],
-    filing: ['Stamp kotandi sir, time aipothundi!', 'Okka nimisham, sign chesthunna!'],
+    boothMissing: ['No voter slip? Get one at the BLO tent.'],
+    torn: ['My papers! They tore them! 😱', 'Papers torn! I need a fresh copy!'],
+    detained: ['I am a candidate! This is unfair!', 'Arrest me if you want. The nomination still goes in!'],
+    gas: ['My eyes are burning! 😵', '*cough cough*'],
+    barricade: ['Everyone push together!', 'Move the barricade aside!'],
+    filing: ['Stamp it, sir, time is running out!', 'One minute, signing now!'],
   };
 
   const MISSIONS = [
@@ -60,7 +61,7 @@
     { k: 'goon', txt: 'Scare off {n} goon{s}', n: [1, 3], rew: 150 },
   ];
 
-  const TIERS = ['', 'Josh!', 'Mass!', 'Mass Jathara!'];
+  const TIERS = ['', 'Nice!', 'Mass!', 'Mass Jathara!'];
 
   function fill(str, vars) {
     return String(str).replace(/\{(\w+)\}/g, (all, k) => {

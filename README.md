@@ -4,9 +4,9 @@ A satirical top-down game set in **your own Andhra Pradesh town**. Walk your can
 gather a crowd, dodge the police and rival goons, push through the Section 144 barricades, and reach the
 office before it closes.
 
-- **Nomination Day:** collect 5 documents from shops around town (Form-A, affidavit, caste certificate,
-  deposit receipt, proposer signatures). Then reach the RO office before 3 PM and hold the counter until
-  the nomination is filed.
+- **Nomination Day:** you start with your Form-A. Collect the 4 supporting documents around town (affidavit,
+  caste certificate, deposit receipt, proposer signatures), then reach the RO office before 3 PM and hold
+  the counter until the nomination is filed.
 - **Polling Day:** pick up your voter slip at the BLO tent, get past the goons "capturing" the booth, and
   cast your vote before 6 PM.
 
@@ -31,10 +31,14 @@ npm test        # node:test suites
 | Walk | WASD / arrows, or hold left mouse button (walks toward the pointer) | drag on the left half |
 | Run (uses stamina) | Shift / hold right mouse button | drag far, or RUN |
 | Slogan (pulls nearby people into your crowd, scares goons) | Space / E | SLOGAN, or a second-finger tap |
+| Town map (pauses the game) | Tab, or click the minimap | tap the minimap |
 | Pause · mute · graphics | Esc/P · M · G | ⏸ |
 
 ## How it plays
 
+- **Where to go.** The NEXT banner always names your next stop and its distance, glowing arrows on the road
+  show the walking route, and a pin marks the spot. The corner minimap follows you; tap it for the whole
+  town with every document shop, the office and the police stations.
 - **Crowd.** Walk into townspeople to recruit them; the bigger your crowd, the wider your pull (up to 30).
   They follow you through the streets.
 - **Police** patrol between intersections and chase you when they see you (buildings block their view).
@@ -43,12 +47,12 @@ npm test        # node:test suites
   - Lathi charges scatter supporters. Inspectors throw **tear gas** at big crowds.
   - Each arrest is a case; **3 cases and you're jailed**. After an arrest you're released at a police station.
   - Backup arrives over time, and sooner if your crowd is large.
-- **Goons** tear your papers (25% per hit). If your papers hit 0%, your Form-A (or voter slip) is
-  destroyed and you must fetch a new one. Goons back off from a crowd of 8 or more.
+- **Goons** tear your papers (25% per hit). If your papers hit 0%, the document you collected most
+  recently is ruined and you must fetch it again (your starting Form-A or Voter ID is safe). Goons back off from a crowd of 8 or more.
 - **Section 144 ring.** The streets around the destination are barricaded, with a few manned checkposts.
   Walk into a barricade to push it; every supporter nearby speeds it up.
-- **Score:** recruits, documents, barricades, lifted cops, scared goons, combos ("Josh!", "Mass!",
-  "Mass Jathara!"), three rotating missions ("Aaj ka kaam"), and time, crowd and paper bonuses. There's a
+- **Score:** recruits, documents, barricades, lifted cops, scared goons, combos ("Nice!", "Mass!",
+  "Mass Jathara!"), three rotating missions ("Today's tasks"), and time, crowd and paper bonuses. There's a
   local top-10 per mode.
 
 ## Architecture
@@ -64,9 +68,9 @@ shared/             DOM-free UMD modules (browser + Node)
   sim.js            30 Hz deterministic game: crowd, police, goons, gas, barricades, documents, filing
 client/
   pincode.js        India Post lookup + Andhra Pradesh check + cache + offline district fallback
-  render.js         cached map chunks, people, sites, ring, gas, ambient autos, minimap, bubbles
-  hud.js            status, minimap, documents, objective arrow, missions, toasts, intro
-  input.js          keyboard, mouse steering, touch joystick
+  render.js         cached map chunks, people, sites, ring, gas, ambient autos, route guide, radar + town map, bubbles
+  hud.js            status, NEXT banner, radar, documents, objective arrow, missions, toasts, intro, map overlay
+  input.js          keyboard, mouse steering, touch joystick, minimap taps
   audio.js          Web Audio synthesized effects (no audio files)
   main.js           loop, menu, events -> effects, leaderboard
 test/               world (40 seeds), sim rules, bot completion of both modes, pincode parsing
@@ -81,7 +85,7 @@ A 128×128-tile map (4096 px) built from the pincode seed:
 - houses with rooftop water tanks, parks, a temple, Rythu Bazar, bus stand and hospital;
 - walled compounds for the RO office and the polling booth, police stations, and the NPP party office
   where you start;
-- five document shops spread across town, and the Section 144 ring.
+- four document shops spread across town, and the Section 144 ring.
 
 Tests check 40 seeds to confirm every site exists and is reachable from the start.
 

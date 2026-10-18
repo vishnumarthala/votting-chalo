@@ -17,6 +17,8 @@
   let particles = [], ambient = [];
   const bubbles = new Map();
   let bubbleSeq = 0;
+  let freeMap = null, fields = new Map(), objSite = null, routeCache = {};
+  const TAU = Math.PI * 2;
 
   function resize(q) {
     if (q) quality = q;
@@ -25,7 +27,9 @@
     DPR = Math.max(1, Math.min(ideal, Math.sqrt((quality === 'hi' ? 4.5e6 : 1.8e6) / (W * H))));
     cv.width = Math.ceil(W * DPR); cv.height = Math.ceil(H * DPR);
     cv.style.width = W + 'px'; cv.style.height = H + 'px';
-    zoom = Math.max(0.55, Math.min(1.5, Math.min(W, H - bottomPad) / 680));
+    // Big screens see ~680 world px on the short side; phones zoom in (~0.8) so people stay readable.
+    const short = Math.min(W, H - bottomPad);
+    zoom = Math.max(0.72, Math.min(1.5, short >= 680 ? short / 680 : 0.8 + (short - 400) / 1400));
     const res = Math.min(2, zoom * DPR);
     if (Math.abs(res - chunkRes) > 0.01) { chunkRes = res; chunks.clear(); }
   }
@@ -34,6 +38,8 @@
   function setGame(game) {
     G = game.state; map = G.map;
     chunks.clear(); particles = []; bubbles.clear();
+    freeMap = Object.assign({}, map, { dyn: new Uint8Array(N * N) }); // plan through barricades: pushing breaks them
+    fields = new Map(); objSite = null; routeCache = {}; radarT = -1;
     cam.x = G.player.x; cam.y = G.player.y;
     buildMini();
     const rng = makeRng(map.seed ^ 0xabc);
@@ -136,36 +142,101 @@
   }
 
   // ------------------------------------------------------------ people
-  const SHIRTS = ['#f5f5f5', '#ffcc80', '#a5d6a7', '#ce93d8', '#90caf9', '#ffab91'];
-  const SKIN = ['#8d5a3b', '#a86b45', '#7b4a2e', '#9c6644'];
+  // Top-down people, facing +x after rotation: legs and arms swing with speed, hair covers the head,
+  // and a sliver of face shows at the front so the walking direction reads at a glance.
+  const SHIRTS = ['#f5f5f5', '#ffcc80', '#a5d6a7', '#ce93d8', '#90caf9', '#ffab91', '#fff59d', '#b0bec5'];
+  const SKIN = ['#8d5a3b', '#a86b45', '#7b4a2e', '#9c6644', '#b07a52'];
+  const SAREES = ['#d81b60', '#8e24aa', '#ef6c00', '#2e7d32', '#c62828', '#00897b', '#f9a825', '#3949ab'];
+  const LUNGI = ['#eceff1', '#5d4037', '#37474f', '#1565c0', '#ffffff'];
+  const OUT = 'rgba(30,20,10,.5)';
+  function blob(x, y, rx, ry, color, stroke) {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill();
+    if (stroke) ctx.stroke();
+  }
   function person(x, y, e, o) {
     const r = 9, fx = e.fx || 0, fy = e.fy === undefined ? 1 : e.fy;
     const ang = Math.atan2(fy, fx);
-    const moving = Math.abs(e.vx || 0) + Math.abs(e.vy || 0) > 10;
-    const ph = moving ? Math.sin(time * 14 + e.id) * 4 : 0;
-    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 2, y + 3, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-    // feet
-    ctx.fillStyle = '#3e2723'; ctx.fillRect(2 + ph, -6, 5, 4); ctx.fillRect(2 - ph, 2, 5, 4);
-    // shoulders
-    ctx.fillStyle = o.shirt; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.75, r * 1.1, 0, 0, Math.PI * 2); ctx.fill();
-    if (o.scarf) { ctx.fillStyle = o.scarf; ctx.fillRect(-3, -r * 1.05, 4, r * 2.1); }
-    if (o.prop === 'papers') { ctx.fillStyle = '#fff'; ctx.fillRect(5, 3, 8, 6); ctx.fillStyle = '#90a4ae'; ctx.fillRect(7, 5, 4, 1); }
-    if (o.prop === 'lathi') { ctx.strokeStyle = '#8d6e63'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(4, 7); ctx.lineTo(16, 10); ctx.stroke(); }
-    if (o.prop === 'flag') { ctx.fillStyle = '#1e5bd8'; ctx.fillRect(2, -14, 9, 6); ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(2, -14); ctx.lineTo(2, -4); ctx.stroke(); }
-    // head
-    ctx.fillStyle = o.skin; ctx.beginPath(); ctx.arc(1, 0, r * 0.55, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = o.hat || '#1b1b1b'; ctx.beginPath(); ctx.arc(0, 0, r * 0.55, Math.PI * 0.5, Math.PI * 1.5); ctx.fill();
-    if (o.hat && o.brim) { ctx.fillRect(2, -3, 5, 6); }
+    const amp = Math.min(1, Math.hypot(e.vx || 0, e.vy || 0) / 90);
+    const ph = Math.sin(time * (amp > 0.9 ? 15 : 11) + e.id * 1.7) * 4.2 * amp;
+    blob(x + 2.5, y + 3.5, r * 0.95, r * 0.72, 'rgba(0,0,0,.2)');
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(1.12, 1.12); // drawn a touch larger than the collision box
+    ctx.lineWidth = 1.1; ctx.strokeStyle = OUT; ctx.lineJoin = 'round';
+    // legs: only the stride pokes out from under the body
+    if (o.saree) {
+      blob(ph * 0.3 + 1, -2.6, 3, 2, o.skin); blob(-ph * 0.3 + 1, 2.6, 3, 2, o.skin);
+      blob(-0.5, 0, r * 0.78, r * 0.92, o.saree, true);
+    } else {
+      blob(ph + 1, -3.6, 4, 2.2, o.legs); blob(-ph + 1, 3.6, 4, 2.2, o.legs);
+      blob(ph + 4.4, -3.6, 1.6, 1.9, '#3e2723'); blob(-ph + 4.4, 3.6, 1.6, 1.9, '#3e2723');
+    }
+    // arms swing against the legs; the right hand (+y) holds props
+    const sw = -ph * 0.8;
+    for (const s of [-1, 1]) {
+      const a = s < 0 ? sw : -sw;
+      blob(a * 0.45, s * r * 0.86, 3.2, 2.4, o.sleeve || o.shirt);
+      blob(a + 1, s * (r + 0.6), 2.1, 2.1, o.skin);
+    }
+    const hx = -sw + 1, hy = r + 0.6;
+    if (o.prop === 'lathi') { ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(hx - 3, hy + 1); ctx.lineTo(hx + 13, hy - 3); ctx.stroke(); ctx.strokeStyle = OUT; ctx.lineWidth = 1.1; }
+    if (o.prop === 'papers') { ctx.save(); ctx.translate(hx + 3, hy - 1); ctx.rotate(-0.3); ctx.fillStyle = '#fff'; ctx.fillRect(-1, -3, 8, 6); ctx.strokeRect(-1, -3, 8, 6); ctx.fillStyle = '#90a4ae'; ctx.fillRect(1, -1, 4, 1); ctx.fillRect(1, 1, 3, 1); ctx.restore(); }
+    // torso
+    blob(0, 0, r * 0.56, r, o.shirt, true);
+    if (o.saree) { // pallu over the left shoulder with a zari border
+      ctx.save(); ctx.beginPath(); ctx.ellipse(0, 0, r * 0.56, r, 0, 0, TAU); ctx.clip();
+      ctx.fillStyle = o.saree; ctx.beginPath(); ctx.moveTo(-r, -r); ctx.lineTo(r * 0.2, -r); ctx.lineTo(-r * 0.2, r * 0.4); ctx.lineTo(-r, r * 0.2); ctx.fill();
+      ctx.strokeStyle = '#ffca28'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(r * 0.2, -r); ctx.lineTo(-r * 0.2, r * 0.4); ctx.stroke();
+      ctx.restore(); ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
+    }
+    if (o.towel) { ctx.fillStyle = o.towel; ctx.fillRect(-3.5, -r * 1.02, 6, 4.5); ctx.strokeRect(-3.5, -r * 1.02, 6, 4.5); }
+    if (o.belt) { ctx.fillStyle = o.belt; ctx.fillRect(-1, -r * 0.95, 2.2, r * 1.9); }
+    if (o.scarf) { // party kanduva around the neck
+      ctx.strokeStyle = o.scarf; ctx.lineWidth = 2.8; ctx.beginPath(); ctx.arc(0.5, 0, 5.4, -Math.PI * 0.75, Math.PI * 0.75); ctx.stroke();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
+    }
+    if (o.garland) for (let i = 0; i < 9; i++) { const a = -Math.PI * 0.8 + (i * Math.PI * 1.6) / 8; blob(0.5 + Math.cos(a) * 6.3, Math.sin(a) * 6.3, 1.5, 1.5, i % 2 ? '#ffeb3b' : '#ff9800'); }
+    if (o.chain) { ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(1, 0, 5.6, -0.9, 0.9); ctx.stroke(); ctx.strokeStyle = OUT; ctx.lineWidth = 1.1; }
+    if (o.prop === 'flag') {
+      ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx - 6, hy + 6); ctx.stroke();
+      const wv = Math.sin(time * 8 + e.id) * 1.5;
+      ctx.fillStyle = '#1e5bd8'; ctx.beginPath(); ctx.moveTo(hx - 6, hy + 6); ctx.lineTo(hx - 15, hy + 3 + wv); ctx.lineTo(hx - 14, hy + 9 + wv); ctx.lineTo(hx - 6, hy + 11); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx - 10, hy + 7 + wv * 0.5, 1.3, 0, TAU); ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
+    }
+    // head: face sliver at the front, hair or headgear on top
+    const hr = r * 0.5;
+    blob(0.9, 0, hr, hr, o.skin, true);
+    if (o.cap) {
+      blob(-0.3, 0, hr + 0.4, hr + 0.4, o.cap, true);
+      ctx.fillStyle = o.brim; ctx.beginPath(); ctx.ellipse(hr * 0.75, 0, 2.3, hr * 0.85, 0, -Math.PI / 2, Math.PI / 2); ctx.fill();
+      if (o.badge) blob(hr * 0.35, 0, 1.1, 1.1, o.badge);
+    } else if (o.bandana) {
+      blob(-0.6, 0, hr * 0.95, hr * 0.95, o.hair);
+      ctx.fillStyle = o.bandana; ctx.beginPath(); ctx.ellipse(-0.6, 0, hr * 0.95, hr * 0.95, 0, Math.PI * 0.6, Math.PI * 1.4); ctx.lineTo(1.5, -hr * 0.5); ctx.lineTo(1.5, hr * 0.5); ctx.fill();
+      ctx.strokeStyle = o.bandana; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-hr, 0); ctx.lineTo(-hr - 4, -2 + ph * 0.3); ctx.moveTo(-hr, 0); ctx.lineTo(-hr - 4, 2.5 - ph * 0.3); ctx.stroke();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
+    } else {
+      blob(-0.7, 0, hr * 0.94, hr * 0.96, o.hair);
+      if (o.bun) { blob(-hr - 1.3, 0, 2.5, 2.5, o.hair, true); blob(-hr - 1.6, -1.8, 1.3, 1.3, '#fffde7'); blob(-hr - 1.6, 1.8, 1.3, 1.3, '#fffde7'); }
+    }
     ctx.restore();
   }
   function look(e) {
+    const v = e.look || 0, id = e.id || 0;
     switch (e.kind) {
-      case 'player': return { shirt: '#1e5bd8', skin: '#9c6644', scarf: '#bbdefb', prop: 'papers' };
-      case 'civ': return e.mode === 'follow' ? { shirt: SHIRTS[e.look % 6], skin: SKIN[e.look % 4], scarf: '#1e5bd8', prop: e.id % 3 === 0 ? 'flag' : null } : { shirt: SHIRTS[e.look % 6], skin: SKIN[e.look % 4] };
-      case 'cop': return { shirt: e.role === 'gas' ? '#b39b5e' : '#c8b071', skin: '#8d5a3b', hat: '#6d5a2e', brim: true, prop: 'lathi' };
-      case 'goon': return { shirt: '#37474f', skin: '#7b4a2e', hat: '#c62828', brim: true };
-      default: return { shirt: '#999', skin: '#8d5a3b' };
+      case 'player': return { shirt: '#fafafa', legs: '#eceff1', skin: '#9c6644', hair: '#1b1410', scarf: '#1e5bd8', garland: true, prop: 'papers' };
+      case 'civ': {
+        const woman = id % 3 === 1;
+        const o = woman
+          ? { shirt: SAREES[(v + id) % 8], saree: SAREES[(v + id + 3) % 8], skin: SKIN[(v + id) % 5], hair: '#1b1410', bun: true }
+          : { shirt: SHIRTS[(v + id) % 8], legs: LUNGI[id % 5], skin: SKIN[(v + id) % 5], hair: id % 7 === 0 ? '#9e9e9e' : '#1b1410', towel: id % 5 === 0 ? '#fafafa' : null };
+        if (e.mode === 'follow') { o.scarf = '#1e5bd8'; if (id % 3 === 0) o.prop = 'flag'; }
+        return o;
+      }
+      case 'cop': return e.role === 'gas'
+        ? { shirt: '#b0915a', legs: '#9c7f4c', skin: '#8d5a3b', cap: '#1c2b4a', brim: '#0d1526', badge: '#ffd54f', belt: '#4e342e', prop: 'lathi' }
+        : { shirt: '#c8ab72', legs: '#b0915a', skin: '#8d5a3b', cap: '#a88a52', brim: '#4e3b1f', badge: '#ffd54f', belt: '#4e342e', prop: 'lathi' };
+      case 'goon': return { shirt: ['#263238', '#4a148c', '#3e2723', '#212121'][id % 4], legs: '#212121', skin: '#7b4a2e', hair: '#1b1410', bandana: '#c62828', chain: true };
+      default: return { shirt: '#999', legs: '#555', skin: '#8d5a3b', hair: '#1b1410' };
     }
   }
 
@@ -193,6 +264,118 @@
     ctx.font = `800 ${size}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (bg) { const w = ctx.measureText(text).width + 10; ctx.fillStyle = bg; rr(x - w / 2, y - size * 0.7, w, size * 1.4, 4); ctx.fill(); }
     ctx.fillStyle = color; ctx.fillText(text, x, y);
+  }
+
+  // ------------------------------------------------------------ guidance: next objective + route along the streets
+  function fieldFor(s) {
+    let f = fields.get(s);
+    if (!f) { f = window.World.field(freeMap, [[Math.floor(s.x / T), Math.floor(s.y / T)]]); fields.set(s, f); }
+    return f;
+  }
+  const tileOf = (x, y) => Math.max(0, Math.min(N - 1, Math.floor(y / T))) * N + Math.max(0, Math.min(N - 1, Math.floor(x / T)));
+  // Nearest missing document by walking distance (sticky, so it doesn't flicker between two shops), else the goal.
+  function objective() {
+    const P = G.player, here = tileOf(P.x, P.y);
+    const missing = G.docSites.filter((s) => !P.docs.includes(s.doc));
+    let site = G.target;
+    if (missing.length) {
+      const cost = (s) => { const v = fieldFor(s)[here]; return v >= 0 ? v : Math.hypot(s.x - P.x, s.y - P.y) / T; };
+      let best = null, bd = Infinity;
+      for (const s of missing) { const c = cost(s); if (c < bd) { bd = c; best = s; } }
+      site = objSite && missing.includes(objSite) && cost(objSite) <= bd + 4 ? objSite : best;
+    }
+    objSite = site;
+    const goal = site === G.target;
+    return {
+      site, x: site.x, y: site.y, goal,
+      name: goal ? G.M.goal : site.doc, where: goal ? (G.gameMode === 'vote' ? 'Stand in the blue circle to vote' : 'Stand in the blue circle to file') : site.name,
+      icon: goal ? (G.gameMode === 'vote' ? '🗳️' : '🏛️') : '📄', color: goal ? '#64b5f6' : '#ffd54f',
+    };
+  }
+  // Route from the player to the objective as world points, following the distance field (smoothed).
+  function route(maxSteps) {
+    const P = G.player, o = objective(), f = fieldFor(o.site);
+    let i = tileOf(P.x, P.y);
+    const key = i + '|' + o.site.x + ',' + o.site.y, hit = routeCache[maxSteps];
+    if (hit && hit.key === key) return hit.pts;
+    let pts = [[P.x, P.y]];
+    if (f[i] < 0) pts.push([o.x, o.y]);
+    else {
+      for (let n = 0; n < maxSteps && f[i] > 0; n++) {
+        const tx = i % N, ty = (i / N) | 0;
+        let best = -1, bc = f[i];
+        for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+          if (!ox && !oy) continue;
+          const nx = tx + ox, ny = ty + oy;
+          if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+          const v = f[ny * N + nx];
+          if (v < 0) continue;
+          if (ox && oy && (window.World.solidAt(freeMap, tx + ox, ty) || window.World.solidAt(freeMap, tx, ty + oy))) continue;
+          const c = v + (ox && oy ? 0.4 : 0);
+          if (c < bc) { bc = c; best = ny * N + nx; }
+        }
+        if (best < 0) break;
+        i = best;
+        pts.push([(i % N + 0.5) * T, (((i / N) | 0) + 0.5) * T]);
+      }
+      if (f[i] === 0) pts.push([o.x, o.y]);
+    }
+    for (let k = 0; k < 2 && pts.length > 2; k++) { // Chaikin smoothing keeps corners soft
+      const q = [pts[0]];
+      for (let j = 0; j < pts.length - 1; j++) {
+        const a = pts[j], b = pts[j + 1];
+        q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+      }
+      q.push(pts[pts.length - 1]);
+      pts = q;
+    }
+    routeCache[maxSteps] = { key, pts };
+    return pts;
+  }
+  // Glowing chevrons flowing along the road to the next objective.
+  function drawGuide(o, px, py, inView) {
+    const pts = route(70);
+    if (pts.length < 2) return;
+    pts[0] = [px, py];
+    const gap = 30, off = (time * 60) % gap;
+    let acc = -off, total = 0;
+    ctx.save();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 12;
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts) ctx.lineTo(p[0], p[1]); ctx.stroke();
+    for (let j = 0; j < pts.length - 1; j++) {
+      const a = pts[j], b = pts[j + 1], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+      if (!len) continue;
+      const ang = Math.atan2(dy, dx);
+      while (acc + gap <= len) {
+        acc += gap; total += gap;
+        if (total < 34) continue;
+        const k = acc / len, x = a[0] + dx * k, y = a[1] + dy * k;
+        if (!inView(x, y, 12)) continue;
+        ctx.globalAlpha = Math.min(1, (total - 34) / 60) * Math.max(0.25, 1 - total / 2400);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+        ctx.fillStyle = o.color; ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-4, -6); ctx.lineTo(-1, 0); ctx.lineTo(-4, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+      acc -= len;
+    }
+    ctx.restore();
+  }
+  // Bouncing pin + pulsing ring over the current objective.
+  function drawBeacon(o) {
+    const bob = Math.sin(time * 4) * 5, pulse = (time * 0.9) % 1;
+    ctx.save();
+    ctx.strokeStyle = o.color; ctx.globalAlpha = 1 - pulse; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(o.x, o.y, 26 + pulse * 40, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 1;
+    const y = o.y - (o.goal ? 92 : 98) + bob;
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 2, 10 - bob * 0.5, 4, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = o.goal ? '#1e5bd8' : '#f9a825'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(o.x, y, 17, Math.PI * 0.8, Math.PI * 0.2); ctx.lineTo(o.x, y + 30); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    label(o.icon, o.x, y, 17, '#000');
+    label('NEXT', o.x, y - 27, 10, '#fff', o.goal ? 'rgba(30,91,216,.95)' : 'rgba(191,120,0,.95)');
   }
 
   // ------------------------------------------------------------ frame
@@ -307,6 +490,11 @@
       if (b.kind === 'station') continue;
       label(b.name, b.x + b.w / 2, b.y + b.h / 2, b.kind === 'office' || b.kind === 'booth' ? 13 : 10, '#3e2723', 'rgba(255,255,255,.8)');
     }
+    let guideObj = null;
+    if ((G.mode === 'play' || G.mode === 'intro') && P.state !== 'held') {
+      guideObj = objective();
+      drawGuide(guideObj, px, py, inView);
+    }
 
     // gas clouds
     for (const c of G.clouds) {
@@ -339,6 +527,7 @@
       person(px, py, P, look(P));
       ctx.globalAlpha = 1;
     }
+    if (guideObj && inView(guideObj.x, guideObj.y, 160)) drawBeacon(guideObj);
 
     // particles
     for (let i = particles.length - 1; i >= 0; i--) {
@@ -383,29 +572,111 @@
     return { left, top, vw, vh };
   }
 
-  // objective arrow + minimap, drawn in screen space by the HUD
-  function drawMinimap(x, y, size, objective) {
-    const P = G.player, sc = size / WORLD;
-    ctx.save();
-    ctx.globalAlpha = 0.92;
-    ctx.fillStyle = 'rgba(20,14,8,.75)'; rr(x - 4, y - 4, size + 8, size + 8, 8); ctx.fill();
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(mini, x, y, size, size);
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = 'rgba(198,40,40,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x + G.target.x * sc, y + G.target.y * sc, 15.6 * T * sc, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = '#ff7043'; for (const b of G.barrs) ctx.fillRect(x + b.x * sc - 1.5, y + b.y * sc - 1.5, 3, 3);
-    for (const s of G.docSites) if (!P.docs.includes(s.doc)) { ctx.fillStyle = '#ffd54f'; ctx.fillRect(x + s.x * sc - 3, y + s.y * sc - 3, 6, 6); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(x + s.x * sc - 3, y + s.y * sc - 3, 6, 6); }
-    ctx.fillStyle = '#1e5bd8'; ctx.fillRect(x + G.target.x * sc - 4, y + G.target.y * sc - 4, 8, 8);
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(x + G.target.x * sc - 4, y + G.target.y * sc - 4, 8, 8);
-    for (const e of G.ents) {
-      if (e.kind === 'civ' && e.mode !== 'follow') continue;
-      if (Math.abs(e.x - P.x) > 900 || Math.abs(e.y - P.y) > 900) continue;
-      ctx.fillStyle = e.kind === 'cop' ? '#e53935' : e.kind === 'goon' ? '#212121' : '#64b5f6';
-      ctx.fillRect(x + e.x * sc - 1, y + e.y * sc - 1, 2, 2);
+  // ------------------------------------------------------------ maps (screen space, drawn by the HUD)
+  // Shared marker layer: world (wx, wy) -> screen via (ox, oy, sc). big = full town map with names.
+  function mapMarkers(ox, oy, sc, o, big, clipR) {
+    const P = G.player, X = (wx) => ox + wx * sc, Y = (wy) => oy + wy * sc;
+    const lim = WORLD * sc, LX = (wx, w) => Math.max(ox + w / 2 + 3, Math.min(ox + lim - w / 2 - 3, X(wx))); // keep labels inside the map
+    const tag = (s, wx, wy, dy, size, bg) => { ctx.font = `800 ${size}px system-ui,sans-serif`; label(s, LX(wx, ctx.measureText(s).width + 10), Y(wy) + dy, size, '#fff', bg); };
+    ctx.strokeStyle = 'rgba(198,40,40,.85)'; ctx.lineWidth = big ? 2.5 : 1.5; ctx.setLineDash(big ? [6, 4] : []);
+    ctx.beginPath(); ctx.arc(X(G.target.x), Y(G.target.y), 15.6 * T * sc, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#ff7043'; for (const b of G.barrs) ctx.fillRect(X(b.x) - 2, Y(b.y) - 2, 4, 4);
+    if (big) {
+      ctx.font = `700 ${Math.max(8, Math.min(11, lim / 42))}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const l of map.labels) if (l.text && !l.small) { const w = Math.min(ctx.measureText(l.text).width, lim / 5.6); ctx.fillStyle = 'rgba(20,14,8,.4)'; ctx.fillText(l.text, LX(l.x, w), Y(l.y), w); }
+      for (const s of map.stations) label('🚓', X(s.x), Y(s.y), 13, '#000');
+      if (map.start) label('🚩', X(map.start.x), Y(map.start.y), 13, '#000');
     }
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + P.x * sc, y + P.y * sc, 3.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#1e5bd8'; ctx.beginPath(); ctx.arc(x + P.x * sc, y + P.y * sc, 2.2, 0, Math.PI * 2); ctx.fill();
-    if (objective) { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x + P.x * sc, y + P.y * sc); ctx.lineTo(x + objective.x * sc, y + objective.y * sc); ctx.stroke(); ctx.setLineDash([]); }
+    // route
+    const pts = route(big ? 600 : 160);
+    if (pts.length > 1) {
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = big ? 6 : 4;
+      ctx.beginPath(); ctx.moveTo(X(pts[0][0]), Y(pts[0][1])); for (const p of pts) ctx.lineTo(X(p[0]), Y(p[1])); ctx.stroke();
+      ctx.strokeStyle = o.color; ctx.lineWidth = big ? 3 : 2; ctx.setLineDash(big ? [8, 5] : [4, 3]); ctx.lineDashOffset = -time * 20; ctx.stroke(); ctx.setLineDash([]);
+    }
+    // documents and goal
+    for (const s of G.docSites) {
+      const have = P.docs.includes(s.doc);
+      if (big) { label(have ? '✅' : '📄', X(s.x), Y(s.y), 15, '#000'); if (!have) tag(s.doc, s.x, s.y, 15, 10, 'rgba(120,80,0,.9)'); }
+      else if (!have) { ctx.fillStyle = '#ffd54f'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.fillRect(X(s.x) - 3.5, Y(s.y) - 3.5, 7, 7); ctx.strokeRect(X(s.x) - 3.5, Y(s.y) - 3.5, 7, 7); }
+    }
+    if (big) { label(G.gameMode === 'vote' ? '🗳️' : '🏛️', X(G.target.x), Y(G.target.y), 20, '#000'); tag(G.M.goal, G.target.x, G.target.y, 18, 11, 'rgba(29,59,112,.95)'); }
+    else { ctx.fillStyle = '#1e5bd8'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.fillRect(X(G.target.x) - 4.5, Y(G.target.y) - 4.5, 9, 9); ctx.strokeRect(X(G.target.x) - 4.5, Y(G.target.y) - 4.5, 9, 9); }
+    // people nearby
+    if (!big) for (const e of G.ents) {
+      if (e.kind === 'civ' && e.mode !== 'follow') continue;
+      if (clipR && Math.hypot(e.x - P.x, e.y - P.y) > clipR) continue;
+      ctx.fillStyle = e.kind === 'cop' ? '#e53935' : e.kind === 'goon' ? '#212121' : '#90caf9';
+      ctx.beginPath(); ctx.arc(X(e.x), Y(e.y), e.kind === 'civ' ? 1.4 : 2.2, 0, TAU); ctx.fill();
+    }
+    // objective ring
+    const pulse = (time * 1.2) % 1;
+    ctx.strokeStyle = o.color; ctx.globalAlpha = 1 - pulse; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(X(o.x), Y(o.y), (big ? 10 : 6) + pulse * (big ? 14 : 8), 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+    // player: arrow in the facing direction
+    const a = Math.atan2(P.fy === undefined ? 1 : P.fy, P.fx || 0), s = big ? 1.5 : 1;
+    ctx.save(); ctx.translate(X(P.x), Y(P.y)); ctx.rotate(a); ctx.scale(s, s);
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1e5bd8'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, -5); ctx.lineTo(-2.5, 0); ctx.lineTo(-5, 5); ctx.closePath(); ctx.stroke(); ctx.fill();
+    ctx.restore();
+    if (big) tag('YOU', P.x, P.y, -16, 10, 'rgba(30,91,216,.95)');
+  }
+  function blitMini(ox, oy, sc, x, y, w, h) {
+    // draw the part of the town image that falls inside the screen rect (x, y, w, h)
+    const s0x = Math.max(0, (x - ox) / sc / T), s0y = Math.max(0, (y - oy) / sc / T);
+    const s1x = Math.min(N, (x + w - ox) / sc / T), s1y = Math.min(N, (y + h - oy) / sc / T);
+    if (s1x <= s0x || s1y <= s0y) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(mini, s0x, s0y, s1x - s0x, s1y - s0y, ox + s0x * T * sc, oy + s0y * T * sc, (s1x - s0x) * T * sc, (s1y - s0y) * T * sc);
+    ctx.imageSmoothingEnabled = true;
+  }
+  // Corner radar: centred on the player, ~1500 world px across; the objective is pinned to the rim when far.
+  // Painted into a cached canvas at ~15 Hz and blitted every frame.
+  let radarCv = null, radarT = -1;
+  function drawRadar(x, y, size, o) {
+    const s = ctx.getTransform().a, pad = 4, px = Math.ceil((size + pad * 2) * s);
+    if (!radarCv) radarCv = document.createElement('canvas');
+    if (radarCv.width !== px) { radarCv.width = radarCv.height = px; radarT = -1; }
+    if (radarT < 0 || time - radarT > 1 / 15 || time < radarT) {
+      radarT = time;
+      const main = ctx;
+      ctx = radarCv.getContext('2d');
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, px, px);
+      ctx.setTransform(s, 0, 0, s, (pad - x) * s, (pad - y) * s);
+      paintRadar(x, y, size, o);
+      ctx = main;
+    }
+    ctx.drawImage(radarCv, x - pad, y - pad, size + pad * 2, size + pad * 2);
+  }
+  function paintRadar(x, y, size, o) {
+    const P = G.player, span = 1500, sc = size / span;
+    const ox = x + size / 2 - P.x * sc, oy = y + size / 2 - P.y * sc;
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,14,8,.78)'; rr(x - 4, y - 4, size + 8, size + 8, 12); ctx.fill();
+    rr(x, y, size, size, 9); ctx.clip();
+    ctx.fillStyle = COL[K.FIELD]; ctx.fillRect(x, y, size, size);
+    blitMini(ox, oy, sc, x, y, size, size);
+    mapMarkers(ox, oy, sc, o, false, span * 0.75);
+    ctx.restore();
+    // objective outside the radar: arrow on the rim
+    const dx = o.x - P.x, dy = o.y - P.y;
+    if (Math.abs(dx) > span / 2 - 10 || Math.abs(dy) > span / 2 - 10) {
+      const k = (size / 2 - 7) / Math.max(Math.abs(dx), Math.abs(dy)) / sc, ax = x + size / 2 + dx * sc * k, ay = y + size / 2 + dy * sc * k;
+      ctx.save(); ctx.translate(ax, ay); ctx.rotate(Math.atan2(dy, dx));
+      ctx.fillStyle = o.color; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, -6); ctx.lineTo(-5, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+  }
+  // Full town map overlay.
+  function drawBigMap(x, y, size, o) {
+    const sc = size / WORLD;
+    ctx.save();
+    rr(x, y, size, size, 10); ctx.clip();
+    ctx.fillStyle = COL[K.FIELD]; ctx.fillRect(x, y, size, size);
+    blitMini(x, y, sc, x, y, size, size);
+    mapMarkers(x, y, sc, o, true);
     ctx.restore();
   }
 
@@ -413,7 +684,7 @@
 
   window.Render = {
     init(canvas) { cv = canvas; ctx = cv.getContext('2d'); resize(); },
-    resize, setGame, draw, drawMinimap, burst, popup, say, shake, worldToScreen,
+    resize, setGame, draw, drawRadar, drawBigMap, objective, burst, popup, say, shake, worldToScreen,
     setBottomPad(px) { bottomPad = Math.max(0, px || 0); resize(); },
     get ctx() { return ctx; }, get DPR() { return DPR; }, get W() { return W; }, get H() { return H; }, get zoom() { return zoom; },
     get quality() { return quality; }, get bottomPad() { return bottomPad; },
