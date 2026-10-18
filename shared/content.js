@@ -137,7 +137,6 @@
       footer: 'Every step is "legal". That is the trick. Notice it. Talk about it. Go vote.',
     },
     disclaimer: 'Satire. The "ruling front", its goons, the town and its people are fictional. Any resemblance to real events is your own conclusion.',
-    credit: 'Presented by YSRCP Germany · ysrcpgermany.de',
   };
 
   const MISSIONS = [

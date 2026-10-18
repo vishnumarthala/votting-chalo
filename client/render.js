@@ -19,7 +19,7 @@
   let bubbleSeq = 0;
   let freeMap = null, fields = new Map(), objSite = null, routeCache = {};
   const TAU = Math.PI * 2;
-  const NAVY = '#0f1b61', NAVY2 = '#1a2d8a', GREEN = '#00a651', GOLD = '#ffd700'; // YSRCP Germany brand colours
+  const NAVY = '#0f1b61', NAVY2 = '#1a2d8a', GREEN = '#00a651', GOLD = '#ffd700'; // YSRCP brand colours
   // shirt colours: blue = YSRCP, yellow = ruling-front goons, white = the public
   const BLUE = '#2156d1', BLUE_S = ['#2156d1', '#1a49b8'], YELLOW = '#fbc02d', YELLOW_S = ['#fbc02d', '#fdd835'], WHITES = ['#fafafa', '#f1f1ee', '#eceff1'];
 

@@ -1,8 +1,7 @@
 # Votting Chalo 🗳️
 
-A satirical top-down game set in **your own Andhra Pradesh town**, presented by
-[YSRCP Germany](https://www.ysrcpgermany.de/). Walk your YSRCP candidate through the streets, gather a crowd
-("Jai Jagan!"), dodge the police and the ruling front's goons, push through the Section 144 barricades and
+A satirical top-down game set in **your own Andhra Pradesh town**. Walk your YSRCP candidate through the
+streets, gather a crowd ("Jai Jagan!"), dodge the police and the ruling front's goons, push through the Section 144 barricades and
 the police at the gate, and reach the office before it closes.
 
 - **Nomination Day:** you start with your Form-A. Collect the 4 supporting documents around town (affidavit,
@@ -15,7 +14,7 @@ Enter your **pincode** and the game builds a town for it: the same pincode alway
 Post-office names from India Post become the neighbourhood names, and your town, mandal and district
 appear in the dialogue.
 
-> Satire by YSRCP Germany supporters. The player's side is the YSRCP (brand colours: navy `#0F1B61`, green
+> Satire. The player's side is the YSRCP (brand colours: navy `#0F1B61`, green
 > `#00A651`, gold). The "ruling front", its goons, the officials and all other characters, shops and events
 > are fictional; the ruling front stands for no specific real party. The game contains cartoon violence
 > against civilians (no blood), shown to criticise it: the player can only protect people, never hurt them.

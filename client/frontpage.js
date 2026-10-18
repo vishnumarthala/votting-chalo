@@ -181,9 +181,7 @@
     rule(H - 90, 40, W - 40, 2);
     ctx.font = `15px ${SANS}`;
     wrap(NEWS.disclaimer, W - 80).slice(0, 2).forEach((l, i) => txt(l, W / 2, H - 64 + i * 19, `15px ${SANS}`, '#5b4a3a', 'center'));
-    txt('Play: votting-chalo.vercel.app', W / 2 - 230, H - 20, `bold 18px ${SANS}`, '#0f1b61', 'center');
-    ctx.fillStyle = '#0f1b61'; ctx.fillRect(W / 2 + 40, H - 34, 30, 6); ctx.fillStyle = '#fff'; ctx.fillRect(W / 2 + 40, H - 28, 30, 5); ctx.fillStyle = '#00a651'; ctx.fillRect(W / 2 + 40, H - 23, 30, 6);
-    txt(NEWS.credit, W / 2 + 80, H - 20, `bold 18px ${SANS}`, '#00a651', 'left');
+    txt('Play: votting-chalo.vercel.app', W / 2, H - 20, `bold 18px ${SANS}`, '#0f1b61', 'center');
   }
 
   // ---------------------------------------------------------------- overlay
