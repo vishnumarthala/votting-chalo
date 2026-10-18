@@ -9,31 +9,17 @@
   const PARTY = { name: 'YSR Congress Party', short: 'YSRCP', color: '#00a651' };
   const DEFAULT_PLACE = { town: 'Kothapalli', mandal: 'Kothapalli', district: 'Godavari', pin: '' };
 
-  const MODES = {
-    nomination: {
-      title: 'Nomination Day',
-      goal: 'RO Office',
-      time: 480, clockStart: 10 * 60, clockEnd: 15 * 60, hold: 6,
-      docs: ['Affidavit', 'Caste Certificate', 'Deposit Receipt', 'Proposer Signatures'], given: ['Form-A Nomination'],
-      intro: 'You have your Form-A. Collect the 4 supporting documents across {town}, then reach the {district} RO Office before 3 PM and hold the counter to file.',
-      win: 'NOMINATION FILED! ✅ {town} has a new candidate.',
-    },
-    vote: {
-      title: 'Polling Day',
-      goal: 'Polling Booth',
-      time: 360, clockStart: 7 * 60, clockEnd: 18 * 60, hold: 4,
-      docs: ['Voter Slip'], given: ['Voter ID Card'],
-      intro: 'Pick up your voter slip at the BLO tent, then get through to the polling booth in {town} and cast your vote before 6 PM.',
-      win: 'VOTE CAST! ☑️ Ink on the finger, pride in the heart.',
-    },
+  const MODE = {
+    title: 'Nomination Day',
+    goal: 'RO Office',
+    hold: 6,
+    intro: 'Your Form-A is ready. Get your candidate through the streets of {town} to the {district} RO Office and file the nomination. Democracy starts at 100%. Every goon attack and lathi charge takes a piece of it.',
   };
 
   // Simple English with a light Telugu touch (anna, Ammo, Ayyo and a couple of slogans).
   const LINES = {
     start: ['To the {district} RO Office! Jai Jagan! ✊', 'Papers ready. Crowd ready. Jai {short}!', 'Jai Jagan!'],
-    startVote: ['Off to vote! Jai Jagan! 🗳️', 'My vote, my right!'],
     slogan: ['Jai Jagan! ✊', 'Jai {short}!', 'Jagananna, we are with you!', 'Our town, our right!', 'Make way for the people!'],
-    sloganVote: ['Jai Jagan! 🗳️', 'Vote for the fan!', 'Everyone come, everyone vote!', 'Naa vote, naa hakku!'],
     join: ['I\u2019m coming too!', 'Anna, we are with you!', 'Selfie later, nomination first!', 'Give me a flag!', 'For {town}!', 'Jai Jagan! Count me in!'],
     cop: ['Section 144, sir! No crowds!', 'Where are you going? Got permission?', 'Stop! Show your papers!', 'Come to the station. Just a small enquiry.', 'Road closed for "security reasons".'],
     copLifted: ['Ayyo, too many people!', 'Sir, put me down!', 'Control room, send backup!'],
@@ -41,10 +27,7 @@
     goon: ['You can\u2019t pass here!', 'Your papers have a spelling mistake! 😏', 'Nomination? Try next election!', 'Go back home!', 'This road is ours!'],
     goonScared: ['Ammo, too many of them!', 'We\u2019ll see you later!'],
     scared: ['Ammo! Lathi!', 'I\u2019m going home!', 'Tear gas! Run!', 'Not today, anna!'],
-    shop: ['All ready, sir. Sign here, here and here.', 'Seal and signature done. Keep it safe.', 'All the best, anna!', 'Stamped! Next!'],
-    roMissing: ['Documents incomplete: {doc}. Next!', 'Where is your {doc}? Come back with it.'],
-    boothMissing: ['No voter slip? Get one at the BLO tent.'],
-    torn: ['My papers! They tore them! 😱', 'Papers torn! I need a fresh copy!'],
+    attacked: ['They are beating us in broad daylight!', 'Is this democracy?', 'Keep walking, don\u2019t stop!'],
     detained: ['I am a candidate! This is unfair!', 'Arrest me if you want. The nomination still goes in!'],
     gas: ['My eyes are burning! 😵', '*cough cough*'],
     barricade: ['Everyone push together!', 'Move the barricade aside!'],
@@ -66,11 +49,9 @@
     chant: ['Jai Jagan! Open the gate!', 'Media is watching!', 'Democracy, open up!', 'Let the candidate in!'],
     vipSalute: ['Welcome, sir!', 'Please, sir, this way.', 'Sir has come, open the gate!'],
     vip: ['Just a courtesy visit.', 'We are only observers.', 'Tea with the officer, that\u2019s all.'],
-    vipVote: ['Booth agent, sir.', 'We are only helping voters.', 'Just checking the arrangements.'],
-    waitOut: ['We will wait here, anna!', 'Go in, we are right here!', 'File it, anna!'],
     frisk: ['This signature looks suspicious.', 'Attested copy?', 'Photo is not clear, sir.', 'Wait, I have to verify.'],
     stall: ['Lunch break.', 'Server down.', 'Photo size wrong: 3.5 \u00d7 4.5 only.', 'Sir is in a meeting.', 'Bring one more attested copy.'],
-    stallVote: ['Machine is being checked.', 'Your name has a spelling mistake.', 'Wait, the list is not loading.', 'Show one more ID.'],
+    reject: ['Rejected: signature does not match.', 'Rejected: wrong form, sir.', 'Rejected: proposer not in the list.', 'Rejected: photo size wrong.', 'Rejected: time is over by our clock.'],
     proposers: ['Rule 33 says it is fine, sir!', 'We are the proposers, check again!', 'Sir, everything is attested!'],
   };
 
@@ -92,18 +73,11 @@
     { id: 'arrest', title: 'Arrest the candidate', text: 'Detain the candidate on the way, "for safety".' },
     { id: 'line', title: 'Police line at the gate', text: 'Stop the candidate at the office gate.' },
     { id: 'gate', title: 'Shut for you, open for friends', text: 'The gate is shut for the candidate, but opens for ruling-front guests.' },
-    { id: 'papers', title: 'Papers check', text: '"Your signature looks suspicious." Every minute counts.' },
-    { id: 'stall', title: '"Server down"', text: 'Officials stall until time runs out.' },
-    { id: 'clock', title: 'The clock trick', text: 'The office clock runs fast, only today.' },
+    { id: 'papers', title: 'Papers check', text: '"Your signature looks suspicious." Every check is a delay.' },
+    { id: 'stall', title: '"Server down"', text: 'Officials stall, then find a reason to reject.' },
   ];
 
   const GATE = {
-    line: '🚔 Police line at the gate! Push through together.',
-    shut: '🔒 Gate shut for "lunch"! Chant at the gate with 8+ supporters, or sneak round to the side wicket they forgot to lock.',
-    needCrowd: 'Too few voices. The officials need 8+ supporters at the gate to listen.',
-    open: '📣 The crowd and the cameras win: the gate is open!',
-    four: '🚶 "Only candidate + 4 allowed." The rest of your crowd waits at the gate.',
-    clock: '🕒 The office clock jumps forward: "It is {close} by our clock."',
     lineBroken: 'LINE BROKEN!',
   };
 
@@ -112,44 +86,19 @@
     labels: ['Healthy', 'Unwell', 'In hospital', 'In ICU', 'On ventilator'],
     toasts: ['🤒 Democracy is feeling unwell.', '🏥 Democracy admitted to hospital.', '🚑 Democracy moved to the ICU.', '⚠️ Democracy is on a ventilator.'],
     ring: '🚧 Section 144 zone: 4 or more people together is now a "crime".',
+    dead: '💀 Democracy has flatlined.',
   };
 
-  // Satirical front page shown when you don't make it. {name} {stop} {goal} {town} {district}
+  // The end title. Every run ends here, on the front page of "The Daily Ballot".
+  const END = {
+    title: 'Democracy is killed in broad daylight.',
+    sub: 'Welcome to Andhra Pradesh.',
+  };
   const NEWS = {
     masthead: 'THE DAILY BALLOT',
     tagline: 'Fearless. Satirical. Price: one vote.',
-    headlines: {
-      time: ['DOORS CLOSE ON DEMOCRACY', 'NOMINATION? COME BACK IN 5 YEARS', 'OFFICE SHUTS AT 3 PM SHARP. DEMOCRACY ALSO.'],
-      jailed: ['CANDIDATE ARRESTED FOR TRYING TO CONTEST', 'JAIL, NOT BALLOT: CANDIDATE HELD "FOR SAFETY"'],
-      timeVote: ['POLLS CLOSE BEFORE VOTER ARRIVES', '"YOUR VOTE HAS ALREADY BEEN CAST," SAYS GANG AT BOOTH'],
-      jailedVote: ['VOTER ARRESTED ON THE WAY TO VOTE', 'SECTION 144 STOPS VOTER. GANG AT BOOTH UNAFFECTED.'],
-      low: ['DEMOCRACY KILLED IN BROAD DAYLIGHT. OFFICIALS: "ALL IS WELL"', 'DEMOCRACY KILLED IN {TOWN}. POLICE: "NO COMPLAINT"', 'DEMOCRACY DIES ON THE ROAD TO THE {GOAL}'],
-      gate: ['GATE SHUT ON CANDIDATE, OPEN FOR "GUESTS"', 'OFFICE CLOCK RUNS 30 MINUTES FAST, ONLY TODAY', 'POLICE SALUTE "GUESTS", STOP CANDIDATE AT GATE'],
-    },
-    sub: {
-      time: '{name} was stopped {stop} m from the {goal} as stones rained on {town}.',
-      jailed: '{name} was detained three times on the way to the {goal}. Officials call it "routine".',
-    },
-    police: ['Police: "No complaint received."', 'SP: "Situation fully under control."', 'Officials: "Minor incident, nothing to see."'],
-    explainer: {
-      title: 'HOW TO STOP AN ELECTION WITHOUT CANCELLING IT',
-      steps: ['Declare Section 144', 'Barricade every road', 'Throw stones on the way', 'Shut the gate. Open it for friends.', 'Say "server down"', 'Arrest the candidate'],
-      footer: 'Every step is "legal". That is the trick. Notice it. Talk about it. Go vote.',
-    },
-    disclaimer: 'Satire. The "ruling front", its goons, the town and its people are fictional. Any resemblance to real events is your own conclusion.',
+    disclaimer: 'Satire. The "ruling front", its goons, the town and its people are fictional.',
   };
-
-  const MISSIONS = [
-    { k: 'rec', txt: 'Recruit {n} supporters', n: [10, 20, 30], rew: 150 },
-    { k: 'crowd', txt: 'Lead a crowd of {n}', n: [8, 15, 25], rew: 200 },
-    { k: 'brk', txt: 'Break {n} barricade{s}', n: [1, 2], rew: 250 },
-    { k: 'lift', txt: 'Let your crowd lift {n} cop{s}', n: [1, 3], rew: 200 },
-    { k: 'doc', txt: 'Collect {n} document{s}', n: [2, 3], rew: 150 },
-    { k: 'slogan', txt: 'Raise {n} slogans', n: [5, 10], rew: 100 },
-    { k: 'goon', txt: 'Scare off {n} goon{s}', n: [1, 3], rew: 150 },
-  ];
-
-  const TIERS = ['', 'Nice!', 'Mass!', 'Mass Jathara!'];
 
   function fill(str, vars) {
     return String(str).replace(/\{(\w+)\}/g, (all, k) => {
@@ -161,5 +110,5 @@
     });
   }
 
-  return { PARTY, DEFAULT_PLACE, MODES, LINES, MISSIONS, TIERS, DEMO, NEWS, GATE, LEGEND, TACTICS, fill };
+  return { PARTY, DEFAULT_PLACE, MODE, LINES, DEMO, END, NEWS, GATE, LEGEND, TACTICS, fill };
 });

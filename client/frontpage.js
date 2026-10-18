@@ -1,10 +1,10 @@
-// "The Daily Ballot": a satirical front page shown when the candidate doesn't make it. Drawn on one
+// "The Daily Ballot": the satirical front page every run ends on. Headline: the end title. Drawn on one
 // 1080x1350 canvas so what you see is exactly the image you share.
 'use strict';
 (function () {
   const W = 1080, H = 1350, INK = '#1d1a16', PAPER = '#f3ecdc', RED = '#b71c1c';
   const SERIF = 'Georgia,"Times New Roman",serif', SANS = 'system-ui,-apple-system,"Segoe UI",sans-serif';
-  let root = null, cv = null, ctx = null, headline = '', onAgain = null, shownAt = 0;
+  let root = null, cv = null, ctx = null, headline = '', onAgain = null, onMenu = null, shownAt = 0;
 
   function wrap(s, maxW) {
     const words = String(s).split(' '), lines = [];
@@ -18,7 +18,6 @@
     ctx.fillText(s, x, y);
   }
   function rule(y, x0, x1, w) { ctx.fillStyle = INK; ctx.fillRect(x0 || 40, y, (x1 || W - 40) - (x0 || 40), w || 2); }
-  const pick = (arr, seed) => arr[Math.abs(seed) % arr.length];
 
   // ---------------------------------------------------------------- cartoon panel
   function missile(kind, x, y, rot, s) {
@@ -29,7 +28,7 @@
     else { ctx.fillStyle = '#ef6c00'; ctx.beginPath(); ctx.ellipse(0, 0, 7, 3.4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
     ctx.restore();
   }
-  function cartoon(x, y, w, h, vote) {
+  function cartoon(x, y, w, h, board) {
     ctx.save();
     ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
     ctx.fillStyle = '#e9e1cc'; ctx.fillRect(x, y, w, h);
@@ -44,20 +43,19 @@
     const bx = x + 30, by = y + 70, bw = w * 0.52, bh = h - 190;
     ctx.fillStyle = '#d9cdb2'; ctx.fillRect(bx, by, bw, bh); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(bx, by, bw, bh);
     ctx.fillStyle = '#1e3a6e'; ctx.fillRect(bx + 20, by + 14, bw - 40, 44);
-    txt(vote ? 'POLLING BOOTH' : 'RO OFFICE', bx + bw / 2, by + 46, `bold 28px ${SANS}`, '#fff', 'center');
+    txt('RO OFFICE', bx + bw / 2, by + 46, `bold 28px ${SANS}`, '#fff', 'center');
     const sx = bx + 34, sy = by + 78, sw = bw - 68, sh = bh - 78;
     ctx.fillStyle = '#9ea7ad'; ctx.fillRect(sx, sy, sw, sh);
     ctx.fillStyle = '#7d868c'; for (let i = sy + 8; i < sy + sh; i += 14) ctx.fillRect(sx, i, sw, 3);
     ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(sx, sy, sw, sh);
-    // hanging CLOSED board and a clock at 3
+    // hanging board: CLOSED, or REJECTED for those who made it to the counter
     ctx.save(); ctx.translate(sx + sw / 2 + 10, sy + 36); ctx.rotate(-0.08);
     ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-36, -24); ctx.lineTo(0, -40); ctx.lineTo(36, -24); ctx.stroke();
-    ctx.fillStyle = '#fff8e1'; ctx.fillRect(-70, -24, 140, 48); ctx.strokeRect(-70, -24, 140, 48);
-    txt('CLOSED', 0, 11, `900 30px ${SANS}`, RED, 'center');
+    ctx.font = `900 30px ${SANS}`;
+    const bw2 = Math.max(140, ctx.measureText(board).width + 28);
+    ctx.fillStyle = '#fff8e1'; ctx.fillRect(-bw2 / 2, -24, bw2, 48); ctx.strokeRect(-bw2 / 2, -24, bw2, 48);
+    txt(board, 0, 11, `900 30px ${SANS}`, RED, 'center');
     ctx.restore();
-    const cx = bx + bw - 40, cy = by + 100;
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - 15); ctx.moveTo(cx, cy); ctx.lineTo(cx + 11, cy); ctx.stroke();
     // ballot box on a stretcher with a drip and a flat ECG
     const tx = x + w * 0.58, ty = y + h - 150;
     ctx.strokeStyle = INK; ctx.lineWidth = 3;
@@ -75,7 +73,7 @@
     ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(px - 29, ty - 126); ctx.quadraticCurveTo(px - 50, ty - 90, bbx + bbw - 6, bby + 20); ctx.stroke();
     const mx = tx + 10, my = ty - 190;
     ctx.fillStyle = '#263238'; ctx.fillRect(mx, my, 120, 70); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(mx, my, 120, 70);
-    ctx.strokeStyle = '#69f0ae'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(mx + 8, my + 40); ctx.lineTo(mx + 30, my + 40); ctx.lineTo(mx + 36, my + 22); ctx.lineTo(mx + 42, my + 52); ctx.lineTo(mx + 48, my + 40); ctx.lineTo(mx + 112, my + 40); ctx.stroke();
+    ctx.strokeStyle = '#ff5252'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(mx + 8, my + 40); ctx.lineTo(mx + 112, my + 40); ctx.stroke(); // flatline
     txt('BEEEEEP', mx + 60, my - 10, `bold 18px ${SANS}`, INK, 'center');
     // stones, sticks and chappals on the road
     for (let i = 0; i < 16; i++) missile(i % 3, x + 30 + ((i * 97) % (w - 60)), y + h - 100 + ((i * 53) % 70), i * 1.7, 2.2);
@@ -92,14 +90,11 @@
   }
 
   // ---------------------------------------------------------------- page
+  // Just the end title on a front page: masthead, headline, the cartoon, a satire stamp.
   function render(o) {
-    const C = window.Content, NEWS = C.NEWS, r = o.result, vote = r.mode === 'vote';
-    const seed = (r.score | 0) + (r.thrown | 0) * 7 + (r.closest | 0);
-    const fill = (s) => C.fill(s, Object.assign({}, r.place || {}, { name: o.name, stop: r.closest, goal: r.goal }));
-    const key = r.demo < 20 ? 'low' : r.gateStops > 0 && r.reason !== 'jailed' ? 'gate' : (r.reason === 'jailed' ? 'jailed' : 'time') + (vote ? 'Vote' : '');
+    const C = window.Content, NEWS = C.NEWS, END = C.END, r = o.result;
     const town = (r.place && r.place.town) || C.DEFAULT_PLACE.town;
-    headline = pick(NEWS.headlines[key] || NEWS.headlines.time, seed).replace('{TOWN}', town.toUpperCase()).replace('{GOAL}', String(r.goal).toUpperCase());
-    const sub = fill(NEWS.sub[r.reason === 'jailed' ? 'jailed' : 'time']);
+    headline = END.title + ' ' + END.sub;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
@@ -112,76 +107,27 @@
     rule(156, 40, W - 40, 1.5);
     txt(NEWS.tagline, W / 2, 178, `italic 18px ${SERIF}`, INK, 'center');
     rule(190, 40, W - 40, 4);
-    // headline: largest size that fits in three lines
-    let size = 74, lines;
-    for (; size > 44; size -= 2) { ctx.font = `900 ${size}px ${SERIF}`; lines = wrap(headline, W - 80); if (lines.length <= 3) break; }
-    let y = 196;
-    for (const l of lines.slice(0, 3)) { y += size * 1.02; txt(l, W / 2, y, `900 ${size}px ${SERIF}`, INK, 'center'); }
-    ctx.font = `italic 28px ${SERIF}`;
-    y += 14;
-    for (const l of wrap(sub, W - 140).slice(0, 2)) { y += 34; txt(l, W / 2, y, `italic 28px ${SERIF}`, '#3e2f22', 'center'); }
-    y += 18;
+    // the headline, as large as fits in three lines
+    let size = 128, lines;
+    for (; size > 60; size -= 2) { ctx.font = `900 ${size}px ${SERIF}`; lines = wrap(END.title.toUpperCase(), W - 80); if (lines.length <= 3) break; }
+    let y = 200;
+    for (const l of lines.slice(0, 3)) { y += size * 1.0; txt(l, W / 2, y, `900 ${size}px ${SERIF}`, INK, 'center'); }
+    y += 84;
+    txt(END.sub, W / 2, y, `900 66px ${SERIF}`, RED, 'center');
+    y += 36;
     rule(y, 40, W - 40, 2);
-    // cartoon + numbers
-    const top = y + 18, ch = Math.min(400, H - 100 - 300 - 40 - top), cw = 640;
-    cartoon(40, top, cw, ch, vote);
-    ctx.save(); ctx.translate(40 + cw - 108, top + ch - 44); ctx.rotate(-0.16); // SATIRE stamp
-    ctx.strokeStyle = RED; ctx.lineWidth = 5; ctx.strokeRect(-88, -28, 176, 56);
-    ctx.fillStyle = 'rgba(243,236,220,.75)'; ctx.fillRect(-85, -25, 170, 50);
-    txt('SATIRE', 0, 14, `900 38px ${SANS}`, RED, 'center');
+    // the cartoon fills the rest of the page
+    const top = y + 22, ch = H - 100 - top;
+    cartoon(40, top, W - 80, ch, r.reason === 'rejected' ? 'REJECTED' : 'CLOSED');
+    ctx.save(); ctx.translate(W - 170, top + ch - 60); ctx.rotate(-0.16);
+    ctx.strokeStyle = RED; ctx.lineWidth = 6; ctx.strokeRect(-100, -32, 200, 64);
+    ctx.fillStyle = 'rgba(243,236,220,.75)'; ctx.fillRect(-97, -29, 194, 58);
+    txt('SATIRE', 0, 16, `900 44px ${SANS}`, RED, 'center');
     ctx.restore();
-    txt(r.demo <= 10 ? 'Democracy, killed in ' + town + '. Cause of death: "all as per rules".' : 'Democracy, ' + (r.demo <= 25 ? 'in the ICU' : 'in hospital') + ', ' + town + '.', 40 + cw / 2, top + ch + 24, `italic 18px ${SERIF}`, '#3e2f22', 'center');
-    const sx = 40 + cw + 30, sw = W - 40 - sx;
-    txt('BY THE NUMBERS', sx, top + 24, `900 25px ${SANS}`);
-    rule(top + 36, sx, W - 40, 2);
-    const rows = [
-      [r.thrown, 'stones, sticks & chappals thrown'],
-      [r.civHurt, 'women & children hurt'],
-      [r.hits, 'times the candidate was hit'],
-      [r.arrests, r.arrests === 1 ? 'arrest' : 'arrests'],
-      [r.gateStops || 0, 'times stopped at the gate'],
-      [r.stalls || 0, '"server down" moments at the counter'],
-      [r.protected, 'times the crowd protected people'],
-      [r.demo + '%', 'democracy left'],
-    ];
-    const step = Math.min(56, (ch - 50) / rows.length);
-    let ry = top + 36 + step * 0.8;
-    for (const [n, lbl] of rows) {
-      txt(String(n), sx, ry, `900 36px ${SERIF}`, lbl === 'democracy left' || lbl === 'women & children hurt' ? RED : INK);
-      ctx.font = `900 36px ${SERIF}`;
-      const lx = sx + Math.max(84, ctx.measureText(String(n)).width + 12);
-      ctx.font = `16px ${SANS}`;
-      wrap(lbl, W - 40 - lx).forEach((l, i) => txt(l, lx, ry - 13 + i * 19, `16px ${SANS}`, '#3e2f22'));
-      ry += step;
-    }
-    // bottom stories
-    const by = top + ch + 50, bottom = H - 104;
-    rule(by - 12, 40, W - 40, 2);
-    const colW = (W - 80 - 40) / 2, lx = 40, rx = 40 + colW + 40;
-    ctx.font = `900 23px ${SANS}`;
-    let ly = by + 20;
-    for (const l of wrap(NEWS.explainer.title, colW)) { txt(l, lx, ly, `900 23px ${SANS}`, RED); ly += 27; }
-    ly += 4;
-    NEWS.explainer.steps.forEach((s, i) => { txt((i + 1) + '.', lx, ly, `900 20px ${SERIF}`, INK); txt(s, lx + 30, ly, `20px ${SERIF}`, INK); ly += 27; });
-    ctx.font = `italic 17px ${SERIF}`;
-    const foot = (r.tactics ? 'You saw ' + r.tactics + ' of ' + C.TACTICS.length + ' tactics on the way. ' : '') + NEWS.explainer.footer;
-    for (const l of wrap(foot, colW)) { if (ly + 22 > bottom) break; txt(l, lx, ly + 4, `italic 17px ${SERIF}`, '#3e2f22'); ly += 21; }
-    ctx.fillStyle = INK; ctx.fillRect(rx - 20, by, 1.5, bottom - by);
-    let qy = by + 20;
-    ctx.font = `900 25px ${SERIF}`;
-    for (const l of wrap(pick(NEWS.police, seed + 1), colW)) { txt(l, rx, qy, `900 25px ${SERIF}`); qy += 30; }
-    qy += 2;
-    const story = (r.civHurt ? r.civHurt + (r.civHurt === 1 ? ' woman or child was' : ' women and children were') + ' hit by stones on the road to the ' + r.goal + '. ' : 'Stones flew all morning on the road to the ' + r.goal + '. ') +
-      (r.gateStops ? 'At the gate, police linked arms and the gate was shut "for lunch", but it swung open for the ruling front\u2019s guests, and officers saluted them. ' : 'The gang at the gate was not stopped. The candidate was. ') +
-      (r.clockJump ? 'The office clock also ran fast, only today. ' : '') +
-      'Officials said the election was "free and fair".';
-    ctx.font = `19px ${SERIF}`;
-    for (const l of wrap(story, colW)) { if (qy > bottom) break; txt(l, rx, qy, `19px ${SERIF}`, INK); qy += 25; }
     // footer
-    rule(H - 90, 40, W - 40, 2);
-    ctx.font = `15px ${SANS}`;
-    wrap(NEWS.disclaimer, W - 80).slice(0, 2).forEach((l, i) => txt(l, W / 2, H - 64 + i * 19, `15px ${SANS}`, '#5b4a3a', 'center'));
-    txt('Play: votting-chalo.vercel.app', W / 2, H - 20, `bold 18px ${SANS}`, '#0f1b61', 'center');
+    rule(H - 66, 40, W - 40, 2);
+    txt(NEWS.disclaimer, W / 2, H - 38, `15px ${SANS}`, '#5b4a3a', 'center');
+    txt('votting-chalo.vercel.app', W / 2, H - 14, `bold 16px ${SANS}`, '#0f1b61', 'center');
   }
 
   // ---------------------------------------------------------------- overlay
@@ -189,15 +135,15 @@
     root = document.createElement('div');
     root.id = 'fp'; root.tabIndex = -1; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'The Daily Ballot front page');
     root.innerHTML = '<div class="fp-paper"><canvas width="' + W + '" height="' + H + '"></canvas></div>' +
-      '<div class="fp-actions"><button type="button" class="fp-share">📤 Share front page</button><button type="button" class="fp-again">Play again ▶</button><button type="button" class="fp-close">Close</button></div>';
+      '<div class="fp-actions"><button type="button" class="fp-share">📤 Share front page</button><button type="button" class="fp-again">Play again ▶</button><button type="button" class="fp-close">Menu</button></div>';
     document.body.appendChild(root);
     cv = root.querySelector('canvas'); ctx = cv.getContext('2d');
-    root.querySelector('.fp-close').addEventListener('click', hide);
+    root.querySelector('.fp-close').addEventListener('click', () => { hide(); if (onMenu) onMenu(); });
     // ignore clicks until the buttons have faded in, so a slogan key still held at game over can't skip the page
     const ready = () => performance.now() - shownAt > 1200;
     root.querySelector('.fp-again').addEventListener('click', () => { if (!ready()) return; hide(); if (onAgain) onAgain(); });
     root.querySelector('.fp-share').addEventListener('click', () => { if (ready()) share(); });
-    addEventListener('keydown', (e) => { if (root.classList.contains('on') && e.key === 'Escape') { e.preventDefault(); hide(); } });
+    addEventListener('keydown', (e) => { if (root.classList.contains('on') && e.key === 'Escape') { e.preventDefault(); hide(); if (onMenu) onMenu(); } });
   }
   function share() {
     cv.toBlob((blob) => {
@@ -213,7 +159,7 @@
   }
   function show(o) {
     if (!root) build();
-    onAgain = o.onPlayAgain || null;
+    onAgain = o.onPlayAgain || null; onMenu = o.onMenu || null;
     render(o);
     root.classList.remove('on'); void root.offsetWidth; // restart the spin-in animation
     root.classList.add('on');

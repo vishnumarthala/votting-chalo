@@ -7,7 +7,7 @@
   'use strict';
 
   const TILE = 32;
-  const N = 128; // map is N x N tiles
+  const N = 48; // map is N x N tiles
   const WORLD = N * TILE;
   const DT = 1 / 30;
 
@@ -35,187 +35,85 @@
     return h >>> 0;
   }
 
-  const NEIGHBOURHOODS = ['Gandhi Nagar', 'Rythu Peta', 'Bazaar Street', 'Station Road', 'Temple Street', 'Kummari Veedhi', 'Mill Colony', 'Teachers Colony', 'Main Road', 'Old Town', 'Brindavan Colony', 'Sai Nagar', 'Canal Road', 'Weavers Colony', 'Market Yard', 'Housing Board'];
+  const NEIGHBOURHOODS = ['Gandhi Nagar', 'Rythu Peta', 'Bazaar Street', 'Station Road', 'Temple Street', 'Kummari Veedhi', 'Mill Colony', 'Teachers Colony', 'Main Road', 'Old Town', 'Brindavan Colony', 'Sai Nagar'];
   const ROOF = ['#e8c39e', '#f2d7a6', '#cfe0e8', '#f3c1b4', '#e7e2a7', '#d8c9ef', '#c8e6c0', '#f0b98d', '#ddd2c2', '#bfd8f0'];
-  const DOC_SHOPS = [
-    { doc: 'Affidavit', name: 'Notary Office' },
-    { doc: 'Caste Certificate', name: 'MRO Office' },
-    { doc: 'Deposit Receipt', name: 'Co-op Bank' },
-    { doc: 'Proposer Signatures', name: 'Ward Elder\u2019s House' },
-  ];
+
+  // The town is a small maze: a CELLS x CELLS lattice of street crossings, 3-tile streets with 4-tile house
+  // blocks between them. Some streets are built over (dead ends); a few extra links keep it from being a puzzle.
+  const CELLS = 7, STREET = 3, BLOCK = 4, PITCH = STREET + BLOCK, OFF = 1;
+  const at = (k) => OFF + k * PITCH; // first tile of street k
 
   // ------------------------------------------------------------------ generation
   // opts: { names: [neighbourhood names from the pincode lookup] }
   function generateTown(seed, opts) {
     const rng = makeRng(seed);
-    const t = new Uint8Array(N * N).fill(K.LOT);
+    const t = new Uint8Array(N * N).fill(K.FIELD);
     const idx = (x, y) => y * N + x;
     const inb = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
     const get = (x, y) => (inb(x, y) ? t[idx(x, y)] : K.FIELD);
     const set = (x, y, v) => { if (inb(x, y)) t[idx(x, y)] = v; };
-    const setIf = (x, y, v, only) => { if (inb(x, y) && t[idx(x, y)] === only) t[idx(x, y)] = v; };
-    const B = 3;
+    const fill = (x0, y0, x1, y1, v) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, v); };
+    const last = CELLS - 1;
 
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (x < B || y < B || x >= N - B || y >= N - B) set(x, y, K.FIELD);
-
-    // arterials: sidewalk, 3 road tiles, sidewalk
-    function lineV(a, w, y0, y1) {
-      for (let y = y0; y <= y1; y++) {
-        for (let d = 0; d < w; d++) set(a + d, y, K.ROAD);
-        setIf(a - 1, y, K.WALK, K.LOT); setIf(a + w, y, K.WALK, K.LOT);
-      }
-    }
-    function lineH(a, w, x0, x1) {
-      for (let x = x0; x <= x1; x++) {
-        for (let d = 0; d < w; d++) set(x, a + d, K.ROAD);
-        setIf(x, a - 1, K.WALK, K.LOT); setIf(x, a + w, K.WALK, K.LOT);
-      }
-    }
-    const span = N - 2 * B;
-    const art = (n) => { const out = []; for (let k = 1; k <= n; k++) out.push(Math.round(B + (k * span) / (n + 1) + rng.range(-4, 4) - 1)); return out; };
-    const ax = art(4), ay = art(4);
-    for (const a of ax) lineV(a, 3, B, N - B - 1);
-    for (const a of ay) lineH(a, 3, B, N - B - 1);
-    // sidewalks along crossings must not cut roads: restore road tiles of crossing arterials
-    for (const a of ax) for (let y = B; y < N - B; y++) for (let d = 0; d < 3; d++) set(a + d, y, K.ROAD);
-    for (const a of ay) for (let x = B; x < N - B; x++) for (let d = 0; d < 3; d++) set(x, a + d, K.ROAD);
-
-    // canal across the town; roads become bridges
-    const canal = [];
-    const cy0 = Math.round(N * rng.range(0.33, 0.42)), amp = rng.range(2, 5), ph = rng.range(0, 6);
-    for (let x = B; x < N - B; x++) {
-      const cy = Math.round(cy0 + Math.sin(x * 0.06 + ph) * amp);
-      canal.push(cy);
-      for (let d = 0; d < 3; d++) {
-        const y = cy + d, k = get(x, y);
-        if (k === K.ROAD || k === K.WALK) set(x, y, K.BRIDGE);
-        else if (k !== K.FIELD) set(x, y, K.WATER);
-      }
-      // embankment walk on both banks
-      setIf(x, cy - 1, K.WALK, K.LOT); setIf(x, cy + 3, K.WALK, K.LOT);
-    }
-
-    // super blocks between arterials, split by lanes into leaf blocks
-    const bounds = (lines) => {
-      const lo = [B], hi = [];
-      for (const a of lines) { hi.push(a - 2); lo.push(a + 4); }
-      hi.push(N - B - 1);
-      return lo.map((l, i) => [l, hi[i]]);
-    };
-    const XB = bounds(ax), YB = bounds(ay);
-    const supers = [];
-    for (const [y0, y1] of YB) for (const [x0, x1] of XB) supers.push({ x0, y0, x1, y1 });
-
-    const leaves = [];
-    function laneV(c, y0, y1) {
-      for (let y = y0; y <= y1; y++) {
-        for (const d of [1, 2]) { const k = get(c + d, y); if (k === K.WATER) continue; set(c + d, y, k === K.BRIDGE ? K.BRIDGE : K.ROAD); }
-        setIf(c, y, K.WALK, K.LOT); setIf(c + 3, y, K.WALK, K.LOT);
-      }
-    }
-    function laneH(c, x0, x1) {
-      for (let x = x0; x <= x1; x++) {
-        for (const d of [1, 2]) { const k = get(x, c + d); if (k === K.WATER) continue; set(x, c + d, k === K.BRIDGE ? K.BRIDGE : K.ROAD); }
-        setIf(x, c, K.WALK, K.LOT); setIf(x, c + 3, K.WALK, K.LOT);
-      }
-    }
-    function split(r, depth) {
-      const w = r.x1 - r.x0 + 1, h = r.y1 - r.y0 + 1;
-      const canV = w >= 17, canH = h >= 17;
-      if ((!canV && !canH) || (depth > 1 && w < 22 && h < 22 && rng() < 0.35)) { leaves.push(r); return; }
-      if (canV && (!canH || w >= h)) {
-        const c = r.x0 + 6 + rng.int(w - 15);
-        laneV(c, r.y0, r.y1);
-        split({ x0: r.x0, y0: r.y0, x1: c - 1, y1: r.y1 }, depth + 1);
-        split({ x0: c + 4, y0: r.y0, x1: r.x1, y1: r.y1 }, depth + 1);
-      } else {
-        const c = r.y0 + 6 + rng.int(h - 15);
-        laneH(c, r.x0, r.x1);
-        split({ x0: r.x0, y0: r.y0, x1: r.x1, y1: c - 1 }, depth + 1);
-        split({ x0: r.x0, y0: c + 4, x1: r.x1, y1: r.y1 }, depth + 1);
-      }
-    }
-    for (const s of supers) split(s, 0);
-    // lanes leave sidewalk tiles on block edges; shrink leaves to their LOT interior
-    const lotLeaves = [];
-    for (const r of leaves) {
-      let { x0, y0, x1, y1 } = r;
-      const rowLot = (y) => { for (let x = x0; x <= x1; x++) if (get(x, y) === K.LOT) return true; return false; };
-      const colLot = (x) => { for (let y = y0; y <= y1; y++) if (get(x, y) === K.LOT) return true; return false; };
-      while (y0 <= y1 && !rowLot(y0)) y0++;
-      while (y1 >= y0 && !rowLot(y1)) y1--;
-      while (x0 <= x1 && !colLot(x0)) x0++;
-      while (x1 >= x0 && !colLot(x1)) x1--;
-      if (x1 - x0 >= 2 && y1 - y0 >= 2) lotLeaves.push({ x0, y0, x1, y1 });
-    }
-    // blocks cut by the canal: keep runs of fully buildable rows as blocks, green the strips beside the water
-    for (let i = lotLeaves.length - 1; i >= 0; i--) {
-      const r = lotLeaves[i];
-      const full = (y) => { for (let x = r.x0; x <= r.x1; x++) if (get(x, y) !== K.LOT) return false; return true; };
-      let mixed = false;
-      for (let y = r.y0; y <= r.y1 && !mixed; y++) if (!full(y)) mixed = true;
-      if (!mixed) continue;
-      lotLeaves.splice(i, 1);
-      let run = null;
-      for (let y = r.y0; y <= r.y1 + 1; y++) {
-        if (y <= r.y1 && full(y)) { if (!run) run = { x0: r.x0, x1: r.x1, y0: y, y1: y }; else run.y1 = y; continue; }
-        if (run && run.y1 - run.y0 >= 2) lotLeaves.push(run);
-        else if (run) for (let yy = run.y0; yy <= run.y1; yy++) for (let x = r.x0; x <= r.x1; x++) set(x, yy, K.PARK);
-        run = null;
-        if (y <= r.y1) for (let x = r.x0; x <= r.x1; x++) setIf(x, y, K.PARK, K.LOT);
-      }
-    }
-    const pureLot = (r) => { for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) if (get(x, y) !== K.LOT) return false; return true; };
-    const cx = (r) => ((r.x0 + r.x1 + 1) / 2) * TILE, cyy = (r) => ((r.y0 + r.y1 + 1) / 2) * TILE;
-
-    // ---- special sites
-    const big = lotLeaves.filter((r) => r.x1 - r.x0 >= 9 && r.y1 - r.y0 >= 9 && pureLot(r));
-    const used = new Set();
-    const take = (cands, score) => {
-      let best = null, bs = -Infinity;
-      for (const r of cands) { if (used.has(r)) continue; const s = score(r); if (s > bs) { bs = s; best = r; } }
-      if (best) used.add(best);
-      return best;
-    };
+    // the RO office takes the 2x2 crossings in a top corner; the party office is in the opposite bottom corner
     const flip = rng() < 0.5;
-    const cornerA = { x: flip ? WORLD : 0, y: WORLD }, cornerB = { x: flip ? 0 : WORLD, y: 0 };
-    const officeR = take(big, (r) => -dist(cx(r), cyy(r), cornerB.x, cornerB.y));
-    const startR = take(lotLeaves.filter(pureLot), (r) => -dist(cx(r), cyy(r), cornerA.x, cornerA.y));
-    const boothR = take(big, (r) => -Math.abs(dist(cx(r), cyy(r), cornerA.x, cornerA.y) - WORLD * 0.95) - dist(cx(r), cyy(r), officeR ? cx(officeR) : 0, officeR ? cyy(officeR) : 0) * -0.3);
-    const stationRs = [];
-    const stationTargets = [[0.5, 0.5], [officeR ? cx(officeR) / WORLD : 0.8, officeR ? cyy(officeR) / WORLD + 0.15 : 0.3], [0.25, 0.75], [0.75, 0.75]];
-    for (const [fx, fy] of stationTargets) {
-      const r = take(lotLeaves.filter((r) => pureLot(r) && r.x1 - r.x0 >= 5 && r.y1 - r.y0 >= 5), (r) => -dist(cx(r), cyy(r), fx * WORLD, fy * WORLD));
-      if (r) stationRs.push(r);
+    const officeCols = flip ? [0, 1] : [last - 1, last];
+    const gateCol = flip ? 1 : last - 1;
+    const startCol = flip ? last : 0, startNext = flip ? last - 1 : 1;
+    const inOffice = (i, j) => j <= 1 && officeCols.includes(i);
+    const id = (i, j) => j * CELLS + i;
+    const key = (a, b) => (a < b ? a + ':' + b : b + ':' + a);
+
+    // maze: randomized depth-first spanning tree over the crossings, grown from the start
+    const open = new Set();
+    const seen = new Uint8Array(CELLS * CELLS);
+    const stack = [[startCol, last]];
+    seen[id(startCol, last)] = 1;
+    while (stack.length) {
+      const [i, j] = stack[stack.length - 1];
+      const nb = [];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const a = i + dx, b = j + dy;
+        if (a >= 0 && b >= 0 && a < CELLS && b < CELLS && !inOffice(a, b) && !seen[id(a, b)]) nb.push([a, b]);
+      }
+      if (!nb.length) { stack.pop(); continue; }
+      const [a, b] = nb[rng.int(nb.length)];
+      seen[id(a, b)] = 1;
+      open.add(key(id(i, j), id(a, b)));
+      stack.push([a, b]);
+    }
+    for (let j = 0; j < CELLS; j++) for (let i = 0; i < CELLS; i++) {
+      if (inOffice(i, j)) continue;
+      if (i < last && !inOffice(i + 1, j) && rng() < 0.12) open.add(key(id(i, j), id(i + 1, j)));
+      if (j < last && !inOffice(i, j + 1) && rng() < 0.12) open.add(key(id(i, j), id(i, j + 1)));
+    }
+    // streets that must exist: the approach to the office gate, the party office front, the police station front
+    const stationCol = flip ? 3 : 2, stationRow = 3;
+    open.add(key(id(gateCol, 2), id(gateCol, 3)));
+    open.add(key(id(startCol, last), id(startNext, last)));
+    open.add(key(id(stationCol, stationRow + 1), id(stationCol + 1, stationRow + 1)));
+
+    // carve the streets
+    for (let j = 0; j < CELLS; j++) for (let i = 0; i < CELLS; i++) {
+      if (inOffice(i, j)) continue;
+      fill(at(i), at(j), at(i) + STREET - 1, at(j) + STREET - 1, K.ROAD);
+      if (i < last && open.has(key(id(i, j), id(i + 1, j)))) fill(at(i) + STREET, at(j), at(i + 1) - 1, at(j) + STREET - 1, K.ROAD);
+      if (j < last && open.has(key(id(i, j), id(i, j + 1)))) fill(at(i), at(j) + STREET, at(i) + STREET - 1, at(j + 1) - 1, K.ROAD);
     }
 
-    const buildings = [];
-    const sites = [];
-    const labels = [];
+    const buildings = [], sites = [], labels = [];
+    const office = (() => {
+      const x0 = flip ? at(0) : at(last - 2) + STREET, x1 = flip ? at(2) - 1 : at(last) + STREET - 1;
+      return compound({ x0, y0: at(0), x1, y1: at(1) + PITCH - 1 }, { side: 's', x: at(gateCol) + 1 }, 'office', 'RO Office', '#f5e6c8');
+    })();
+    sites.push(office);
 
-    // find a walkable tile just outside a rect side, preferring roads; returns {side, x, y} of door tile
-    function doorFor(r) {
-      const opts = [];
-      const walk = (k) => k === K.WALK || k === K.ROAD || k === K.BRIDGE;
-      for (let x = r.x0 + 1; x < r.x1; x++) { if (walk(get(x, r.y0 - 1))) opts.push({ side: 'n', x, y: r.y0 - 1 }); if (walk(get(x, r.y1 + 1))) opts.push({ side: 's', x, y: r.y1 + 1 }); }
-      for (let y = r.y0 + 1; y < r.y1; y++) { if (walk(get(r.x0 - 1, y))) opts.push({ side: 'w', x: r.x0 - 1, y }); if (walk(get(r.x1 + 1, y))) opts.push({ side: 'e', x: r.x1 + 1, y }); }
-      if (!opts.length) return null;
-      // middle of the longest side
-      const bySide = {};
-      for (const o of opts) (bySide[o.side] = bySide[o.side] || []).push(o);
-      const side = Object.keys(bySide).sort((a, b) => bySide[b].length - bySide[a].length)[0];
-      const list = bySide[side];
-      return list[Math.floor(list.length / 2)];
-    }
-
-    // walled compound: wall ring, gate facing the street, plaza, central building, counter zone at its door
-    function compound(r, kind, name, color) {
-      const gate = doorFor(r);
+    // walled compound: wall ring, gate on the given side, plaza, central building, counter zone at its door
+    function compound(r, gate, kind, name, color) {
       for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) {
         const edge = x === r.x0 || x === r.x1 || y === r.y0 || y === r.y1;
         set(x, y, edge ? K.WALL : K.PLAZA);
       }
-      // gate: 3 tiles in the wall facing the door tile
       const gx = gate.side === 'n' || gate.side === 's' ? gate.x : gate.side === 'w' ? r.x0 : r.x1;
       const gy = gate.side === 'e' || gate.side === 'w' ? gate.y : gate.side === 'n' ? r.y0 : r.y1;
       for (let d = -1; d <= 1; d++) {
@@ -239,12 +137,13 @@
       // gate tiles, the outward direction, and a 1-tile side wicket on a neighbouring wall
       const gateTiles = [];
       for (let d = -1; d <= 1; d++) gateTiles.push(gate.side === 'n' || gate.side === 's' ? idx(gx + d, gy) : idx(gx, gy + d));
-      const out = { n: { x: 0, y: -1 }, s: { x: 0, y: 1 }, w: { x: -1, y: 0 }, e: { x: 1, y: 0 } }[gate.side];
+      const dirs = { n: { x: 0, y: -1 }, s: { x: 0, y: 1 }, w: { x: -1, y: 0 }, e: { x: 1, y: 0 } };
+      const out = dirs[gate.side];
       const walkOut = (k) => k === K.WALK || k === K.ROAD || k === K.BRIDGE || k === K.PLAZA || k === K.PARK;
       const sides = gate.side === 'n' || gate.side === 's' ? ['w', 'e', gate.side === 'n' ? 's' : 'n'] : ['n', 's', gate.side === 'w' ? 'e' : 'w'];
       let wicket = null;
       for (const sd of sides) {
-        const o = { n: { x: 0, y: -1 }, s: { x: 0, y: 1 }, w: { x: -1, y: 0 }, e: { x: 1, y: 0 } }[sd];
+        const o = dirs[sd];
         const cands = [];
         if (sd === 'n' || sd === 's') { const wy = sd === 'n' ? r.y0 : r.y1; for (let x = r.x0 + 2; x <= r.x1 - 2; x++) cands.push([x, wy]); }
         else { const wx = sd === 'w' ? r.x0 : r.x1; for (let y = r.y0 + 2; y <= r.y1 - 2; y++) cands.push([wx, y]); }
@@ -262,132 +161,84 @@
       return { kind, name, x: zx, y: zy, r: 52, gate: { x: (gx + 0.5) * TILE, y: (gy + 0.5) * TILE }, gateTiles, out, wicket, rect: { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 }, bld };
     }
 
-    const office = officeR ? compound(officeR, 'office', 'RO Office', '#f5e6c8') : null;
-    const booth = boothR ? compound(boothR, 'booth', 'Govt High School (Polling Booth)', '#ffe0b2') : null;
-    if (office) sites.push(office);
-    if (booth) sites.push(booth);
-
-    // police stations: building in a plaza
+    // a building on BUILD tiles
+    function building(x0, y0, x1, y1, extra) {
+      fill(x0, y0, x1, y1, K.BUILD);
+      const b = Object.assign({ x: x0 * TILE, y: y0 * TILE, w: (x1 - x0 + 1) * TILE, h: (y1 - y0 + 1) * TILE, color: ROOF[rng.int(ROOF.length)], kind: 'house', tank: rng() < 0.5, seed: rng.int(1e6) }, extra || {});
+      buildings.push(b);
+      return b;
+    }
+    // party office (start) and police station on their blocks, with the site on the street in front
+    const blockX = (i) => at(i) + STREET, blockY = (j) => at(j) + STREET;
+    const special = new Map();
+    {
+      const bi = Math.min(startCol, startNext), bj = last - 1;
+      special.set(bi + ',' + bj, 'party');
+      building(blockX(bi), blockY(bj), blockX(bi) + BLOCK - 1, blockY(bj) + BLOCK - 1, { color: '#c5cae9', kind: 'party', name: 'YSRCP Party Office', tank: false });
+      sites.push({ kind: 'start', name: 'YSRCP Party Office', x: (blockX(bi) + BLOCK / 2) * TILE, y: (at(last) + STREET / 2) * TILE, r: 40 });
+    }
     const stations = [];
-    for (const r of stationRs) {
-      for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) set(x, y, K.PLAZA);
-      const bw = Math.max(3, r.x1 - r.x0 - 3), bh = Math.max(3, Math.floor((r.y1 - r.y0) / 2));
-      const bx = r.x0 + 2, by = r.y0 + 1;
-      for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) set(x, y, K.BUILD);
-      buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#c5d3e8', kind: 'station', name: 'Police Station' });
-      const s = { kind: 'station', name: 'Police Station', x: (bx + bw / 2) * TILE, y: (by + bh + 1) * TILE, r: 40 };
+    {
+      special.set(stationCol + ',' + stationRow, 'station');
+      building(blockX(stationCol), blockY(stationRow), blockX(stationCol) + BLOCK - 1, blockY(stationRow) + BLOCK - 1, { color: '#c5d3e8', kind: 'station', name: 'Police Station', tank: false });
+      const s = { kind: 'station', name: 'Police Station', x: (blockX(stationCol) + BLOCK / 2) * TILE, y: (at(stationRow + 1) + STREET / 2) * TILE, r: 40 };
       stations.push(s); sites.push(s);
     }
+    const start = sites.find((s) => s.kind === 'start');
 
-    // party office (start)
-    let start = null;
-    if (startR) {
-      const r = startR;
-      for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) set(x, y, K.PLAZA);
-      const bw = Math.max(2, Math.min(6, r.x1 - r.x0 - 1)), bh = Math.max(2, Math.min(4, r.y1 - r.y0 - 1));
-      const bx = r.x0 + 1, by = r.y0 + 1;
-      for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) set(x, y, K.BUILD);
-      buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#c5cae9', kind: 'party', name: 'YSRCP Party Office' });
-      start = { kind: 'start', name: 'YSRCP Party Office', x: (bx + bw / 2) * TILE, y: Math.min(r.y1 + 0.5, by + bh + 1) * TILE, r: 40 };
-      sites.push(start);
+    // ordinary blocks: houses, with a temple and a hospital somewhere in the middle of town
+    const landmarks = [['temple', 'Sri Venkateswara Temple', '#ffe082'], ['hospital', 'Govt Hospital', '#ffffff']];
+    const free = [];
+    for (let j = 0; j < last; j++) for (let i = 0; i < last; i++) {
+      if (special.has(i + ',' + j) || get(blockX(i), blockY(j)) !== K.FIELD) continue;
+      free.push([i, j]);
     }
+    for (const [kind, name, color] of landmarks) {
+      const mids = free.filter(([i, j]) => i >= 1 && i <= last - 2 && j >= 2 && j <= last - 2);
+      const pick = (mids.length ? mids : free)[rng.int((mids.length ? mids : free).length)];
+      if (!pick) continue;
+      free.splice(free.indexOf(pick), 1);
+      const [i, j] = pick;
+      building(blockX(i), blockY(j), blockX(i) + BLOCK - 1, blockY(j) + BLOCK - 1, { color, kind, name, tank: false });
+    }
+    for (const [i, j] of free) {
+      const x0 = blockX(i), y0 = blockY(j), x1 = x0 + BLOCK - 1, y1 = y0 + BLOCK - 1, r = rng();
+      if (r < 0.35) building(x0, y0, x1, y1);
+      else if (r < 0.7) { building(x0, y0, x0 + 1, y1); building(x0 + 2, y0, x1, y1); }
+      else { building(x0, y0, x1, y0 + 1); building(x0, y0 + 2, x1, y1); }
+    }
+    // built-over streets (the dead ends of the maze)
+    for (let j = 0; j < CELLS; j++) for (let i = 0; i < CELLS; i++) {
+      if (inOffice(i, j)) continue;
+      if (i < last && !inOffice(i + 1, j) && get(at(i) + STREET, at(j)) === K.FIELD) building(at(i) + STREET, at(j), at(i + 1) - 1, at(j) + STREET - 1);
+      if (j < last && !inOffice(i, j + 1) && get(at(i), at(j) + STREET) === K.FIELD) building(at(i), at(j) + STREET, at(i) + STREET - 1, at(j + 1) - 1);
+    }
+    // sidewalks along every built edge, the road down the middle
+    const edge = (x, y) => { const k = get(x, y); return k === K.BUILD || k === K.WALL || k === K.FIELD; };
+    const walks = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (t[idx(x, y)] === K.ROAD && (edge(x - 1, y) || edge(x + 1, y) || edge(x, y - 1) || edge(x, y + 1))) walks.push(idx(x, y));
+    }
+    for (const i of walks) t[i] = K.WALK;
 
-    // ---- ordinary blocks: houses, parks, a few landmarks
-    const remaining = lotLeaves.filter((r) => !used.has(r) && pureLot(r));
-    const landmarkNames = [['temple', 'Sri Venkateswara Temple'], ['market', 'Rythu Bazar'], ['busstand', 'RTC Bus Stand'], ['hospital', 'Govt Hospital']];
-    const docRects = [];
-    const shuffled = remaining.slice().sort((a, b) => hashStr(a.x0 + ':' + a.y0 + ':' + seed) - hashStr(b.x0 + ':' + b.y0 + ':' + seed));
-    let li = 0;
-    for (const r of shuffled) {
-      const w = r.x1 - r.x0 + 1, h = r.y1 - r.y0 + 1;
-      if (li < landmarkNames.length && w >= 6 && h >= 6) {
-        const [kind, name] = landmarkNames[li++];
-        for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) set(x, y, kind === 'temple' ? K.PARK : K.PLAZA);
-        const bw = kind === 'market' ? 2 : Math.min(5, w - 2), bh = kind === 'market' ? 2 : Math.min(4, h - 2);
-        const bx = Math.floor(r.x0 + (w - bw) / 2), by = Math.floor(r.y0 + (h - bh) / 2);
-        if (kind !== 'market') for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) set(x, y, K.BUILD);
-        buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: kind === 'temple' ? '#ffe082' : kind === 'hospital' ? '#ffffff' : '#ffccbc', kind, name, solid: kind !== 'market' });
-        continue;
-      }
-      if (rng() < 0.12 || w < 3 || h < 3) {
-        for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) {
-          const edge = x === r.x0 || x === r.x1 || y === r.y0 || y === r.y1;
-          set(x, y, !edge && rng() < 0.12 ? K.TREE : K.PARK);
-        }
-        if (w * h > 30) labels.push({ x: cx(r), y: cyy(r), text: 'Park', small: true });
-        continue;
-      }
-      // houses: one or two rows of plots, occasional alley
-      const rows = h >= 8 ? 2 : 1;
-      const rowH = Math.floor(h / rows);
-      for (let k = 0; k < rows; k++) {
-        const y0 = r.y0 + k * rowH, y1 = k === rows - 1 ? r.y1 : y0 + rowH - 1;
-        let x = r.x0;
-        while (x <= r.x1) {
-          const pw = Math.min(r.x1 - x + 1, 3 + rng.int(4));
-          const alley = rng() < 0.18 && x > r.x0 && r.x1 - x > 4;
-          if (alley) { for (let y = y0; y <= y1; y++) set(x, y, K.WALK); x++; continue; }
-          for (let y = y0; y <= y1; y++) for (let xx = x; xx < x + pw; xx++) set(xx, y, K.BUILD);
-          buildings.push({ x: x * TILE, y: y0 * TILE, w: pw * TILE, h: (y1 - y0 + 1) * TILE, color: ROOF[rng.int(ROOF.length)], kind: 'house', tank: rng() < 0.5, seed: rng.int(1e6) });
-          x += pw;
-        }
-      }
-      docRects.push(r);
-    }
-    for (let i = 0; i < t.length; i++) if (t[i] === K.LOT) t[i] = K.GRASS;
-
-    // ---- document shops: one house building in each of several spread-out blocks, door on the street
-    const docSites = [];
-    const goal = office || booth || { x: WORLD / 2, y: WORLD / 2 };
-    const anchors = [[0.2, 0.25], [0.8, 0.8], [0.15, 0.6], [0.55, 0.3], [0.45, 0.75]];
-    for (let i = 0; i < DOC_SHOPS.length; i++) {
-      const [fx, fy] = anchors[i];
-      let best = null, bs = Infinity;
-      for (const b of buildings) {
-        if (b.kind !== 'house' || b.shop) continue;
-        const d = dist(b.x + b.w / 2, b.y + b.h / 2, fx * WORLD, fy * WORLD);
-        if (d < bs && dist(b.x, b.y, goal.x, goal.y) > 20 * TILE) {
-          const r = { x0: b.x / TILE, y0: b.y / TILE, x1: (b.x + b.w) / TILE - 1, y1: (b.y + b.h) / TILE - 1 };
-          if (doorFor(r)) { bs = d; best = b; }
-        }
-      }
-      if (!best) continue;
-      const r = { x0: best.x / TILE, y0: best.y / TILE, x1: (best.x + best.w) / TILE - 1, y1: (best.y + best.h) / TILE - 1 };
-      const door = doorFor(r);
-      best.shop = true; best.name = DOC_SHOPS[i].name; best.color = '#fff3c4';
-      const s = { kind: 'doc', doc: DOC_SHOPS[i].doc, name: DOC_SHOPS[i].name, x: (door.x + 0.5) * TILE, y: (door.y + 0.5) * TILE, r: 30 };
-      docSites.push(s); sites.push(s);
-    }
-    // BLO tent for the voter slip (polling day): a walkable spot in a park or plaza near the town centre
-    let blo = null;
-    {
-      let bd = Infinity;
-      for (let y = B; y < N - B; y++) for (let x = B; x < N - B; x++) {
-        if (t[idx(x, y)] !== K.PARK) continue;
-        const d = dist((x + 0.5) * TILE, (y + 0.5) * TILE, WORLD * 0.45, WORLD * 0.55);
-        if (d < bd) { bd = d; blo = { kind: 'doc', doc: 'Voter Slip', name: 'BLO Help Tent', x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, r: 30, mode: 'vote' }; }
-      }
-      if (blo) sites.push(blo);
-    }
-
-    // neighbourhood labels on super blocks
+    // neighbourhood names on the three corners away from the office
     const names = (opts && opts.names && opts.names.length ? opts.names.slice() : []).concat(NEIGHBOURHOODS);
-    const seen = new Set();
+    const spots = [[0.27, 0.78], [0.73, 0.78], [flip ? 0.73 : 0.27, 0.3]];
+    const used = new Set();
     let ni = 0;
-    for (const s of supers) {
-      while (ni < names.length && seen.has(names[ni])) ni++;
+    for (const [fx, fy] of spots) {
+      while (ni < names.length && used.has(names[ni])) ni++;
       const name = names[ni++] || '';
-      seen.add(name);
-      labels.push({ x: cx(s), y: cyy(s), text: name });
+      used.add(name);
+      labels.push({ x: fx * WORLD, y: fy * WORLD, text: name });
     }
 
-    // posts: arterial intersections (patrol waypoints)
+    // posts: street crossings (patrol waypoints)
     const posts = [];
-    for (const a of ax) for (const b of ay) posts.push({ x: (a + 1.5) * TILE, y: (b + 1.5) * TILE });
+    for (let j = 0; j < CELLS; j++) for (let i = 0; i < CELLS; i++) if (!inOffice(i, j)) posts.push({ x: (at(i) + STREET / 2) * TILE, y: (at(j) + STREET / 2) * TILE });
 
-    return { seed, n: N, tile: TILE, world: WORLD, t, buildings, sites, docSites, blo, office, booth, stations, start, labels, posts, canal, arterials: { x: ax, y: ay }, dyn: new Uint8Array(N * N) };
+    return { seed, n: N, tile: TILE, world: WORLD, t, buildings, sites, office, stations, start, labels, posts, arterials: { x: [], y: [] }, dyn: new Uint8Array(N * N) };
   }
-
   // ------------------------------------------------------------------ queries
   const kindAt = (m, tx, ty) => (tx < 0 || ty < 0 || tx >= N || ty >= N ? K.FIELD : m.t[ty * N + tx]);
   const solidAt = (m, tx, ty) => tx < 0 || ty < 0 || tx >= N || ty >= N || SOLID[m.t[ty * N + tx]] === 1 || m.dyn[ty * N + tx] !== 0;
@@ -496,5 +347,5 @@
     return groups;
   }
 
-  return { TILE, N, WORLD, DT, K, SOLID, clamp, hypot, dist, norm, makeRng, hashStr, generateTown, kindAt, solidAt, solidPx, walkable, moveBody, field, flowDir, lineOfSight, barricadeRing, DOC_SHOPS };
+  return { TILE, N, WORLD, DT, K, SOLID, clamp, hypot, dist, norm, makeRng, hashStr, generateTown, kindAt, solidAt, solidPx, walkable, moveBody, field, flowDir, lineOfSight, barricadeRing };
 });

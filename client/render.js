@@ -14,10 +14,10 @@
   const cam = { x: 0, y: 0, shake: 0 };
   const chunks = new Map();
   let chunkRes = 0, time = 0, mini = null;
-  let particles = [], ambient = [], debris = [], hurtT = 0, clockSpin = 0;
+  let particles = [], ambient = [], debris = [], hurtT = 0;
   const bubbles = new Map();
   let bubbleSeq = 0;
-  let freeMap = null, fields = new Map(), objSite = null, routeCache = {};
+  let freeMap = null, fields = new Map(), routeCache = {};
   const TAU = Math.PI * 2;
   const NAVY = '#0f1b61', NAVY2 = '#1a2d8a', GREEN = '#00a651', GOLD = '#ffd700'; // YSRCP brand colours
   // shirt colours: blue = YSRCP, yellow = ruling-front goons, white = the public
@@ -42,13 +42,13 @@
     G = game.state; map = G.map;
     chunks.clear(); particles = []; bubbles.clear(); debris = []; hurtT = 0;
     freeMap = Object.assign({}, map, { dyn: new Uint8Array(N * N) }); // plan through barricades: pushing breaks them
-    fields = new Map(); objSite = null; routeCache = {}; radarT = -1; gateSig = '';
+    fields = new Map(); routeCache = {}; radarT = -1; gateSig = '';
     cam.x = G.player.x; cam.y = G.player.y;
     buildMini();
     const rng = makeRng(map.seed ^ 0xabc);
     ambient = [];
     const A = map.arterials;
-    for (let i = 0; i < 16; i++) {
+    if (A && A.x.length && A.y.length) for (let i = 0; i < 16; i++) {
       const vert = rng() < 0.5, line = rng.pick(vert ? A.x : A.y), lane = rng() < 0.5 ? 0 : 2, dir = lane === 0 ? 1 : -1;
       ambient.push({ vert, c: (line + lane + 0.5) * T, p: rng() * WORLD, dir: vert ? -dir : dir, v: 70 + rng() * 60, kind: rng() < 0.75 ? 'auto' : 'bike', hue: rng.int(3) });
     }
@@ -349,15 +349,8 @@
       if (locked) label('🔒', w.x, w.y, 12, '#000');
       else label('Side wicket', w.x + w.out.x * 24, w.y + w.out.y * 24, 10, '#fff', 'rgba(93,64,55,.9)');
     }
-    // the office wall clock (runs fast, only today) and the clerk's desk
-    const t = G.target, inv = { x: -o.x, y: -o.y }, ck = { x: t.x + inv.x * 66, y: t.y + inv.y * 66 };
-    const M = G.M, mins = M.clockStart + (M.clockEnd - M.clockStart) * (G.elapsed / M.time) - clockSpin * 16; // hands race forward after a jump
-    clockSpin = Math.max(0, clockSpin - 1 / 60);
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ck.x, ck.y, 13, 0, TAU); ctx.fill();
-    ctx.strokeStyle = clockSpin > 0 ? '#c62828' : '#263238'; ctx.lineWidth = 2.5; ctx.stroke();
-    const ha = ((mins / 60) % 12) / 12 * TAU - Math.PI / 2, ma = ((mins % 60) / 60) * TAU - Math.PI / 2;
-    ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(ck.x, ck.y); ctx.lineTo(ck.x + Math.cos(ha) * 6, ck.y + Math.sin(ha) * 6); ctx.stroke();
-    ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ck.x, ck.y); ctx.lineTo(ck.x + Math.cos(ma) * 10, ck.y + Math.sin(ma) * 10); ctx.stroke();
+    // the clerk's desk
+    const inv = { x: -o.x, y: -o.y };
     const clerk = G.ents.find((e) => e.kind === 'official');
     if (clerk) {
       const dx = clerk.x - inv.x * 14, dy = clerk.y - inv.y * 14;
@@ -365,7 +358,7 @@
       ctx.fillStyle = '#8d6e63'; ctx.fillRect(-22, -6, 44, 12); ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.strokeRect(-22, -6, 44, 12);
       ctx.fillStyle = '#fff'; ctx.fillRect(-14, -4, 8, 6); ctx.fillRect(4, -3, 10, 5);
       ctx.restore();
-      if (G.player.stallT > 0) label(G.gameMode === 'vote' ? '⏸ ⚙️' : '⏸ ☕', clerk.x, clerk.y - 22, 12, '#000', 'rgba(255,248,225,.95)');
+      if (G.player.stallT > 0) label('⏸ ☕', clerk.x, clerk.y - 22, 12, '#000', 'rgba(255,248,225,.95)');
     }
   }
 
@@ -377,15 +370,21 @@
     }
   }
   function popup(x, y, text, color) { particles.push({ x, y, vx: 0, vy: -50, life: 1.2, text, c: color || '#fff', drag: 0 }); }
+  // Speech bubbles. Near the office only the candidate, the police and the clerk speak, three at a time.
   function say(ev) {
+    const focus = G && window.Hud && window.Hud.inFocus(G);
+    if (focus && ev.id) {
+      const who = G.ents.find((e) => e.id === ev.id);
+      if (who && (who.kind === 'civ' || who.kind === 'goon')) return;
+    }
     const key = ev.id !== undefined ? 'e' + ev.id : 'b' + bubbleSeq++;
+    bubbles.delete(key);
     bubbles.set(key, { id: ev.id, x: ev.x, y: ev.y, text: ev.text, color: ev.color || '#fff', life: 3 });
-    if (bubbles.size > 10) bubbles.delete(bubbles.keys().next().value);
+    while (bubbles.size > (focus ? 3 : 6)) bubbles.delete(bubbles.keys().next().value);
   }
   function shake(a) { cam.shake = Math.max(cam.shake, a); }
   function addDebris(x, y, kind) { debris.push({ x, y, kind, rot: Math.random() * TAU, life: 6 }); if (debris.length > 40) debris.shift(); }
   function hurtFlash(a) { hurtT = Math.max(hurtT, a || 0.6); }
-  function clockJump() { clockSpin = 1.2; }
 
   // ------------------------------------------------------------ text helpers
   function rr(x, y, w, h, r) {
@@ -405,7 +404,6 @@
     return f;
   }
   const tileOf = (x, y) => Math.max(0, Math.min(N - 1, Math.floor(y / T))) * N + Math.max(0, Math.min(N - 1, Math.floor(x / T)));
-  // Nearest missing document by walking distance (sticky, so it doesn't flicker between two shops), else the goal.
   let gateSig = '';
   function syncGate() { // the shut gate and the locked wicket can't be pushed: plan around them
     const g = G.gate;
@@ -420,22 +418,8 @@
   }
   function objective() {
     syncGate();
-    const P = G.player, here = tileOf(P.x, P.y);
-    const missing = G.docSites.filter((s) => !P.docs.includes(s.doc));
-    let site = G.target;
-    if (missing.length) {
-      const cost = (s) => { const v = fieldFor(s)[here]; return v >= 0 ? v : Math.hypot(s.x - P.x, s.y - P.y) / T; };
-      let best = null, bd = Infinity;
-      for (const s of missing) { const c = cost(s); if (c < bd) { bd = c; best = s; } }
-      site = objSite && missing.includes(objSite) && cost(objSite) <= bd + 4 ? objSite : best;
-    }
-    objSite = site;
-    const goal = site === G.target;
-    return {
-      site, x: site.x, y: site.y, goal,
-      name: goal ? G.M.goal : site.doc, where: goal ? (G.gameMode === 'vote' ? 'Stand in the blue circle to vote' : 'Stand in the blue circle to file') : site.name,
-      icon: goal ? (G.gameMode === 'vote' ? '🗳️' : '🏛️') : '📄', color: goal ? GOLD : '#ffb74d',
-    };
+    const site = G.target;
+    return { site, x: site.x, y: site.y, goal: true, name: G.M.goal, where: 'Stand in the blue circle to file', icon: '🏛️', color: GOLD };
   }
   // Route from the player to the objective as world points, following the distance field (smoothed).
   function route(maxSteps) {
@@ -529,10 +513,13 @@
     const P = G.player;
     const px = P.px + (P.x - P.px) * alpha, py = P.py + (P.y - P.py) * alpha;
     const vw = W / zoom, vh = (H - bottomPad) / zoom;
-    const tx = px + (P.fx || 0) * 40, ty = py + (P.fy || 0) * 40;
+    // look ahead of the player, but keep the view mostly inside the (small) town; a little slack at the top
+    // so the HUD panels never sit on top of the office gate
+    const fit = (v, span, lo, hi) => (WORLD + lo + hi > span ? Math.max(span / 2 - lo, Math.min(WORLD - span / 2 + hi, v)) : WORLD / 2);
+    const tx = fit(px + (P.fx || 0) * 40, vw, vw * 0.08, vw * 0.08), ty = fit(py + (P.fy || 0) * 40, vh, vh * 0.3, vh * 0.08);
     const k = Math.min(1, dt * 5);
     cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
-    if (Math.abs(cam.x - px) > vw) { cam.x = px; cam.y = py; }
+    if (Math.abs(cam.x - px) > vw) { cam.x = tx; cam.y = ty; }
     cam.shake = Math.max(0, cam.shake - dt * 30);
     const sx = (Math.random() - 0.5) * cam.shake, sy = (Math.random() - 0.5) * cam.shake;
     const left = cam.x - vw / 2 + sx, top = cam.y - vh / 2 + sy;
@@ -572,7 +559,7 @@
     ctx.save();
     ctx.setLineDash([18, 12]); ctx.lineDashOffset = -time * 20;
     ctx.strokeStyle = 'rgba(198,40,40,.55)'; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.arc(tg.x, tg.y, 15.6 * T, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(tg.x, tg.y, G.ringR * T, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
 
     // barricades
@@ -600,30 +587,12 @@
     // sites
     for (const st of map.sites) {
       if (!inView(st.x, st.y, 120)) continue;
-      if (st.kind === 'doc') {
-        if (st.mode === 'vote' && G.gameMode !== 'vote') continue;
-        if (!G.docSites.includes(st)) continue;
-        const have = P.docs.includes(st.doc);
-        const bob = Math.sin(time * 3 + st.x) * 3;
-        ctx.globalAlpha = have ? 0.45 : 1;
-        ctx.fillStyle = have ? 'rgba(102,187,106,.35)' : 'rgba(255,213,79,.35)';
-        ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2); ctx.fill();
-        if (st.mode === 'vote') {
-          ctx.fillStyle = '#ef6c00'; ctx.beginPath(); ctx.moveTo(st.x - 22, st.y + 6); ctx.lineTo(st.x, st.y - 18); ctx.lineTo(st.x + 22, st.y + 6); ctx.fill();
-        }
-        label(have ? '✅' : '📄', st.x, st.y - 34 + bob, 20, '#000');
-        label(st.name, st.x, st.y - 54 + bob, 11, '#fff', 'rgba(40,30,20,.75)');
-        label(st.doc, st.x, st.y + 24, 10, '#3e2723', 'rgba(255,248,225,.9)');
-        ctx.globalAlpha = 1;
-        if (P.collect && P.collect.site === st) {
-          ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(st.x, st.y, st.r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, P.collect.t / 1.2)); ctx.stroke();
-        }
-      } else if (st === tg) {
+      if (st === tg) {
         ctx.fillStyle = 'rgba(26,45,138,.22)'; ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = 'rgba(26,45,138,.85)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.stroke(); ctx.setLineDash([]);
         if (P.submitT > 0) { ctx.strokeStyle = '#66bb6a'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(st.x, st.y, st.r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, P.submitT / G.M.hold)); ctx.stroke(); }
-        label(G.gameMode === 'vote' ? '🗳️' : '🏛️', st.x, st.y - 8, 26, '#000');
-        label(G.gameMode === 'vote' ? 'POLLING BOOTH' : 'RETURNING OFFICER', st.x, st.y + 22, 11, '#fff', 'rgba(15,27,97,.92)');
+        label('🏛️', st.x, st.y - 8, 26, '#000');
+        label('RETURNING OFFICER', st.x, st.y + 22, 11, '#fff', 'rgba(15,27,97,.92)');
       } else if (st.kind === 'station') {
         label('🚓 Police Station', st.x, st.y - 6, 11, '#fff', 'rgba(21,101,192,.85)');
       } else if (st.kind === 'start') {
@@ -634,9 +603,9 @@
     }
     // names on landmark roofs
     for (const b of map.buildings) {
-      if (!b.name || b.shop || !inView(b.x + b.w / 2, b.y + b.h / 2, 150)) continue;
-      if (b.kind === 'station') continue;
-      label(b.name, b.x + b.w / 2, b.y + b.h / 2, b.kind === 'office' || b.kind === 'booth' ? 13 : 10, '#3e2723', 'rgba(255,255,255,.8)');
+      if (!b.name || !inView(b.x + b.w / 2, b.y + b.h / 2, 150)) continue;
+      if (b.kind === 'station' || b.kind === 'office') continue; // the counter carries its own label
+      label(b.name, b.x + b.w / 2, b.y + b.h / 2, b.kind === 'office' ? 13 : 10, '#3e2723', 'rgba(255,255,255,.8)');
     }
     let guideObj = null;
     if ((G.mode === 'play' || G.mode === 'intro') && P.state !== 'held') {
@@ -778,7 +747,7 @@
     const lim = WORLD * sc, LX = (wx, w) => Math.max(ox + w / 2 + 3, Math.min(ox + lim - w / 2 - 3, X(wx))); // keep labels inside the map
     const tag = (s, wx, wy, dy, size, bg) => { ctx.font = `800 ${size}px system-ui,sans-serif`; label(s, LX(wx, ctx.measureText(s).width + 10), Y(wy) + dy, size, '#fff', bg); };
     ctx.strokeStyle = 'rgba(198,40,40,.85)'; ctx.lineWidth = big ? 2.5 : 1.5; ctx.setLineDash(big ? [6, 4] : []);
-    ctx.beginPath(); ctx.arc(X(G.target.x), Y(G.target.y), 15.6 * T * sc, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(X(G.target.x), Y(G.target.y), G.ringR * T * sc, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = '#ff7043'; for (const b of G.barrs) ctx.fillRect(X(b.x) - 2, Y(b.y) - 2, 4, 4);
     if (big) {
       ctx.font = `700 ${Math.max(8, Math.min(11, lim / 42))}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -794,13 +763,8 @@
       ctx.beginPath(); ctx.moveTo(X(pts[0][0]), Y(pts[0][1])); for (const p of pts) ctx.lineTo(X(p[0]), Y(p[1])); ctx.stroke();
       ctx.strokeStyle = o.color; ctx.lineWidth = big ? 3 : 2; ctx.setLineDash(big ? [8, 5] : [4, 3]); ctx.lineDashOffset = -time * 20; ctx.stroke(); ctx.setLineDash([]);
     }
-    // documents and goal
-    for (const s of G.docSites) {
-      const have = P.docs.includes(s.doc);
-      if (big) { label(have ? '✅' : '📄', X(s.x), Y(s.y), 15, '#000'); if (!have) tag(s.doc, s.x, s.y, 15, 10, 'rgba(120,80,0,.9)'); }
-      else if (!have) { ctx.fillStyle = '#ffd54f'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.fillRect(X(s.x) - 3.5, Y(s.y) - 3.5, 7, 7); ctx.strokeRect(X(s.x) - 3.5, Y(s.y) - 3.5, 7, 7); }
-    }
-    if (big) { label(G.gameMode === 'vote' ? '🗳️' : '🏛️', X(G.target.x), Y(G.target.y), 20, '#000'); tag(G.M.goal, G.target.x, G.target.y, 18, 11, 'rgba(15,27,97,.95)'); }
+    // goal
+    if (big) { label('🏛️', X(G.target.x), Y(G.target.y), 20, '#000'); tag(G.M.goal, G.target.x, G.target.y, 18, 11, 'rgba(15,27,97,.95)'); }
     else { ctx.fillStyle = NAVY2; ctx.strokeStyle = GOLD; ctx.lineWidth = 1.5; ctx.fillRect(X(G.target.x) - 4.5, Y(G.target.y) - 4.5, 9, 9); ctx.strokeRect(X(G.target.x) - 4.5, Y(G.target.y) - 4.5, 9, 9); }
     // people nearby
     if (!big) for (const e of G.ents) {
@@ -883,7 +847,7 @@
 
   window.Render = {
     init(canvas) { cv = canvas; ctx = cv.getContext('2d'); resize(); },
-    resize, setGame, draw, drawRadar, drawBigMap, objective, burst, popup, say, shake, worldToScreen, addDebris, hurtFlash, clockJump,
+    resize, setGame, draw, drawRadar, drawBigMap, objective, burst, popup, say, shake, worldToScreen, addDebris, hurtFlash,
     setBottomPad(px) { bottomPad = Math.max(0, px || 0); resize(); },
     get ctx() { return ctx; }, get DPR() { return DPR; }, get W() { return W; }, get H() { return H; }, get zoom() { return zoom; },
     get quality() { return quality; }, get bottomPad() { return bottomPad; },

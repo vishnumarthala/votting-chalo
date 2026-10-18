@@ -18,22 +18,13 @@
   document.body.classList.toggle('touch', Input.isTouch);
 
   const menu = $('menu'), nameEl = $('name'), pinEl = $('pin'), pinStatus = $('pinStatus'), townEl = $('town');
-  const playBtn = $('play'), lbEl = $('lb'), resultEl = $('result'), pauseEl = $('pause');
-  let game = null, running = false, paused = false, mapOpen = false, acc = 0, last = performance.now(), endT = 0, view = null, lastTick = -1;
-  let place = null, placeErr = null, lookupSeq = 0, mode = store.get('vc_mode', 'nomination');
+  const playBtn = $('play'), pauseEl = $('pause');
+  let game = null, running = false, paused = false, mapOpen = false, acc = 0, last = performance.now(), endT = 0, view = null;
+  let place = null, placeErr = null, lookupSeq = 0;
 
   // ------------------------------------------------------------ menu
   nameEl.value = store.get('vc_name', '');
   pinEl.value = store.get('vc_pin', '');
-  function setMode(m) {
-    mode = m === 'vote' ? 'vote' : 'nomination';
-    store.set('vc_mode', mode);
-    for (const b of document.querySelectorAll('.mode')) b.classList.toggle('sel', b.dataset.m === mode);
-    playBtn.textContent = mode === 'vote' ? 'GO VOTE ▶' : 'FILE NOMINATION ▶';
-    renderLb();
-  }
-  for (const b of document.querySelectorAll('.mode')) b.addEventListener('click', () => setMode(b.dataset.m));
-
   const placeLabel = (pl) => [pl.town, pl.mandal && pl.mandal !== pl.town ? pl.mandal + ' mandal' : '', pl.district && pl.district !== pl.mandal ? pl.district + ' district' : ''].filter(Boolean).join(', ');
   function showPlace(res) {
     townEl.innerHTML = ''; townEl.style.display = 'none';
@@ -70,22 +61,6 @@
   });
   lookupPin();
 
-  const lbKey = () => 'vc_lb_' + mode;
-  function readLb() { try { return JSON.parse(store.get(lbKey(), '[]')) || []; } catch (e) { return []; } }
-  function renderLb() {
-    const lb = readLb();
-    lbEl.innerHTML = '';
-    if (!lb.length) { lbEl.innerHTML = '<li class="none">No runs yet. Be the first from your town!</li>'; return; }
-    lb.forEach((r, i) => { const li = document.createElement('li'); li.textContent = `${i + 1}. ${r.n} (${r.t}) · ${r.s.toLocaleString('en-IN')} · ${r.w ? '✅' : '❌'} · crowd ${r.c}`; lbEl.appendChild(li); });
-  }
-  function saveLb(res) {
-    const lb = readLb();
-    lb.push({ n: (nameEl.value.trim() || 'Candidate').slice(0, 18), s: res.score, w: res.won, c: res.crowd, t: (res.place && res.place.town) || Ct.DEFAULT_PLACE.town, d: Date.now() });
-    lb.sort((a, b) => b.s - a.s);
-    store.set(lbKey(), JSON.stringify(lb.slice(0, 10)));
-  }
-  setMode(mode);
-
   function syncOpts() {
     $('optMute').textContent = SFX.muted ? '🔇 Sound off' : '🔊 Sound on';
     $('optQ').textContent = Render.quality === 'hi' ? '✨ Graphics: high' : '⚡ Graphics: fast';
@@ -97,20 +72,20 @@
   syncOpts();
 
   // ------------------------------------------------------------ lifecycle
-  function newGame(pl, m, seed) {
-    const g = window.Sim.createGame({ seed, mapSeed: hashStr('town:' + (pl.pin || pl.town)), place: pl, mode: m, names: pl.offices });
+  function newGame(pl, seed) {
+    const g = window.Sim.createGame({ seed, mapSeed: hashStr('town:' + (pl.pin || pl.town)), place: pl, names: pl.offices });
     Render.setGame(g);
     return g;
   }
   function start() {
-    if (placeErr) { pinEl.focus(); return; }
+    if (placeErr) { menu.classList.remove('hide'); pinEl.focus(); return; }
     FrontPage.hide();
     SFX.init();
     store.set('vc_name', nameEl.value.trim());
     const pl = place ? { town: place.town, mandal: place.mandal, district: place.district, pin: place.pin, offices: (place.offices || []).filter((o) => o !== place.town) } : Object.assign({}, Ct.DEFAULT_PLACE);
-    game = newGame(pl, mode, hashStr(pl.pin + '|' + nameEl.value + '|' + Date.now()));
+    game = newGame(pl, hashStr(pl.pin + '|' + nameEl.value + '|' + Date.now()));
     Hud.reset();
-    menu.classList.add('hide'); resultEl.innerHTML = '';
+    menu.classList.add('hide');
     running = true; paused = false; acc = 0; endT = 0; last = performance.now();
     Input.setEnabled(true);
     document.body.classList.add('playing');
@@ -119,28 +94,22 @@
   playBtn.addEventListener('click', start);
   [nameEl, pinEl].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); start(); } }));
 
-  function stopPlaying() {
+  function stopPlaying(toMenu) {
     running = false; paused = false; mapOpen = false;
     document.body.classList.remove('mapopen');
     pauseEl.classList.remove('on');
     Input.setEnabled(false);
     document.body.classList.remove('playing');
-    menu.classList.remove('hide');
+    if (toMenu !== false) menu.classList.remove('hide');
   }
+  // Every run ends on the front page of "The Daily Ballot", headlined with the end title.
   function finish() {
-    const G = game.state, res = G.result;
-    saveLb(res);
-    const why = { jailed: 'Three cases filed against you, and you spent the day in the lock-up.', time: G.gameMode === 'vote' ? 'Polling closed at 6 PM before you got in.' : 'The RO office closed at 3 PM. "Come tomorrow." (The deadline was today.)' }[res.reason] || '';
-    resultEl.innerHTML = res.won
-      ? `<b class="win">${game.text(G.M.win)}</b><br>Score <b>${res.score.toLocaleString('en-IN')}</b> · biggest crowd ${res.crowd} · missions ${res.missions}`
-      : `<b class="lose">❌ ${G.gameMode === 'vote' ? 'Vote not cast.' : 'Nomination not filed.'}</b> ${why}<br>Score <b>${res.score.toLocaleString('en-IN')}</b> · documents ${res.docs}/${G.M.docs.length + (G.M.given || []).length} · biggest crowd ${res.crowd}`;
-    playBtn.textContent = 'PLAY AGAIN ▶';
-    renderLb();
-    stopPlaying();
-    if (!res.won) {
-      SFX.flatline();
-      FrontPage.show({ result: Object.assign({ tactics: Hud.tacticsSeen }, res), name: nameEl.value.trim() || 'Our candidate', onPlayAgain: start });
-    }
+    stopPlaying(false);
+    SFX.flatline();
+    FrontPage.show({
+      result: game.state.result, tactics: Hud.tacticsSeen, name: nameEl.value.trim() || 'Our candidate',
+      onPlayAgain: start, onMenu: () => menu.classList.remove('hide'),
+    });
   }
   function setPaused(on) {
     if (!running) return;
@@ -179,7 +148,7 @@
 
   // ------------------------------------------------------------ events
   // first appearance of each tactic -> "How democracy is being spoiled" card
-  const TACTIC_OF = { ring: 'sec144', throw: 'stones', ignore: 'police', detained: 'arrest', line: 'line', gateshut: 'gate', vipgate: 'gate', frisk: 'papers', stall: 'stall', clockjump: 'clock' };
+  const TACTIC_OF = { ring: 'sec144', throw: 'stones', ignore: 'police', detained: 'arrest', line: 'line', gateshut: 'gate', vipgate: 'gate', frisk: 'papers', stall: 'stall' };
   function handle(evs) {
     const P = game.state.player;
     if (P.pushing) Hud.tactic('barricade');
@@ -190,44 +159,38 @@
       switch (ev.t) {
         case 'say': Render.say(ev); break;
         case 'toast': Hud.toast(ev.text, ev.color); break;
-        case 'tier': if (ev.name) { Hud.tier(ev.name); SFX.tier(); } break;
-        case 'mission': Hud.toast('🎯 ' + ev.text + '  +' + ev.rew, '#b2ff59', 3.2); SFX.mission(); break;
         case 'join': SFX.join(); Render.popup(ev.x, ev.y - 30, '+' + ev.n + ' 👥', '#bbdefb'); break;
         case 'slogan': SFX.slogan(); Render.burst(ev.x, ev.y, 14, ['#00a651', '#fff', '#1a2d8a'], 220, 4); break;
-        case 'doc':
-          SFX.doc(); Render.burst(ev.x, ev.y, 18, ['#fff59d', '#fff'], 200, 5); Render.popup(ev.x, ev.y - 40, '+' + ev.pts, '#ffd54f');
-          Hud.toast('📄 Got ' + ev.doc + ' (' + ev.have + '/' + ev.need + ')' + (ev.have === ev.need ? ' → now go to the ' + game.state.M.goal + '!' : ''), '#fff59d', 3.4);
-          break;
         case 'lathi': SFX.lathi(); Render.shake(4); Render.burst(ev.x, ev.y, 8, ['#8d6e63', '#fff'], 180, 3); break;
         case 'grab': SFX.grab(); Render.shake(6); break;
         case 'detained': SFX.detained(); Render.shake(14); Hud.toast('🚓 Detained! Case ' + ev.cases + ' of ' + game.CASES, '#ff8a80', 3.4); break;
         case 'released': SFX.released(); break;
-        case 'lift': SFX.lift(); Render.popup(ev.x, ev.y - 30, 'Crowd lifted the cop! +' + ev.pts, '#b9f6ca'); Render.shake(6); break;
-        case 'scare': SFX.scare(); Render.popup(ev.x, ev.y - 30, '+' + ev.pts, '#ffd54f'); break;
-        case 'torn': SFX.torn(); Render.shake(6); Render.burst(ev.x, ev.y, 12, ['#fff', '#eceff1'], 220, 5); Render.popup(ev.x, ev.y - 34, '📄 −' + ev.amount + '%', '#ff8a80'); break;
-        case 'lostdoc': SFX.lostdoc(); break;
+        case 'lift': SFX.lift(); Render.popup(ev.x, ev.y - 30, 'Crowd lifted the cop!', '#b9f6ca'); Render.shake(6); break;
+        case 'scare': SFX.scare(); Render.popup(ev.x, ev.y - 30, 'Goon ran off!', '#ffd54f'); break;
+        case 'attacked': SFX.torn(); Render.shake(8); Render.hurtFlash(0.6); Render.burst(ev.x, ev.y, 10, ['#ffca28', '#fff'], 200, 4); break;
         case 'gas': SFX.gas(); Hud.toast('💨 Tear gas! Supporters are scattering', '#eeeeee'); break;
-        case 'break': if (ev.kind === 'police') Hud.tier(Ct.GATE.lineBroken); SFX.break(); Render.shake(12); Render.burst(ev.x, ev.y, 28, ['#ffca28', '#212121', '#90a4ae'], 300, 6); Render.popup(ev.x, ev.y - 30, (ev.kind === 'police' ? 'Line broken! +' : 'Barricade down! +') + ev.pts, '#ffd54f'); break;
+        case 'break': if (ev.kind === 'police') Hud.tier(Ct.GATE.lineBroken); SFX.break(); Render.shake(12); Render.burst(ev.x, ev.y, 28, ['#ffca28', '#212121', '#90a4ae'], 300, 6); Render.popup(ev.x, ev.y - 30, ev.kind === 'police' ? 'Line broken!' : 'Barricade down!', '#ffd54f'); break;
         case 'filing': SFX.stamp(); break;
         case 'backup': SFX.backup(); break;
-        case 'won': SFX.won(); for (let i = 0; i < 6; i++) Render.burst(P.x + (i - 3) * 30, P.y - 30, 20, ['#0f1b61', '#ffd700', '#fff', '#00a651', '#1a2d8a'], 320, 6); Hud.tier(game.state.gameMode === 'vote' ? 'VOTE CAST! ☑️' : 'NOMINATION FILED! ✅'); break;
-        case 'over': SFX.over(); Hud.tier(game.state.demo <= 25 ? 'DEMOCRACY KILLED' : 'DOORS CLOSED'); break;
+        case 'rejected': SFX.stall(); Render.shake(10); break;
+        case 'over': SFX.over(); Hud.tier(ev.reason === 'rejected' ? 'NOMINATION REJECTED' : ev.reason === 'jailed' ? 'JAILED' : 'DEMOCRACY KILLED'); break;
         case 'throw': if (near(ev)) SFX.whoosh(); break;
         case 'land': Render.addDebris(ev.x, ev.y, ev.kind); if (near(ev)) { (ev.kind === 'stick' ? SFX.crack : ev.kind === 'chappal' ? SFX.slap : SFX.thud)(); Render.burst(ev.x, ev.y, 6, ['#bcaaa4', '#d7ccc8'], 90, 3); } break;
-        case 'hit': Render.shake(9); Render.hurtFlash(0.7); Render.popup(ev.x, ev.y - 34, '📄 −12%  💫', '#ff8a80'); break;
+        case 'hit': Render.shake(9); Render.hurtFlash(0.7); Render.popup(ev.x, ev.y - 34, '💫', '#ff8a80'); break;
         case 'civhit': if (near(ev)) SFX.cry(); Render.popup(ev.x, ev.y - 26, ev.type === 'man' ? '💫' : '😢', '#fff'); break;
         case 'shield': SFX.scare(); Render.popup(ev.x, ev.y - 30, '🛡️ took it for you', '#bbdefb'); break;
-        case 'protect': SFX.protect(); Render.popup(ev.x, ev.y - 30, (ev.crowd ? '🛡️ Crowd protected them! +' : '🛡️ You protected them! +') + ev.pts, '#b9f6ca'); break;
+        case 'protect': SFX.protect(); Render.popup(ev.x, ev.y - 30, ev.crowd ? '🛡️ Crowd protected them!' : '🛡️ You protected them!', '#b9f6ca'); break;
         case 'demo': if (ev.d < 0) Hud.demoHit(); break;
         case 'demostage': SFX.heartbeat(); Render.shake(4); break;
         case 'line': SFX.backup(); Render.shake(3); break;
         case 'gateshut': SFX.clang(); Render.shake(5); break;
         case 'chant': SFX.slogan(); Render.popup(ev.x, ev.y - 40, '📣 ' + ev.n + '/' + ev.need, '#bbdefb'); break;
-        case 'gateopen': SFX.mission(); Hud.tier('GATE OPEN! 📣'); Render.popup(ev.x, ev.y - 40, '+' + ev.pts, '#ffd54f'); break;
+        case 'gateopen': SFX.mission(); Hud.tier('GATE OPEN! 📣'); break;
         case 'vipgate': if (near(ev)) SFX.whistle(); break;
         case 'frisk': SFX.grab(); Render.burst(P.x, P.y - 6, 10, ['#fff', '#eceff1', '#cfd8dc'], 120, 4); break;
         case 'stall': SFX.stall(); break;
-        case 'clockjump': SFX.clock(); Render.clockJump(); Hud.tier('🕒 +30 MIN?!'); break;
+        case 'needcrowd': Render.popup(game.state.target.gate.x, game.state.target.gate.y - 40, 'Need 8+ supporters (' + ev.n + ')', '#ffcc80'); break;
+        case 'four': Render.popup(P.x, P.y - 40, 'Only you + 4 allowed in', '#bbdefb'); break;
       }
     }
   }
@@ -246,8 +209,7 @@
       const ps = view ? Render.worldToScreen(G.player.x, G.player.y, view) : null;
       while (acc >= DT && n < 5) { game.step(Input.frame(ps)); handle(game.drainEvents()); acc -= DT; n++; }
       if (n === 5) acc = 0;
-      if (G.mode === 'play' && G.timer < 20 && Math.ceil(G.timer) !== lastTick) { lastTick = Math.ceil(G.timer); SFX.tick(); }
-      if (G.mode === 'won' || G.mode === 'over') { endT += dt; if (endT > (G.mode === 'won' ? 3.5 : 2.5)) finish(); }
+      if (G.mode === 'over') { endT += dt; if (endT > 3) finish(); }
     }
     view = Render.draw(live ? acc / DT : 1, live ? dt : 0);
     if (running) {
@@ -276,7 +238,7 @@
   }
 
   // attract mode: the default town behind the menu
-  game = newGame(Object.assign({}, Ct.DEFAULT_PLACE), mode, 7);
+  game = newGame(Object.assign({}, Ct.DEFAULT_PLACE), 7);
   addEventListener('resize', () => { Render.resize(); readSafe(); });
   requestAnimationFrame(frame);
 

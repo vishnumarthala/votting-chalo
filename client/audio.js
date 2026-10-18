@@ -58,9 +58,7 @@
     grab: () => tone('square', 440, 220, 0.2, 0.1),
     detained: () => { siren(3); tone('sawtooth', 300, 90, 0.5, 0.12); },
     released: () => [392, 523].forEach((f, i) => tone('triangle', f, f, 0.15, 0.12, i * 0.1)),
-    doc: () => [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.1, 0.15, i * 0.06)),
     torn: () => { noise(0.25, 0.3, 5000, 0, 'highpass'); tone('sawtooth', 300, 120, 0.25, 0.08); },
-    lostdoc: () => [392, 330, 262].forEach((f, i) => tone('triangle', f, f, 0.18, 0.16, i * 0.12)),
     gas: () => noise(1.2, 0.18, 900),
     push: () => noise(0.08, 0.12, 300),
     break: () => { noise(0.4, 0.5, 700); tone('square', 120, 50, 0.3, 0.14); },
@@ -70,8 +68,6 @@
     stamp: () => { tone('sine', 90, 50, 0.25, 0.5); noise(0.06, 0.3, 4000); },
     backup: () => siren(2),
     mission: () => [659, 880, 1319].forEach((f, i) => tone('triangle', f, f, 0.14, 0.16, i * 0.07)),
-    tier: () => tone('square', 440, 880, 0.15, 0.1),
-    tick: () => tone('square', 1800, 1800, 0.03, 0.05),
     whoosh: () => noise(0.22, 0.12, 1400, 0, 'bandpass'),
     thud: () => { tone('sine', 140, 55, 0.18, 0.32); noise(0.08, 0.25, 600); },
     crack: () => { noise(0.06, 0.35, 3500, 0, 'highpass'); tone('square', 260, 120, 0.08, 0.08); },
@@ -83,8 +79,6 @@
     clang: () => { noise(0.35, 0.4, 2500, 0, 'highpass'); tone('square', 220, 110, 0.4, 0.12); tone('square', 233, 117, 0.4, 0.08, 0.02); },
     whistle: () => { tone('sine', 1900, 2300, 0.14, 0.1); tone('sine', 1900, 2300, 0.14, 0.1, 0.2); },
     stall: () => { tone('triangle', 330, 330, 0.18, 0.12); tone('triangle', 262, 262, 0.3, 0.12, 0.2); },
-    clock: () => { for (let i = 0; i < 10; i++) tone('square', 2200, 2200, 0.02, 0.06, i * 0.06); },
-    won: () => [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone('square', f, f, 0.18, 0.1, i * 0.1)),
     over: () => [392, 349, 311, 262].forEach((f, i) => tone('sawtooth', f, f, 0.25, 0.1, i * 0.18)),
   };
 })();

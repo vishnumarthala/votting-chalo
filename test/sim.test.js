@@ -34,7 +34,7 @@ test('same seed and inputs give the same game', () => {
     const bot = makeBot(g);
     for (let i = 0; i < 1500; i++) g.step(bot());
     const s = g.state;
-    return JSON.stringify([s.player.x, s.player.y, s.player.followers.length, s.player.cases, s.score, s.ents.length, s.barrs.length]);
+    return JSON.stringify([s.player.x, s.player.y, s.player.followers.length, s.player.cases, s.demo, s.ents.length, s.barrs.length]);
   };
   assert.equal(run(), run());
 });
@@ -64,11 +64,21 @@ test('a slogan pulls in people nearby', () => {
   assert.equal(g.state.stats.slogan, 1, 'cooldown');
 });
 
-function copNextToPlayer(g) {
-  const P = g.state.player;
+// a street crossing with a long straight run of open street in one direction
+function openRun(g, px) {
+  const map = g.state.map;
+  for (const p of g.state.posts) for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    let ok = true;
+    for (let d = 0; d <= px && ok; d += 8) if (W.solidPx(map, p.x + dx * d, p.y + dy * d)) ok = false;
+    if (ok) return { x: p.x, y: p.y, dx, dy };
+  }
+  return null;
+}
+function copNextToPlayer(g, from) {
+  const P = g.state.player, f = from || { dx: -1, dy: 0 };
   const cop = g.state.ents.find((e) => e.kind === 'cop' && e.role === 'patrol');
   for (const e of g.state.ents) if (e !== cop && e.kind !== 'civ') place(e, 200, 200);
-  place(cop, P.x + 12, P.y);
+  place(cop, P.x - f.dx * 12, P.y - f.dy * 12);
   cop.mode = 'chase'; cop.los = true;
   return cop;
 }
@@ -76,12 +86,14 @@ function copNextToPlayer(g) {
 test('a cop must hold on to arrest you; running breaks free', () => {
   const g = play({ goons: false, civilians: 0 });
   const P = g.state.player;
-  // on an open arterial: start at an intersection and run west along the road
-  place(P, g.state.posts[5].x, g.state.posts[5].y);
-  const cop = copNextToPlayer(g);
+  // start at a crossing with a long open street ahead and run down it
+  const run = openRun(g, 300);
+  assert.ok(run, 'found an open street');
+  place(P, run.x, run.y);
+  const cop = copNextToPlayer(g, run);
   steps(g, 10);
   assert.ok(P.grab > 0 && P.state === 'free', 'grabbed but not yet detained');
-  steps(g, 60, inp({ mx: -1, my: 0, run: true }));
+  steps(g, 60, inp({ mx: run.dx, my: run.dy, run: true }));
   assert.equal(P.state, 'free');
   assert.equal(P.cases, 0);
   assert.ok(W.dist(P.x, P.y, cop.x, cop.y) > 40, 'got away');
@@ -116,32 +128,16 @@ test('three supporters close by lift the cop away, at the cost of one supporter'
   assert.equal(P.cases, 0);
 });
 
-test('goons tear papers; at zero the latest collected document must be fetched again', () => {
+test('a goon attack shoves the candidate and costs democracy 8%', () => {
   const g = play({ police: false, civilians: 0 });
-  const P = g.state.player;
-  const goon = g.state.ents.find((e) => e.kind === 'goon');
-  assert.deepEqual(P.docs, ['Form-A Nomination']);
-  P.docs.push('Affidavit', 'Caste Certificate');
+  const G = g.state, P = G.player;
+  const goon = G.ents.find((e) => e.kind === 'goon' && e.mode === 'patrol');
   place(goon, P.x + 12, P.y); goon.mode = 'chase'; goon.los = true;
-  steps(g, 1);
-  assert.equal(P.papers, 75);
-  g._test.tearPapers(goon, 100);
-  assert.equal(P.papers, 100);
-  assert.deepEqual(P.docs, ['Form-A Nomination', 'Affidavit']);
-  g._test.tearPapers(goon, 100);
-  g._test.tearPapers(goon, 100);
-  assert.deepEqual(P.docs, ['Form-A Nomination'], 'the starting Form-A is never lost');
-});
-
-test('documents are collected by standing at the shop counter', () => {
-  const g = play({ police: false, goons: false, civilians: 0 });
-  const P = g.state.player, site = g.state.docSites[0];
-  place(P, site.x, site.y);
-  steps(g, 20);
-  assert.ok(!P.docs.includes(site.doc));
-  const ev = steps(g, 25);
-  assert.ok(P.docs.includes(site.doc));
-  assert.ok(ev.some((e) => e.t === 'doc'));
+  const ev = steps(g, 1);
+  assert.ok(ev.some((e) => e.t === 'attacked'));
+  assert.equal(G.demo, 92);
+  assert.ok(P.kx < 0, 'knocked away from the goon');
+  assert.equal(goon.mode, 'flee');
 });
 
 function barricadeSide(g) {
@@ -173,34 +169,38 @@ test('barricades fall to pushing, much faster with a crowd', () => {
   assert.ok(crowd * 2 < alone, `crowd ${crowd} vs alone ${alone}`);
 });
 
-test('the office refuses incomplete documents; with all of them you hold the counter and win', () => {
+test('holding the counter files the nomination, and it is rejected anyway: democracy flatlines', () => {
   const g = play({ police: false, goons: false, civilians: 0, gate: false });
   const G = g.state, P = G.player;
   place(P, G.target.x, G.target.y);
-  const ev = steps(g, 30 * 3);
+  let ev = steps(g, 30 * 3);
   assert.equal(G.mode, 'play');
-  assert.equal(P.submitT, 0);
-  assert.ok(ev.some((e) => e.t === 'toast' && /Missing/.test(e.text)));
-  P.docs.push(...G.M.docs);
-  steps(g, Math.ceil(30 * G.M.hold) + 2);
-  assert.equal(G.mode, 'won');
-  assert.ok(G.result.won && G.bonus.timeBonus > 0);
+  assert.ok(P.submitT > 0);
+  ev = ev.concat(steps(g, Math.ceil(30 * G.M.hold)));
+  assert.equal(G.mode, 'over');
+  assert.equal(G.result.reason, 'rejected');
+  assert.ok(G.result.why && /Rejected/.test(G.result.why));
+  assert.ok(G.result.demo > 0, 'the result keeps the meter as it was on arrival');
+  assert.equal(G.demo, 0);
+  assert.ok(ev.some((e) => e.t === 'rejected'));
 });
 
-test('running out of time ends the run', () => {
+test('when democracy hits 0% the run ends', () => {
   const g = play({ police: false, goons: false, civilians: 0 });
-  g.state.timer = 0.05;
-  steps(g, 3);
-  assert.equal(g.state.mode, 'over');
-  assert.equal(g.state.result.reason, 'time');
+  const G = g.state;
+  g._test.demo(-99);
+  assert.equal(G.mode, 'play');
+  g._test.demo(-5);
+  assert.equal(G.demo, 0);
+  assert.equal(G.mode, 'over');
+  assert.equal(G.result.reason, 'killed');
+  assert.ok(g.drainEvents().some((e) => e.t === 'over' && e.reason === 'killed'));
 });
 
-test('polling day: voter ID in hand, slip from the BLO tent, vote at the booth', () => {
-  const g = play({ mode: 'vote', police: false, goons: false, civilians: 0 });
-  const G = g.state;
-  assert.equal(G.target, G.map.booth);
-  assert.deepEqual(G.player.docs, ['Voter ID Card']);
-  assert.deepEqual(G.docSites.map((s) => s.doc), ['Voter Slip']);
+test('there is no clock: standing around does not end the run', () => {
+  const g = play({ police: false, goons: false, civilians: 0 });
+  steps(g, 30 * 600);
+  assert.equal(g.state.mode, 'play');
 });
 
 // ---------------------------------------------------------------- stones, the Democracy meter and bystanders
@@ -212,7 +212,7 @@ function throwAt(g, x, y, aimRef) {
   return pj;
 }
 
-test('a stone on the candidate tears papers, dazes, drains stamina, scatters supporters and hurts democracy', () => {
+test('a stone on the candidate knocks back, dazes, drains stamina, scatters supporters and hurts democracy', () => {
   const g = play({ police: false, goons: false, civilians: 20 });
   const G = g.state, P = G.player;
   for (const c of loneMen(g).slice(0, 2)) { g._test.join(c); place(c, P.x + 20, P.y); }
@@ -220,10 +220,9 @@ test('a stone on the candidate tears papers, dazes, drains stamina, scatters sup
   const ev = landAll(g);
   assert.ok(ev.some((e) => e.t === 'throw') || G.stats.thrown === 1);
   assert.ok(ev.some((e) => e.t === 'hit'));
-  assert.equal(P.papers, 88);
   assert.ok(P.daze > 0 && P.stamina <= 81);
   assert.equal(P.followers.length, 0, 'nearby supporters scattered');
-  assert.equal(G.demo, 96);
+  assert.equal(G.demo, 94);
   assert.equal(G.stats.hits, 1);
 });
 
@@ -234,7 +233,7 @@ test('zig-zagging dodges more throws than standing still', () => {
     place(P, G.posts[5].x, G.posts[5].y);
     let hits = 0;
     for (let k = 0; k < 12; k++) {
-      P.invuln = 0; P.daze = 0; P.papers = 100;
+      P.invuln = 0; P.daze = 0;
       const before = G.stats.hits;
       g._test.launch({ x: P.x, y: P.y - 200, aimRef: null });
       for (let i = 0; G.projs.length && i < 90; i++) steps(g, 1, zig ? inp({ mx: Math.floor(i / 9) % 2 ? 1 : -1 }) : NONE);
@@ -265,16 +264,16 @@ test('with three supporters close, one may take the stone for the candidate', ()
   assert.equal(G.stats.civHurt, 0, 'adult supporters are not counted as women or children');
 });
 
-test('the Democracy meter floors at 5, stages fire once, and broken barricades lift it', () => {
+test('Democracy stages fire once on the way down, and broken barricades lift it', () => {
   const g = play({ police: false, goons: false, civilians: 0 });
   const G = g.state;
-  let ev = (g._test.demo(-200), g.drainEvents());
+  let ev = (g._test.demo(-95), g.drainEvents());
   assert.equal(G.demo, 5);
   assert.deepEqual(ev.filter((e) => e.t === 'demostage').map((e) => e.stage), [1, 2, 3, 4]);
-  ev = (g._test.demo(-10), g.drainEvents());
+  ev = (g._test.demo(-1), g.drainEvents());
   assert.equal(ev.filter((e) => e.t === 'demostage').length, 0);
   g._test.breakBarricade(G.barrs[0]);
-  assert.equal(G.demo, 8);
+  assert.equal(G.demo, 7);
 });
 
 function lonelyChild(g, x, y) {
@@ -342,12 +341,11 @@ test('nothing the player does can hurt a civilian', () => {
   }
 });
 
-test('the result carries what the front page needs', () => {
+test('the result carries what the end screen needs', () => {
   const g = play({ police: false, goons: false, civilians: 0 });
-  g.state.timer = 0.05;
-  steps(g, 3);
+  g._test.demo(-100);
   const r = g.state.result;
-  for (const k of ['demo', 'thrown', 'hits', 'civHurt', 'protected', 'arrests', 'barricades', 'closest', 'goal', 'gateStops', 'stalls', 'frisks', 'clockJump']) assert.ok(k in r, k);
+  for (const k of ['reason', 'demo', 'crowd', 'thrown', 'hits', 'civHurt', 'protected', 'arrests', 'barricades', 'closest', 'goal', 'time', 'gateStops', 'stalls', 'frisks']) assert.ok(k in r, k);
   assert.ok(r.closest > 0);
 });
 
@@ -394,7 +392,7 @@ test('the gate shuts in your face; 4 slogans with 8+ supporters open it, a small
   for (const c of men.slice(0, 3)) { g._test.join(c); place(c, P.x, P.y); }
   let ev = steps(g, 1, inp({ act: true }));
   assert.equal(G.gate.pressure, 0);
-  assert.ok(ev.some((e) => e.t === 'toast' && /8\+/.test(e.text)));
+  assert.ok(ev.some((e) => e.t === 'needcrowd' && e.need === 8));
   for (const c of men.slice(3, 12)) { g._test.join(c); place(c, P.x, P.y); }
   steps(g, 80); // slogan cooldown
   ev = [];
@@ -444,7 +442,7 @@ test('only the candidate and four supporters go in; the rest wait at the gate an
   const ev = steps(g, 1);
   assert.ok(G.gate.inside);
   assert.equal(P.followers.filter((f) => f.inner !== false).length, 4);
-  assert.ok(ev.some((e) => e.t === 'toast' && /\+ 4/.test(e.text)));
+  assert.ok(ev.some((e) => e.t === 'four' && e.waiting === 5));
   steps(g, 30 * 6);
   const insideNow = P.followers.filter((f) => g._test.inCompound(f.x, f.y)).length;
   assert.ok(insideNow <= 4, `${insideNow} supporters inside`);
@@ -468,14 +466,12 @@ test('papers are checked once per entry; the side wicket check is harsher', () =
   };
   const a = enter('gate');
   assert.equal(a.P.state, 'frisk');
-  assert.equal(a.P.papers, 85);
   assert.ok(a.ev.some((e) => e.t === 'frisk' && !e.wicket));
   steps(a.g, 30 * 3);
   assert.equal(a.P.state, 'free');
   assert.equal(a.G.gate.frisks, 1, 'once per entry');
   const b = enter('wicket');
   assert.equal(b.P.state, 'frisk');
-  assert.equal(b.P.papers, 75);
   assert.ok(b.P.friskT > 2.5);
 });
 
@@ -483,13 +479,12 @@ test('the clerk stalls the filing twice; four proposers inside halve each stall'
   const file = (proposers) => {
     const g = play({ police: false, goons: false, civilians: 60 });
     const G = g.state, P = G.player;
-    P.docs.push(...G.M.docs);
     if (proposers) for (const c of loneMen(g).slice(0, 4)) g._test.join(c);
     place(P, G.target.x, G.target.y);
     for (const f of P.followers) place(f, P.x + 10, P.y + 10);
     let n = 0, ev = [];
     while (G.mode === 'play' && n < 30 * 30) { ev = ev.concat(steps(g, 1)); n++; }
-    assert.equal(G.mode, 'won');
+    assert.equal(G.result.reason, 'rejected');
     assert.equal(G.gate.stalls, 2);
     assert.ok(ev.some((e) => e.t === 'stall'));
     return n;
@@ -511,30 +506,13 @@ test('gate guards who chased you outside find their way back in, even with the g
   for (const e of guards) assert.ok(W.dist(e.x, e.y, e.home.x, e.home.y) < 10, 'guard got home');
 });
 
-test('the office clock jumps once and never leaves less than 25 s', () => {
-  const g = play({ police: false, goons: false, civilians: 0 });
-  const G = g.state, P = G.player, T = G.target;
-  G.timer = 50;
-  const inPt = { x: T.gate.x - T.out.x * 50, y: T.gate.y - T.out.y * 50 };
-  place(P, inPt.x, inPt.y);
-  const ev = steps(g, 1);
-  assert.ok(ev.some((e) => e.t === 'clockjump'));
-  assert.ok(G.timer >= 24.9 && G.timer <= 25.1, `timer ${G.timer}`);
-  const o = out(g, 150); place(P, o.x, o.y); steps(g, 2);
-  place(P, inPt.x, inPt.y);
-  const t0 = G.timer;
-  steps(g, 1);
-  assert.ok(G.timer > t0 - 0.1, 'no second jump');
+test('a route-following bot walks the maze to the office on several towns when police and goons are off', () => {
+  for (const seed of [3, 17, 404, 2024]) {
+    const g = S.createGame({ seed, police: false, goons: false });
+    const bot = makeBot(g);
+    let n = 0;
+    while ((g.state.mode === 'intro' || g.state.mode === 'play') && n < 30 * 300) { g.step(bot()); g.drainEvents(); n++; }
+    assert.equal(g.state.mode, 'over', `seed ${seed}: still playing`);
+    assert.equal(g.state.result.reason, 'rejected', `seed ${seed}: ${g.state.result.reason}`);
+  }
 });
-
-for (const mode of ['nomination', 'vote']) {
-  test(`a route-following bot completes ${mode} on several towns when police and goons are off`, () => {
-    for (const seed of [3, 17, 404, 2024]) {
-      const g = S.createGame({ seed, mode, police: false, goons: false });
-      const bot = makeBot(g);
-      let n = 0;
-      while ((g.state.mode === 'intro' || g.state.mode === 'play') && n < 30 * 600) { g.step(bot()); g.drainEvents(); n++; }
-      assert.equal(g.state.mode, 'won', `seed ${seed}: ${g.state.result && g.state.result.reason}`);
-    }
-  });
-}

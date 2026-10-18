@@ -15,25 +15,24 @@
   const EMPTY_INPUT = { mx: 0, my: 0, run: false, act: false };
   const THROW = { min: 90, max: 260, air: 6, windup: 0.35 }; // goons throw stones, sticks and chappals
   const DEMO_STAGES = [75, 50, 25, 10]; // Democracy meter thresholds: unwell, hospital, ICU, ventilator
+  const RING = 11; // Section 144 ring radius around the office, in tiles
 
   function createGame(opts) {
     opts = opts || {};
     const rng = makeRng((opts.seed >>> 0) || 1);
-    const modeKey = opts.mode === 'vote' ? 'vote' : 'nomination';
-    const M = Ct.MODES[modeKey];
+    const M = Ct.MODE;
     const place = Object.assign({}, Ct.DEFAULT_PLACE, opts.place || {});
     const text = (s, extra) => Ct.fill(s, Object.assign({}, place, extra || {}));
     const map = generateTown(opts.mapSeed !== undefined ? opts.mapSeed >>> 0 : (opts.seed >>> 0) || 1, { names: opts.names });
-    const target = modeKey === 'vote' ? map.booth : map.office;
-    const docSites = modeKey === 'vote' ? [map.blo] : map.docSites.filter((s) => M.docs.includes(s.doc));
+    const target = map.office;
 
     const G = {
-      tick: 0, mode: 'intro', modeT: 0, gameMode: modeKey, M, map, place, target, docSites,
-      timer: M.time, elapsed: 0, score: 0, combo: { n: 0, t: 0 }, events: [],
+      tick: 0, mode: 'intro', modeT: 0, M, map, place, target,
+      elapsed: 0, events: [],
       player: null, ents: [], barrs: [], clouds: [], posts: map.posts,
-      stats: { rec: 0, crowd: 0, brk: 0, lift: 0, doc: 0, slogan: 0, goon: 0 }, missions: [], missionsDone: 0,
+      stats: { rec: 0, crowd: 0, brk: 0, lift: 0, slogan: 0, goon: 0 },
       result: null, alertT: 50,
-      projs: [], demo: 100, demoStage: 0, closest: Infinity, ringIn: false, queue: [], queueT: 0, ignoreCd: 0, newsCd: 0,
+      projs: [], demo: 100, demoStage: 0, closest: Infinity, ringIn: false, ringR: RING + 0.6, queue: [], queueT: 0, ignoreCd: 0, newsCd: 0,
     };
     Object.assign(G.stats, { thrown: 0, hits: 0, civHurt: 0, protected: 0 });
     let nextId = 1;
@@ -44,8 +43,8 @@
     // ------------------------------------------------------------ setup
     const P = {
       id: 0, kind: 'player', x: map.start.x, y: map.start.y, r: 9, vx: 0, vy: 0, fx: 0, fy: 1, kx: 0, ky: 0,
-      papers: 100, stamina: 100, cases: 0, followers: [], docs: (M.given || []).slice(), sloganCd: 0, grab: 0, grabTick: -1,
-      collect: null, submitT: 0, state: 'free', heldT: 0, invuln: 0, pushing: 0, running: false, sayCd: 0, inGas: false,
+      stamina: 100, cases: 0, followers: [], sloganCd: 0, grab: 0, grabTick: -1,
+      submitT: 0, state: 'free', heldT: 0, invuln: 0, pushing: 0, running: false, sayCd: 0, inGas: false,
       daze: 0, guardT: 0,
     };
     P.px = P.x; P.py = P.y;
@@ -57,6 +56,8 @@
         const tx = 3 + rng.int(N - 6), ty = 3 + rng.int(N - 6);
         const k = kindAt(map, tx, ty);
         if (!(kinds ? kinds.includes(k) : isOpen(k)) || solidAt(map, tx, ty)) continue;
+        const rc = target.rect;
+        if (rc && tx >= rc.x0 && tx <= rc.x1 && ty >= rc.y0 && ty <= rc.y1) continue; // nobody loiters inside the office compound
         const x = (tx + 0.5) * TILE, y = (ty + 0.5) * TILE;
         if (minFromPlayer && dist(x, y, P.x, P.y) < minFromPlayer) continue;
         return { x, y };
@@ -84,7 +85,7 @@
     const nearestPost = (x, y) => { let bi = 0, bd = Infinity; G.posts.forEach((p, i) => { const d = dist(x, y, p.x, p.y); if (d < bd) { bd = d; bi = i; } }); return bi; };
 
     // Section 144 ring around the destination: most street crossings barricaded, a few manned checkposts
-    const ring = barricadeRing(map, target.x, target.y, 15);
+    const ring = barricadeRing(map, target.x, target.y, RING);
     const checkposts = [];
     ring.forEach((g, i) => {
       if (rng() < 0.7 || i === 0) {
@@ -94,7 +95,7 @@
     });
 
     const postFields = map.posts.map((p) => field(map, [[Math.floor(p.x / TILE), Math.floor(p.y / TILE)]]));
-    const civCount = opts.civilians !== undefined ? opts.civilians : 150;
+    const civCount = opts.civilians !== undefined ? opts.civilians : 36;
     for (let i = 0; i < civCount; i++) {
       const s = randomSpot(0);
       spawnCiv(s.x, s.y);
@@ -117,9 +118,9 @@
       return c;
     }
     if (opts.police !== false) {
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 4; i++) {
         const pi = rng.int(map.posts.length), p = map.posts[pi];
-        spawn('cop', p.x + rng.range(-20, 20), p.y + rng.range(-20, 20), { mode: 'patrol', role: i < 3 ? 'gas' : 'patrol', postIdx: rng.int(map.posts.length), lathiCd: 0, gasCd: 4, seeT: 0, stunT: 0 });
+        spawn('cop', p.x + rng.range(-20, 20), p.y + rng.range(-20, 20), { mode: 'patrol', role: i < 1 ? 'gas' : 'patrol', postIdx: rng.int(map.posts.length), lathiCd: 0, gasCd: 4, seeT: 0, stunT: 0 });
       }
       for (const g of checkposts) for (let k = 0; k < 2; k++) spawn('cop', g.x + (k ? 14 : -14), g.y, { mode: 'post', role: 'post', home: { x: g.x, y: g.y }, lathiCd: 0, seeT: 0, stunT: 0 });
       const o = target.out || { x: 0, y: 1 }, sd = { x: -o.y, y: o.x };
@@ -133,13 +134,12 @@
       }
     }
     if (opts.goons !== false) {
-      const n = modeKey === 'vote' ? 8 : 10;
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < 5; i++) {
         const pi = rng.int(map.posts.length), p = map.posts[pi];
         spawn('goon', p.x, p.y, { mode: 'patrol', postIdx: rng.int(map.posts.length), seeT: 0, stunT: 0 });
       }
-      // a gang hangs around the destination ("booth capturing" on polling day)
-      const m = modeKey === 'vote' ? 6 : 3;
+      // a gang hangs around the office gate
+      const m = 3;
       for (let i = 0; i < m; i++) {
         const a = (i / m) * Math.PI * 2;
         let x = target.gate.x + Math.cos(a) * 60, y = target.gate.y + Math.sin(a) * 60;
@@ -149,7 +149,7 @@
     }
 
     // ------------------------------------------------------------ the gate showdown
-    // police line -> gate shut ("lunch") -> only candidate + 4 -> papers check -> clerk stalls -> clock trick;
+    // police line -> gate shut ("lunch") -> only candidate + 4 -> papers check -> clerk stalls -> rejection;
     // meanwhile the ruling front's "guests" walk in and out and the police salute them.
     const GATE_ON = opts.gate !== false && !!target.gateTiles;
     const gOut = target.out || { x: 0, y: 1 }, gSide = { x: -gOut.y, y: gOut.x };
@@ -166,12 +166,15 @@
         const tx = (j % N) + gOut.x, ty = Math.floor(j / N) + gOut.y;
         if (!solidAt(map, tx, ty)) lineTiles.push(ty * N + tx);
       }
-      G.gate = { phase: 'idle', pressure: 0, openT: 0, shut: false, line: null, lineTiles, tiles: target.gateTiles, wicket: target.wicket, wicketOpen: false, out: gOut, inside: false, stops: 0, stalls: 0, frisks: 0, clockJump: 0, stallText: '', hintCd: 0, salCd: 0, ver: 0 };
+      G.gate = { phase: 'idle', pressure: 0, openT: 0, shut: false, line: null, lineTiles, tiles: target.gateTiles, wicket: target.wicket, wicketOpen: false, out: gOut, inside: false, stops: 0, stalls: 0, frisks: 0, stallText: '', hintCd: 0, salCd: 0, ver: 0 };
       if (target.wicket) map.dyn[target.wicket.tile] = 2; // locked, until they shut the main gate and "forget" this one
       const inv = norm(target.x - target.gate.x, target.y - target.gate.y);
       spawn('official', target.x + inv.x * 34, target.y + inv.y * 34, { mode: 'desk', fx: -inv.x, fy: -inv.y });
       if (opts.goons !== false) {
-        const way = [{ x: target.gate.x + gOut.x * 150, y: target.gate.y + gOut.y * 150 }, { x: target.gate.x, y: target.gate.y }, { x: target.x + gSide.x * 30, y: target.y + gSide.y * 30 }];
+        // the guests' outer stop: out in the street, but short of the Section 144 barricades
+        let reach = 150;
+        while (reach > 60 && solidAt(map, Math.floor((target.gate.x + gOut.x * reach) / TILE), Math.floor((target.gate.y + gOut.y * reach) / TILE))) reach -= 16;
+        const way = [{ x: target.gate.x + gOut.x * reach, y: target.gate.y + gOut.y * reach }, { x: target.gate.x, y: target.gate.y }, { x: target.x + gSide.x * 30, y: target.y + gSide.y * 30 }];
         for (let k = 0; k < 2; k++) spawn('goon', way[k * 2].x, way[k * 2].y, { mode: 'vip', role: 'vip', way, wp: 1, dir: k ? -1 : 1, wait: k * 5, stuckT: 0, seeT: 0, stunT: 0 });
       }
     } else G.gate = null;
@@ -180,7 +183,6 @@
       if (waitVer !== G.gate.ver) { waitField = field(map, [[Math.floor(gateOutSpot.x / TILE), Math.floor(gateOutSpot.y / TILE)]]); waitVer = G.gate.ver; }
       return flowDir(map, waitField, e.x, e.y) || norm(x - e.x, y - e.y);
     }
-    const closeTime = () => { const h = Math.floor(M.clockEnd / 60); return ((h + 11) % 12 + 1) + (h >= 12 ? ' PM' : ' AM'); };
     const overlaps = (b, tiles) => tiles.some((j) => {
       const tx = j % N, ty = Math.floor(j / N);
       return b.x + b.r > tx * TILE && b.x - b.r < (tx + 1) * TILE && b.y + b.r > ty * TILE && b.y - b.r < (ty + 1) * TILE;
@@ -232,42 +234,12 @@
       return moveBody(e, e.vx * DT, e.vy * DT, map);
     }
 
-    // ------------------------------------------------------------ scoring & missions
-    function gain(base, combo) {
-      let mult = 1;
-      if (combo) {
-        const prev = G.combo.n;
-        G.combo.n = G.combo.t > 0 ? Math.min(4, G.combo.n + 1) : 1;
-        G.combo.t = 2.5; mult = G.combo.n;
-        if (G.combo.n > prev && G.combo.n >= 2) emit({ t: 'tier', n: G.combo.n, name: Ct.TIERS[G.combo.n - 1] });
-      }
-      const pts = Math.round(base * mult);
-      G.score += pts;
-      return pts;
-    }
-    const statOf = (k) => (k === 'crowd' ? P.followers.length : G.stats[k]);
-    function newMission() {
-      const pool = Ct.MISSIONS.filter((m) => !G.missions.some((x) => x.k === m.k) && !(m.k === 'doc' && G.docSites.length < 2));
-      const m = rng.pick(pool), n = rng.pick(m.n);
-      return { k: m.k, n, base: m.k === 'crowd' ? 0 : G.stats[m.k], rew: m.rew + (n - m.n[0]) * 10, txt: Ct.fill(m.txt, { n, s: n === 1 ? '' : 's' }) };
-    }
-    function updateMissions() {
-      while (G.missions.length < 3) G.missions.push(newMission());
-      for (let i = 0; i < G.missions.length; i++) {
-        const m = G.missions[i];
-        if (statOf(m.k) - m.base >= m.n) {
-          G.score += m.rew; G.missionsDone++;
-          emit({ t: 'mission', text: m.txt, rew: m.rew });
-          G.missions.splice(i, 1, newMission());
-        }
-      }
-    }
-
     // ------------------------------------------------------------ crowd
     function join(c) {
       if (P.followers.length >= CAP || c.mode === 'follow') return false;
       if (c.type === 'child' && !(c.guardRef && c.guardRef.mode === 'follow')) return false; // children only come with their mother
       c.mode = 'follow'; c.slot = P.followers.length;
+      if (G.gate && G.gate.inside) c.inner = P.followers.filter((f) => f.inner !== false).length < 4; // "only candidate + 4"
       P.followers.push(c);
       G.stats.rec++;
       G.stats.crowd = Math.max(G.stats.crowd, P.followers.length);
@@ -286,12 +258,14 @@
     // ------------------------------------------------------------ democracy meter
     function demo(delta) {
       const before = G.demo;
-      G.demo = clamp(G.demo + delta, 5, 100);
+      if (G.mode === 'over') return;
+      G.demo = clamp(G.demo + delta, 0, 100);
       if (G.demo !== before) emit({ t: 'demo', v: G.demo, d: G.demo - before });
       while (G.demoStage < DEMO_STAGES.length && G.demo <= DEMO_STAGES[G.demoStage]) {
         toast(Ct.DEMO.toasts[G.demoStage], '#ffab91');
         emit({ t: 'demostage', stage: ++G.demoStage });
       }
+      if (G.demo <= 0) { toast(Ct.DEMO.dead, '#ff8a80'); end('killed'); }
     }
 
     // ------------------------------------------------------------ violence against bystanders
@@ -345,15 +319,14 @@
 
     // ------------------------------------------------------------ player events
     function detain(cop) {
-      P.state = 'held'; P.heldT = 2.6; P.cases++; P.submitT = 0; P.collect = null;
-      G.timer = Math.max(0, G.timer - 10);
+      P.state = 'held'; P.heldT = 2.6; P.cases++; P.submitT = 0;
       const scatter = P.followers.slice(Math.ceil(P.followers.length / 2));
       for (const f of scatter) leave(f, cop, true);
       emit({ t: 'detained', cases: P.cases, x: P.x, y: P.y });
-      demo(-8);
       say(P, rng.pick(Ct.LINES.detained));
       for (const e of G.ents) if (e.kind === 'cop' && e.mode === 'chase') e.mode = e.role === 'post' || e.role === 'guard' ? 'return' : 'patrol';
-      if (P.cases >= CASES) end(false, 'jailed');
+      if (P.cases >= CASES) end('jailed');
+      else demo(-10);
     }
     function release() {
       let best = map.stations[0], bd = Infinity;
@@ -364,40 +337,32 @@
       emit({ t: 'released', x: P.x, y: P.y });
       toast('Released from ' + best.name + ' with a warning. ' + (CASES - P.cases) + ' case' + (CASES - P.cases === 1 ? '' : 's') + ' left before jail!', '#ffcc80');
     }
-    function tearPapers(by, amount) {
-      P.papers = Math.max(0, P.papers - amount);
+    function shove(by, power) {
       const k = norm(P.x - by.x, P.y - by.y);
-      P.kx = k.x * 260; P.ky = k.y * 260;
-      emit({ t: 'torn', amount, papers: P.papers, x: P.x, y: P.y });
-      if (P.papers > 0) return;
-      // the most recently collected document is ruined (documents you started with are safe)
-      let i = P.docs.length - 1;
-      while (i >= 0 && !G.M.docs.includes(P.docs[i])) i--;
-      const doc = i >= 0 ? P.docs[i] : null;
-      P.papers = 100;
-      if (i >= 0) {
-        P.docs.splice(i, 1);
-        const shop = G.docSites.find((s) => s.doc === doc);
-        say(P, rng.pick(Ct.LINES.torn));
-        toast('Your ' + doc + ' was torn! Get a fresh one at ' + (shop ? shop.name : 'the shop') + '.', '#ff8a80');
-        emit({ t: 'lostdoc', doc });
-      }
+      P.kx = k.x * power; P.ky = k.y * power;
     }
-    function end(won, reason) {
-      if (G.mode === 'over' || G.mode === 'won') return;
-      G.mode = won ? 'won' : 'over'; G.modeT = 0;
-      if (won) {
-        const timeBonus = Math.floor(G.timer) * 5, crowdBonus = P.followers.length * 20, paperBonus = Math.floor(P.papers) * 2;
-        G.score += timeBonus + crowdBonus + paperBonus;
-        G.bonus = { timeBonus, crowdBonus, paperBonus };
-      }
-      G.result = {
-        won, reason, score: G.score, crowd: G.stats.crowd, docs: P.docs.length, missions: G.missionsDone, mode: modeKey, place: G.place,
-        demo: Math.round(G.demo), thrown: G.stats.thrown, hits: G.stats.hits, civHurt: G.stats.civHurt, protected: G.stats.protected,
-        arrests: P.cases, barricades: G.stats.brk, closest: Math.max(0, Math.round((G.closest - target.r) / 8)), goal: M.goal,
-        gateStops: G.gate ? G.gate.stops : 0, stalls: G.gate ? G.gate.stalls : 0, frisks: G.gate ? G.gate.frisks : 0, clockJump: G.gate ? Math.round(G.gate.clockJump) : 0,
-      };
-      emit({ t: won ? 'won' : 'over', reason });
+    // every run ends with the same title; the reason says how democracy died this time
+    function end(reason, extra) {
+      if (G.mode === 'over') return;
+      G.mode = 'over'; G.modeT = 0;
+      G.result = Object.assign({
+        reason, crowd: G.stats.crowd, place: G.place, demo: Math.round(G.demo), thrown: G.stats.thrown, hits: G.stats.hits,
+        civHurt: G.stats.civHurt, protected: G.stats.protected, arrests: P.cases, barricades: G.stats.brk, lifted: G.stats.lift,
+        closest: Math.max(0, Math.round((G.closest - target.r) / 8)), goal: M.goal, time: Math.round(G.elapsed),
+        gateStops: G.gate ? G.gate.stops : 0, stalls: G.gate ? G.gate.stalls : 0, frisks: G.gate ? G.gate.frisks : 0,
+      }, extra || {});
+      emit({ t: 'over', reason });
+    }
+    // the counter is held: the clerk rejects the nomination anyway, and democracy flatlines
+    function reject() {
+      const why = rng.pick(Ct.LINES.reject);
+      const clerk = G.ents.find((e) => e.kind === 'official');
+      if (clerk) say(clerk, why, null, '#ffcdd2');
+      emit({ t: 'rejected', text: why });
+      end('rejected', { why });
+      const before = G.demo;
+      G.demo = 0;
+      emit({ t: 'demo', v: 0, d: -before });
     }
 
     // ------------------------------------------------------------ update: player
@@ -443,7 +408,7 @@
       }
       const toTarget = dist(P.x, P.y, target.x, target.y);
       G.closest = Math.min(G.closest, toTarget);
-      if (!G.ringIn && toTarget < 15.6 * TILE) { G.ringIn = true; toast(Ct.DEMO.ring, '#ffcc80'); demo(-5); emit({ t: 'ring' }); }
+      if (!G.ringIn && toTarget < G.ringR * TILE) { G.ringIn = true; toast(Ct.DEMO.ring, '#ffcc80'); demo(-5); emit({ t: 'ring' }); }
 
       // barricade pushing: walking into a barricade wears it down; the crowd pushes with you
       P.pushing = 0;
@@ -462,7 +427,7 @@
               b.lathiCd = 2.5;
               let hit = 0;
               for (const f of P.followers.slice()) { if (hit >= 2) break; if (dist(f.x, f.y, b.x, b.y) < 110) { leave(f, b, true); hit++; } }
-              if (hit) { demo(-2); emit({ t: 'lathi', x: b.x, y: b.y, n: hit }); }
+              if (hit) { emit({ t: 'lathi', x: b.x, y: b.y, n: hit }); demo(-4); }
               emit({ t: 'say', x: b.x, y: b.y - 10, text: text(rng.pick(Ct.LINES.lineCop)), color: '#fff59d' });
             }
           }
@@ -475,7 +440,7 @@
       if (inp.act && P.sloganCd <= 0) {
         P.sloganCd = 2.5; P.guardT = 3; // the crowd closes ranks around women and children
         G.stats.slogan++;
-        say(P, rng.pick(modeKey === 'vote' ? Ct.LINES.sloganVote : Ct.LINES.slogan), null, '#bbdefb');
+        say(P, rng.pick(Ct.LINES.slogan), null, '#bbdefb');
         let n = 0;
         query(P.x, P.y, 150, (e) => {
           if (e.kind === 'civ' && (e.mode === 'wander' || e.mode === 'flee') && n < 6 && P.followers.length < CAP) { if (join(e)) n++; }
@@ -483,7 +448,7 @@
         });
         chantAtGate();
         emit({ t: 'slogan', x: P.x, y: P.y, n });
-        if (n) emit({ t: 'join', n, crowd: P.followers.length, pts: gain(10 * n, true), x: P.x, y: P.y });
+        if (n) emit({ t: 'join', n, crowd: P.followers.length, x: P.x, y: P.y });
       }
 
       // walk into people to grow your crowd; the bigger it gets, the wider the pull
@@ -491,40 +456,17 @@
         const R = P.r + 12 + Math.min(26, P.followers.length * 1.1);
         let n = 0;
         query(P.x, P.y, R, (e) => { if (e.kind === 'civ' && e.mode === 'wander' && !(e.cool > 0) && join(e)) { n++; if (n === 1 && rng() < 0.5) say(e, rng.pick(Ct.LINES.join), null, '#e3f2fd'); } });
-        if (n) emit({ t: 'join', n, crowd: P.followers.length, pts: gain(10 * n, true), x: P.x, y: P.y });
+        if (n) emit({ t: 'join', n, crowd: P.followers.length, x: P.x, y: P.y });
       }
 
-      // documents: stand at the shop counter for a moment
-      let at = null;
-      for (const s of G.docSites) if (!P.docs.includes(s.doc) && dist(P.x, P.y, s.x, s.y) < s.r + P.r) at = s;
-      if (at) {
-        if (!P.collect || P.collect.site !== at) P.collect = { site: at, t: 0 };
-        P.collect.t += DT;
-        if (P.collect.t >= 1.2) {
-          P.docs.push(at.doc); P.collect = null; G.stats.doc++;
-          if (at.doc === 'Voter Slip') P.papers = 100;
-          emit({ t: 'doc', doc: at.doc, x: at.x, y: at.y, pts: gain(200, false), have: G.M.docs.filter((d) => P.docs.includes(d)).length, need: G.M.docs.length });
-          emit({ t: 'say', x: at.x, y: at.y - 20, text: text(rng.pick(Ct.LINES.shop)), color: '#fff9c4' });
-        }
-      } else P.collect = null;
-
-      // destination: hold the counter zone with every document
+      // destination: hold the counter zone until it is "filed"
       if (dist(P.x, P.y, target.x, target.y) < target.r) {
-        const missing = G.M.docs.filter((d) => !P.docs.includes(d));
-        if (missing.length) {
-          if (P.sayCd <= 0) {
-            emit({ t: 'say', x: target.x, y: target.y - 30, text: text(rng.pick(modeKey === 'vote' ? Ct.LINES.boothMissing : Ct.LINES.roMissing), { doc: missing[0] }), color: '#fff9c4' });
-            toast('Missing: ' + missing.join(', '), '#ffab91');
-            P.sayCd = 4;
-          }
-        } else {
-          if (P.submitT === 0) { emit({ t: 'filing' }); say(P, rng.pick(Ct.LINES.filing)); }
-          if (P.stallT <= 0) {
-            P.submitT += DT;
-            if (G.gate && G.gate.stalls < 2 && P.submitT < G.M.hold && P.submitT >= (G.M.hold * (G.gate.stalls + 1)) / 3) startStall();
-          }
-          if (P.submitT >= G.M.hold) end(true, 'filed');
+        if (P.submitT === 0) { emit({ t: 'filing' }); say(P, rng.pick(Ct.LINES.filing)); }
+        if (P.stallT <= 0) {
+          P.submitT += DT;
+          if (G.gate && G.gate.stalls < 2 && P.submitT < G.M.hold && P.submitT >= (G.M.hold * (G.gate.stalls + 1)) / 3) startStall();
         }
+        if (P.submitT >= G.M.hold) reject();
       } else P.submitT = Math.max(0, P.submitT - DT * 0.5);
     }
 
@@ -539,7 +481,7 @@
       G.barrs.splice(G.barrs.indexOf(b), 1);
       G.stats.brk++;
       pFieldDirty = true;
-      emit({ t: 'break', x: b.x, y: b.y, pts: gain(b.kind === 'police' ? 400 : 250, true), kind: b.kind || 'barricade' });
+      emit({ t: 'break', x: b.x, y: b.y, kind: b.kind || 'barricade' });
       demo(3);
       if (b.kind === 'police') { // the cops stagger aside, then go back to work
         for (let k = 0; k < 3; k++) spawn('cop', b.x + gSide.x * (k - 1) * 22 + gOut.x * 20, b.y + gSide.y * (k - 1) * 22 + gOut.y * 20, { mode: 'stun', stunT: 3, role: 'patrol', postIdx: nearestPost(b.x, b.y), lathiCd: 2, seeT: 0 });
@@ -567,7 +509,6 @@
           for (const j of g.lineTiles) { sx += (j % N) + 0.5; sy += Math.floor(j / N) + 0.5; }
           const b = { id: nextId++, tiles: g.lineTiles.slice(), x: (sx / g.lineTiles.length) * TILE, y: (sy / g.lineTiles.length) * TILE, hp: 100, max: 100, pushT: 0, kind: 'police', lathiCd: 1.5 };
           G.barrs.push(b); g.line = b; g.phase = 'line';
-          toast(Ct.GATE.line, '#90caf9');
           emit({ t: 'line', x: b.x, y: b.y });
           emit({ t: 'say', x: b.x, y: b.y - 10, text: text(rng.pick(Ct.LINES.lineCop)), color: '#fff59d' });
         } else g.phase = 'approach';
@@ -577,7 +518,7 @@
         if (overlaps(P, g.tiles)) g.phase = 'open';
         else {
           g.phase = 'shut'; g.shut = true; g.wicketOpen = true; g.stops++;
-          toast(Ct.GATE.shut, '#ffcc80');
+          demo(-5);
           emit({ t: 'gateshut', x: target.gate.x, y: target.gate.y });
           emit({ t: 'say', x: target.gate.x, y: target.gate.y - 14, text: text(rng.pick(Ct.LINES.gateShut)), color: '#fff59d' });
         }
@@ -605,7 +546,7 @@
     function chantAtGate() {
       const g = G.gate;
       if (!g || !g.shut || dist(P.x, P.y, target.gate.x, target.gate.y) > 160) return;
-      if (P.followers.length < 8) { if (g.hintCd <= 0) { toast(Ct.GATE.needCrowd, '#ffcc80'); g.hintCd = 6; } return; }
+      if (P.followers.length < 8) { if (g.hintCd <= 0) { emit({ t: 'needcrowd', n: P.followers.length, need: 8 }); g.hintCd = 6; } return; }
       g.pressure++;
       const f = P.followers[g.pressure % P.followers.length];
       if (f) say(f, rng.pick(Ct.LINES.chant), null, '#e3f2fd');
@@ -613,9 +554,8 @@
       if (g.pressure >= 4) {
         g.shut = false; g.phase = 'open';
         applyGateTiles();
-        toast(Ct.GATE.open, '#b9f6ca');
         demo(3);
-        emit({ t: 'gateopen', x: target.gate.x, y: target.gate.y, pts: gain(300, true) });
+        emit({ t: 'gateopen', x: target.gate.x, y: target.gate.y });
       }
     }
     function enterCompound() {
@@ -625,20 +565,12 @@
       // "only candidate + 4": the nearest four come in, the rest wait at the gate
       const sorted = P.followers.slice().sort((a, b) => dist(a.x, a.y, P.x, P.y) - dist(b.x, b.y, P.x, P.y));
       sorted.forEach((f, i) => { f.inner = i < 4; });
-      if (sorted.length > 4) { toast(Ct.GATE.four, '#bbdefb'); say(sorted[4], rng.pick(Ct.LINES.waitOut), null, '#e3f2fd'); }
+      if (sorted.length > 4) emit({ t: 'four', waiting: sorted.length - 4 });
       if (opts.police !== false) { // papers check
-        P.state = 'frisk'; P.friskT = viaWicket ? 3 : 2; P.vx = P.vy = 0; P.submitT = 0; g.frisks++;
-        tearPapers({ x: P.x - P.fx, y: P.y - P.fy }, viaWicket ? 25 : 15);
-        P.kx = P.ky = 0;
+        P.state = 'frisk'; P.friskT = viaWicket ? 3 : 2; P.vx = P.vy = 0; P.kx = P.ky = 0; P.submitT = 0; g.frisks++;
         emit({ t: 'frisk', x: P.x, y: P.y, wicket: viaWicket });
         emit({ t: 'say', x: P.x, y: P.y - 18, text: text(rng.pick(Ct.LINES.frisk)), color: '#fff59d' });
-      }
-      if (!g.clockJump && G.timer > 40) { // the office clock runs fast, only today
-        const before = G.timer;
-        G.timer = Math.max(25, G.timer - 30);
-        g.clockJump = before - G.timer; G.elapsed += g.clockJump;
-        toast(Ct.GATE.clock, '#ffcc80', { close: closeTime() });
-        emit({ t: 'clockjump', s: g.clockJump });
+        demo(viaWicket ? -4 : -3);
       }
     }
     function startStall() {
@@ -647,11 +579,12 @@
       let props = 0;
       for (const f of P.followers) if (inCompound(f.x, f.y) && dist(f.x, f.y, P.x, P.y) < 160) props++;
       P.stallT = props >= 4 ? 1.25 : 2.5;
-      g.stallText = rng.pick(modeKey === 'vote' ? Ct.LINES.stallVote : Ct.LINES.stall);
+      g.stallText = rng.pick(Ct.LINES.stall);
       const clerk = G.ents.find((e) => e.kind === 'official');
       if (clerk) say(clerk, g.stallText, null, '#fff9c4');
       if (props >= 4) { const f = P.followers.find((o) => inCompound(o.x, o.y)); if (f) say(f, rng.pick(Ct.LINES.proposers), null, '#e3f2fd'); }
       emit({ t: 'stall', text: g.stallText, short: props >= 4 });
+      demo(-4);
     }
 
     // ------------------------------------------------------------ update: NPCs
@@ -669,7 +602,7 @@
         // waiting at the gate, chanting
         const k = e.slot % 24, sx = gateOutSpot.x + gSide.x * ((k % 6) - 2.5) * 18 + gOut.x * Math.floor(k / 6) * 18, sy = gateOutSpot.y + gSide.y * ((k % 6) - 2.5) * 18 + gOut.y * Math.floor(k / 6) * 18;
         const d = dist(e.x, e.y, sx, sy);
-        if (d < 5) { move(e, 0, 0, 0); e.fx = -gOut.x; e.fy = -gOut.y; if (rng() < 0.08 * DT) say(e, rng.pick(Ct.LINES.chant), null, '#e3f2fd'); return; }
+        if (d < 5) { move(e, 0, 0, 0); e.fx = -gOut.x; e.fy = -gOut.y; return; }
         const dir = inCompound(e.x, e.y) || d > 140 ? waitDir(e, sx, sy) : norm(sx - e.x, sy - e.y);
         move(e, dir.x, dir.y, Math.min(SPEED.walk, d * 4 + 20));
         return;
@@ -766,7 +699,7 @@
           e.gasCd = 10;
           G.clouds.push({ x: P.x + rng.range(-30, 30), y: P.y + rng.range(-30, 30), r: 75, t: 4.5, max: 4.5 });
           emit({ t: 'gas', x: P.x, y: P.y });
-          demo(-3);
+          demo(-4);
         }
         if (d < e.r + P.r + 3 && P.state === 'free' && P.invuln <= 0) {
           if (shieldCount() >= SHIELD) {
@@ -778,7 +711,7 @@
             for (const f of P.followers) { const fd = dist(f.x, f.y, e.x, e.y); if (fd < bd) { bd = fd; taken = f; } }
             if (taken) { leave(taken, e, false); taken.dead = true; }
             G.stats.lift++;
-            emit({ t: 'lift', x: e.x, y: e.y, pts: gain(150, true) });
+            emit({ t: 'lift', x: e.x, y: e.y });
             say(e, rng.pick(Ct.LINES.copLifted), null, '#fff59d');
           } else {
             // a grab takes a moment; running breaks free (cops are slower than a running candidate)
@@ -794,7 +727,7 @@
             if (hit >= 3) break;
             if (dist(f.x, f.y, e.x, e.y) < 46) { leave(f, e, true); hit++; }
           }
-          if (hit) { e.lathiCd = 1.8; demo(-2); emit({ t: 'lathi', x: e.x, y: e.y, n: hit }); if (rng() < 0.4) say(e, rng.pick(Ct.LINES.lathi), null, '#fff59d'); }
+          if (hit) { e.lathiCd = 1.8; emit({ t: 'lathi', x: e.x, y: e.y, n: hit }); if (rng() < 0.4) say(e, rng.pick(Ct.LINES.lathi), null, '#fff59d'); demo(-4); }
         }
         return;
       }
@@ -825,7 +758,7 @@
       e.mode = 'flee'; e.t = 4; e.cool = 8;
       const d = norm(e.x - P.x, e.y - P.y); e.dx = d.x || 1; e.dy = d.y;
       G.stats.goon++;
-      emit({ t: 'scare', x: e.x, y: e.y, pts: gain(120, true) });
+      emit({ t: 'scare', x: e.x, y: e.y });
       say(e, rng.pick(Ct.LINES.goonScared), null, '#ffcdd2');
     }
 
@@ -855,22 +788,21 @@
     function canThrow(e) { return opts.throws !== false && !(e.throwCd > 0) && G.projs.length < THROW.air; }
     function hitPlayer(pj, from) {
       G.stats.hits++;
-      tearPapers(from, 12);
-      P.kx *= 1.3; P.ky *= 1.3;
+      shove(from, 340);
       P.daze = 0.7; P.stamina = Math.max(0, P.stamina - 20); P.invuln = Math.max(P.invuln, 0.6);
       for (let n = 0; n < 2; n++) { // the closest supporters scatter
         let f = null, bd = 80;
         for (const o of P.followers) { const d = dist(o.x, o.y, P.x, P.y); if (d < bd) { bd = d; f = o; } }
         if (f) leave(f, from, true);
       }
-      demo(-4);
       emit({ t: 'hit', x: P.x, y: P.y, kind: pj.kind });
       if (P.sayCd <= 0) { say(P, rng.pick(Ct.LINES.hit)); P.sayCd = 3; }
+      demo(-6);
     }
     function protect(x, y, byCrowd) {
       G.stats.protected++;
       demo(2);
-      emit({ t: 'protect', x, y, crowd: byCrowd, pts: gain(byCrowd ? 80 : 120, true) });
+      emit({ t: 'protect', x, y, crowd: byCrowd });
       if (!byCrowd && P.sayCd <= 0) { say(P, rng.pick(Ct.LINES.protect)); P.sayCd = 3; }
     }
     function land(pj) {
@@ -886,8 +818,7 @@
       if (P.state === 'free' && pd < 22 && P.invuln <= 0) {
         if (pj.aimed) { // the candidate stepped in front of the women and children
           protect(P.x, P.y, false);
-          P.papers = Math.max(1, P.papers - 6);
-          const k = norm(P.x - from.x, P.y - from.y); P.kx = k.x * 150; P.ky = k.y * 150;
+          shove(from, 150);
           return;
         }
         if (shieldCount() >= SHIELD && rng() < 0.6) { // a supporter takes it for you
@@ -920,7 +851,7 @@
       if (e.wait > 0) { e.wait -= DT; move(e, 0, 0, 0); return; }
       const wp = e.way[e.wp], d = dist(e.x, e.y, wp.x, wp.y);
       if (d < 8) {
-        if (e.wp === 2) { e.dir = -1; e.wait = 4; if (e.sayCd <= 0) { say(e, rng.pick(modeKey === 'vote' ? Ct.LINES.vipVote : Ct.LINES.vip), null, '#ffcdd2'); e.sayCd = 10; } }
+        if (e.wp === 2) { e.dir = -1; e.wait = 4; if (e.sayCd <= 0) { say(e, rng.pick(Ct.LINES.vip), null, '#ffcdd2'); e.sayCd = 10; } }
         else if (e.wp === 0) { e.dir = 1; e.wait = 6; }
         e.wp += e.dir; e.stuckT = 0;
         return;
@@ -969,11 +900,13 @@
         if (dist(e.x, e.y, P.x, P.y) < e.r + P.r + 3 && P.invuln <= 0) {
           if (shieldCount() >= SHIELD) scareGoon(e);
           else {
-            tearPapers(e, 25);
-            demo(-3);
+            shove(e, 260);
             say(e, rng.pick(Ct.LINES.goon), null, '#ffcdd2');
+            if (P.sayCd <= 0) { say(P, rng.pick(Ct.LINES.attacked)); P.sayCd = 3; }
+            emit({ t: 'attacked', x: P.x, y: P.y });
             e.mode = 'flee'; e.t = 3; e.cool = 6;
             const d = norm(e.x - P.x, e.y - P.y); e.dx = d.x || 1; e.dy = d.y;
+            demo(-8);
           }
         }
         return;
@@ -1003,7 +936,6 @@
         G.queueT -= DT;
         if (G.queueT <= 0) { const q = G.queue.find((o) => !o.ref || o.ref.dead || o.ref.home !== o); if (q) spawnQueue(q); G.queueT = 10; }
       } else G.queueT = 10;
-      if (G.combo.t > 0) { G.combo.t -= DT; if (G.combo.t <= 0) G.combo.n = 0; }
       for (const b of G.barrs) b.pushT = Math.max(0, b.pushT - DT);
       if (G.ents.some((e) => e.dead)) G.ents = G.ents.filter((e) => !e.dead);
       // keep the streets busy
@@ -1018,7 +950,7 @@
         if (G.alertT <= 0) {
           G.alertT = 45;
           const cops = G.ents.filter((e) => e.kind === 'cop').length;
-          if (cops < 42) {
+          if (cops < 14) {
             let st = map.stations[0], bd = Infinity;
             for (const s of map.stations) { const d = dist(s.x, s.y, P.x, P.y); if (d < bd && d > 300) { bd = d; st = s; } }
             for (let k = 0; k < 3; k++) spawn('cop', st.x + (k - 1) * 16, st.y, { mode: 'patrol', role: k === 0 ? 'gas' : 'patrol', postIdx: nearestPost(P.x, P.y), lathiCd: 0, gasCd: 6, seeT: 0, stunT: 0 });
@@ -1041,13 +973,12 @@
       if (G.mode === 'intro') {
         if ((G.modeT > 0.5 && (inp.act || Math.abs(inp.mx || 0) + Math.abs(inp.my || 0) > 0.3)) || G.modeT > 8) {
           G.mode = 'play'; G.modeT = 0;
-          say(P, rng.pick(modeKey === 'vote' ? Ct.LINES.startVote : Ct.LINES.start));
+          say(P, rng.pick(Ct.LINES.start));
         }
         return;
       }
       if (G.mode !== 'play') return;
-      G.timer -= DT; G.elapsed += DT;
-      if (G.timer <= 0) { G.timer = 0; end(false, 'time'); return; }
+      G.elapsed += DT;
       rebuildGrid();
       updatePlayer(inp);
       if (G.mode !== 'play') return;
@@ -1062,14 +993,12 @@
       updateProjs();
       if (G.mode !== 'play') return;
       upkeep();
-      if (G.tick % 15 === 0) updateMissions();
     }
 
     function drainEvents() { const ev = G.events; G.events = []; return ev; }
 
-    updateMissions();
-    return { state: G, step, drainEvents, text, rng, CASES, CAP, SHIELD, _test: { join, leave, detain, breakBarricade, barricadeAt, tearPapers, launch, startThrow, hurtCiv, demo, spawnCiv, inCompound, updateGate } };
+    return { state: G, step, drainEvents, text, rng, CASES, CAP, SHIELD, _test: { join, leave, detain, breakBarricade, barricadeAt, shove, launch, startThrow, hurtCiv, demo, spawnCiv, inCompound, updateGate } };
   }
 
-  return { createGame, EMPTY_INPUT, SPEED, CAP, CASES, SHIELD, THROW, DEMO_STAGES };
+  return { createGame, EMPTY_INPUT, SPEED, CAP, CASES, SHIELD, THROW, DEMO_STAGES, RING };
 });

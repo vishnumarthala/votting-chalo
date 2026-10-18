@@ -17,9 +17,9 @@ test('every generated town has all sites, and all of them are reachable from the
   for (let s = 1; s <= 40; s++) {
     const seed = W.hashStr('seed' + s);
     const m = W.generateTown(seed);
-    for (const k of ['office', 'booth', 'start', 'blo']) assert.ok(m[k], `seed ${seed}: missing ${k}`);
-    assert.equal(m.docSites.length, W.DOC_SHOPS.length, `seed ${seed}: doc shops`);
-    assert.ok(m.stations.length >= 3, `seed ${seed}: police stations`);
+    for (const k of ['office', 'start']) assert.ok(m[k], `seed ${seed}: missing ${k}`);
+    assert.ok(m.stations.length >= 1, `seed ${seed}: police station`);
+    assert.ok(m.office.wicket, `seed ${seed}: side wicket`);
     const f = W.field(m, [tileOf(m.start)]);
     for (const site of m.sites) {
       const [tx, ty] = tileOf(site);
@@ -41,11 +41,23 @@ test('buildings sit on solid tiles and never cover roads', () => {
   }
 });
 
-test('the canal is crossed by bridges', () => {
-  const m = W.generateTown(99);
-  let bridges = 0;
-  for (const k of m.t) if (k === K.BRIDGE) bridges++;
-  assert.ok(bridges > 10);
+test('the town is a small maze: dead ends exist and the walk to the office winds', () => {
+  for (let s = 1; s <= 20; s++) {
+    const m = W.generateTown(W.hashStr('maze' + s));
+    let deadEnds = 0;
+    for (const p of m.posts) {
+      const tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
+      let exits = 0;
+      for (const [ox, oy] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) if (!W.solidAt(m, tx + ox, ty + oy)) exits++;
+      if (exits === 1) deadEnds++;
+    }
+    assert.ok(deadEnds >= 1, `seed ${s}: ${deadEnds} dead ends`);
+    const f = W.field(m, [tileOf(m.office)]);
+    const [sx, sy] = tileOf(m.start);
+    const straight = Math.abs(sx - Math.floor(m.office.x / TILE)) + Math.abs(sy - Math.floor(m.office.y / TILE));
+    assert.ok(f[sy * N + sx] >= straight, `seed ${s}: path ${f[sy * N + sx]} vs ${straight}`);
+    assert.ok(f[sy * N + sx] < N * 3, `seed ${s}: path short enough for a tiny map`);
+  }
 });
 
 test('bodies collide with buildings and slide along walls', () => {
@@ -75,7 +87,7 @@ test('flow fields lead to the target and line of sight is blocked by buildings',
 
 test('barricade ring groups cross streets around the target', () => {
   const m = W.generateTown(21);
-  const ring = W.barricadeRing(m, m.office.x, m.office.y, 15);
+  const ring = W.barricadeRing(m, m.office.x, m.office.y, 11);
   assert.ok(ring.length >= 3);
   for (const g of ring) for (const j of g.tiles) assert.ok([K.ROAD, K.WALK, K.BRIDGE].includes(m.t[j]));
 });
