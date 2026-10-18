@@ -1,3 +1,34 @@
 {
-  "decisions": []
+  "decisions": [
+    {
+      "id": "D-1",
+      "feature": "design-baseline",
+      "dimension": "problem",
+      "question": "What should change?",
+      "options": [],
+      "chosen": "Clear the 14 pre-existing design_check findings in index.html: remove the .card:before stripe; restyle kbd's 2px bottom border as an inset box-shadow; make the .disc disclaimer 12px in #75624e (5.03:1 on #f6eedd)",
+      "rationale": "design_check exits 2 on main, so every UI checkpoint's design gate fails. impeccable can only waive these rules file-wide ('*'), which would also hide future real findings, so fix rather than waive. User chose remove-stripe and restyle-keycap.",
+      "status": "decided",
+      "blocking": false,
+      "affects": [],
+      "remind_at": [],
+      "created_at": "2026-10-18T14:14:34.272728+00:00",
+      "resolved_at": "2026-10-18T14:14:34.272760+00:00"
+    },
+    {
+      "id": "D-2",
+      "feature": "design-baseline",
+      "dimension": "acceptance",
+      "question": "How do we know it is done?",
+      "options": [],
+      "chosen": "npx --yes impeccable@4 detect --quiet client index.html exits 0 with no ignores config and no inline waivers; npm test passes, including a test that the disclaimer is >=12px and >=4.5:1 contrast against --paper",
+      "rationale": "The detector is the gate's own check; the unit test guards the one real accessibility defect in the offline test suite.",
+      "status": "decided",
+      "blocking": false,
+      "affects": [],
+      "remind_at": [],
+      "created_at": "2026-10-18T14:14:34.332241+00:00",
+      "resolved_at": "2026-10-18T14:14:34.332265+00:00"
+    }
+  ]
 }

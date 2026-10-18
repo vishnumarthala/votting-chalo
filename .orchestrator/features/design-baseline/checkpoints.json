@@ -1,0 +1,15 @@
+{
+  "feature": "design-baseline",
+  "checkpoints": [
+    {
+      "id": "CP-1",
+      "title": "Clear design_check baseline in index.html",
+      "type": "logic",
+      "goal": "design_check passes on the existing UI so later UI checkpoints are judged only on their own changes",
+      "done_when": [
+        "npx --yes impeccable@4 detect --quiet client index.html exits 0 with no ignores; npm test passes"
+      ],
+      "gates": []
+    }
+  ]
+}

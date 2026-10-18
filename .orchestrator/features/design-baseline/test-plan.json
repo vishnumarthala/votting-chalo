@@ -1,0 +1,19 @@
+{
+  "feature": "design-baseline",
+  "seams": [
+    "index.html <style> (.disc, kbd, .card:before rules)"
+  ],
+  "cases": [
+    {
+      "id": "T-1",
+      "cp": "CP-1",
+      "category": "regression",
+      "level": "unit",
+      "seam": "index.html <style> (.disc, kbd, .card:before rules)",
+      "title": "Clear design_check baseline in index.html",
+      "given": "index.html's stylesheet",
+      "when": "the .disc disclaimer rule is read",
+      "then": "its font-size is >=12px and its color has >=4.5:1 contrast against --paper"
+    }
+  ]
+}
