@@ -468,7 +468,7 @@
           "user_approved": false,
           "started_at": "2026-10-18T17:44:21+00:00",
           "completed_at": "2026-10-18T18:02:04+00:00",
-          "commit": null
+          "commit": "ab131e513d2954f81716daa7409faabbcde220b0"
         },
         "CP-6": {
           "status": "todo",
@@ -1204,6 +1204,12 @@
       "part": "judge",
       "status": "pass",
       "attempt": 0
+    },
+    {
+      "at": "2026-10-18T18:02:04+00:00",
+      "event": "cp_complete",
+      "cp": "CP-5",
+      "commit": "ab131e513d2954f81716daa7409faabbcde220b0"
     }
   ]
 }
