@@ -8,6 +8,7 @@
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage disabled */ } },
   };
   const $ = (id) => document.getElementById(id);
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)'); // no shake and no paper bursts for the scrutiny when it is on
 
   const cv = $('c');
   Render.init(cv);
@@ -17,7 +18,7 @@
 
   const menu = $('menu'), nameEl = $('name'), townEl = $('town'), townStatus = $('townStatus');
   const playBtn = $('play'), lbEl = $('lb'), resultEl = $('result'), pauseEl = $('pause');
-  let game = null, running = false, paused = false, acc = 0, last = performance.now(), endT = 0, view = null, lastTick = -1;
+  let game = null, running = false, paused = false, acc = 0, last = performance.now(), endT = 0, view = null, lastTick = -1, recorded = false;
   let town = store.get('vc_town', Ct.DEFAULT_TOWN), mode = store.get('vc_mode', 'nomination'), starting = false, townSeq = 0;
   const isTown = (id) => Object.prototype.hasOwnProperty.call(Ct.TOWNS, id);
   if (!isTown(town)) town = Ct.DEFAULT_TOWN;
@@ -93,6 +94,14 @@
     lb.sort((a, b) => b.s - a.s);
     store.set(lbKey(), JSON.stringify(lb.slice(0, 10)));
   }
+  // Puts the run on the leaderboard once: a win is recorded when it happens (so quitting during the scrutiny scene keeps it),
+  // a loss when the run ends, and finish() asks again without adding a second entry.
+  function record(res) {
+    if (recorded) return;
+    recorded = true;
+    saveLb(res);
+    renderLb();
+  }
   setMode(mode);
 
   function syncOpts() {
@@ -127,7 +136,7 @@
     game = newGame(id, mode, hashStr(id + '|' + nameEl.value + '|' + Date.now()));
     Hud.reset();
     menu.classList.add('hide'); resultEl.innerHTML = '';
-    running = true; paused = false; acc = 0; endT = 0; last = performance.now();
+    running = true; paused = false; acc = 0; endT = 0; recorded = false; last = performance.now();
     starting = false; playBtn.disabled = false;
     Input.setEnabled(true);
     document.body.classList.add('playing');
@@ -145,14 +154,14 @@
   }
   function finish() {
     const G = game.state, res = G.result;
-    saveLb(res);
+    record(res);
     const why = { jailed: 'Three cases filed against you, and you spent the day in the lock-up.', time: G.gameMode === 'vote' ? 'Polling closed at 6 PM before you got in.' : 'The RO office closed at 3 PM. "Come tomorrow." (The deadline was today.)' }[res.reason] || '';
     resultEl.innerHTML = res.won
       ? `<b class="win">${game.text(G.M.win)}</b><br>Score <b>${res.score.toLocaleString('en-IN')}</b> · biggest crowd ${res.crowd} · missions ${res.missions}`
       : `<b class="lose">❌ ${G.gameMode === 'vote' ? 'Vote not cast.' : 'Nomination not filed.'}</b> ${why}<br>Score <b>${res.score.toLocaleString('en-IN')}</b> · documents ${res.docs}/${G.M.docs.length + (G.M.given || []).length} · biggest crowd ${res.crowd}`;
     playBtn.textContent = 'PLAY AGAIN ▶';
-    renderLb();
     stopPlaying();
+    if (res.won && res.scrutiny) ScrutinyPanel.open(res);
   }
   function setPaused(on) {
     if (!running) return;
@@ -207,12 +216,24 @@
         case 'ally': SFX.join(); Hud.toast(ev.text, '#bbdefb', 4.2); Render.burst(ev.x, ev.y, 18, ['#1e5bd8', '#fff', '#90caf9'], 220, 4); Render.popup(ev.x, ev.y - 40, '+' + ev.crowd + ' 👥', '#bbdefb'); break;
         case 'burnt': Render.burst(ev.x, ev.y, 10, ['#9e9e9e', '#616161', '#bdbdbd'], 70, 6); break;
         case 'riot': SFX.riot(); Hud.toast('⚠️ ' + ev.text, '#ffe082', 3.6); break;
+        case 'scrutiny': SFX.riot(); Hud.toast(ev.text, '#f2c200', 4); break;
+        case 'snatch':
+          SFX.snatch();
+          if (!reducedMotion.matches) Render.burst(ev.x, ev.y, 14, ['#fff', '#eceff1', '#f2c200'], 240, 5);
+          Render.popup(ev.x, ev.y - 34, '📄 ' + ev.n + '/' + ev.torn + ' snatched', '#ffe082');
+          Hud.toast(ev.text, '#ffe082', 2.6);
+          break;
+        case 'tear':
+          SFX.tear();
+          if (!reducedMotion.matches) { Render.shake(12); Render.burst(ev.x, ev.y, 40, ['#fff', '#eceff1', '#f2c200', '#cfd8dc'], 320, 6); }
+          Hud.toast(ev.text, '#ffab91', 4);
+          break;
         case 'lostdoc': SFX.lostdoc(); break;
         case 'gas': SFX.gas(); Hud.toast('💨 Tear gas! Supporters are scattering', '#eeeeee'); break;
         case 'break': SFX.break(); Render.shake(12); Render.burst(ev.x, ev.y, 28, ['#ffca28', '#212121', '#90a4ae'], 300, 6); Render.popup(ev.x, ev.y - 30, 'Barricade down! +' + ev.pts, '#ffd54f'); break;
         case 'filing': SFX.stamp(); break;
         case 'backup': SFX.backup(); break;
-        case 'won': SFX.won(); for (let i = 0; i < 6; i++) Render.burst(P.x + (i - 3) * 30, P.y - 30, 20, ['#1e5bd8', '#ffd54f', '#fff', '#66bb6a', '#ff7043'], 320, 6); Hud.tier(game.state.gameMode === 'vote' ? 'VOTE CAST! ☑️' : 'NOMINATION FILED! ✅'); break;
+        case 'won': record(game.state.result); SFX.won(); for (let i = 0; i < 6; i++) Render.burst(P.x + (i - 3) * 30, P.y - 30, 20, ['#1e5bd8', '#ffd54f', '#fff', '#66bb6a', '#ff7043'], 320, 6); Hud.tier(game.state.gameMode === 'vote' ? 'VOTE CAST! ☑️' : 'NOMINATION FILED! ✅'); break;
         case 'over': SFX.over(); break;
       }
     }
@@ -233,7 +254,11 @@
       while (acc >= DT && n < 5) { game.step(Input.frame(ps)); handle(game.drainEvents()); acc -= DT; n++; }
       if (n === 5) acc = 0;
       if (G.mode === 'play' && G.timer < 20 && Math.ceil(G.timer) !== lastTick) { lastTick = Math.ceil(G.timer); SFX.tick(); }
-      if (G.mode === 'won' || G.mode === 'over') { endT += dt; if (endT > (G.mode === 'won' ? 3.5 : 2.5)) finish(); }
+      if (G.mode === 'won' || G.mode === 'over') {
+        const scene = G.scrutiny && !G.scrutiny.done; // the scrutiny scene is still playing: its clock does not run down
+        endT = scene ? 0 : endT + dt;
+        if (endT > (G.mode === 'over' ? 2.5 : G.scrutiny ? 2.2 : 3.5)) finish();
+      }
     }
     view = Render.draw(live ? acc / DT : 1, live ? dt : 0);
     if (running) Hud.draw(Render.ctx, game, view, live ? dt : 0, { DPR: Render.DPR, W: Render.W, H: Render.H, isTouch: Input.isTouch });

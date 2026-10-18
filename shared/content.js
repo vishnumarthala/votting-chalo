@@ -70,6 +70,24 @@
     gas: ['Kallu mandutunnayi! 😵', '*cough cough*'],
     barricade: ['Andaru kalisi thoyyandi!', 'Barricade ni pakkaki jarapandi!'],
     filing: ['Stamp kotandi sir, time aipothundi!', 'Okka nimisham, sign chesthunna!'],
+    scrutiny: ['📜 Filed! But the scrutiny has begun, and a {rival} mob is storming the RO Office!', '📜 The RO Office is being stormed by a {rival} mob. The scrutiny of {short} nominations begins!'],
+    snatch: ['📄 Nomination {n} snatched off the RO\u2019s table!', '📄 A {short} nomination is grabbed from the counter! That is {n}.', '📄 Another one gone: {n} {short} nominations snatched!'],
+    snatchShout: ['Idi teesuko! Ee papers lekapothe nomination ledu!', 'Ee kaagitham {town} ki kaadu, chinchandi!', 'Scrutiny ante idi, aa papers ivvandi!', 'Table meedha papers anni naavi, ra ra!'],
+    tearShout: ['Chinchesaam! {leader} cheppina pani ayyindi!', 'Aaa, ayipoyindi! Migilina papers table meedha vadilesi vellandi!'],
+    tear: ['✂️ {n} {short} nominations torn to pieces on the RO\u2019s table!', '✂️ The mob tore {n} nominations. The rest went to the stamp!'],
+  };
+
+  // The scrutiny result panel (client/scrutiny.js). `{n}` is the number from the result; the lines read, for example,
+  // "10 YSRCP nominations filed", "6 snatched and torn", "4 accepted".
+  const SCRUTINY = {
+    title: '{town}: scrutiny at the RO Office',
+    filed: '{n} {short} nominations filed',
+    torn: '{n} snatched and torn',
+    accepted: '{n} accepted',
+    note: 'The counter is bare and the stamp is still warm. Only {n} papers are left of the day.',
+    again: 'Play again ▶',
+    close: 'Back to menu',
+    disclaimer: 'Satire. All characters and the events shown are fictional; no real person is depicted.',
   };
 
   const MISSIONS = [
@@ -94,5 +112,5 @@
     });
   }
 
-  return { PARTY, RIVAL, TOWNS, DEFAULT_TOWN, MODES, LINES, MISSIONS, TIERS, fill };
+  return { PARTY, RIVAL, TOWNS, DEFAULT_TOWN, MODES, LINES, SCRUTINY, MISSIONS, TIERS, fill };
 });

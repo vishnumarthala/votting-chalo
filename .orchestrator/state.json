@@ -11,6 +11,7 @@
   "test_lock": {
     "files": {
       "e2e/menu.spec.js": "cc02fe5de315d2a5f7ee6c666a4d9e0b5be596c6d4e9d2e31d56c771580775a3",
+      "e2e/scrutiny.spec.js": "6273f4807cc045f9f52c4f3e8d370c8c1eece79a5e33f7f0bf338f2db0a5c774",
       "e2e/town-picker.spec.js": "ea8d27379b507f90bc364822caabc699a7e187ef6e1f5b884db1b4f8c27aadae",
       "test/arson-extra.test.js": "0b686474163b9260ec5a1b4599bd8dd6cdc39ba41b4c03b46dc1b58cee400fff",
       "test/arson.test.js": "7b2c4cee8988293fc3961ee21932163672f5ae1559bc2a83c14bbd828cb07505",
@@ -21,6 +22,7 @@
       "test/map-invariants.js": "28c5711e1bce8f674677e097f86d0657f18fa1beb09e58e3668943cfe382dcbe",
       "test/mob.test.js": "4eb88a515b580e145d0490f13b8b38a01716c2cc3847c4bf22132b69561de173",
       "test/osm-to-town.test.js": "209438073b2fb2f316a4cd7aef8a5122846b8307a9cbccb049b81f28275ce67e",
+      "test/scrutiny.test.js": "8662b4383fa002e082fb81902728e86afde720998ab840b11b7c617ec339bfe6",
       "test/sim.test.js": "810c31ff6ea74415b28febd2887ae17a9cac9584babd7876bdd7408e322ac361",
       "test/stone-hit.test.js": "a2425376831dd1407c77c1ee239e1695c26e040465717f8baa3922f57bad25c5",
       "test/towns.js": "5444e4f2882b5659588f0430ef5d40c915241c88b2a64891c3fd1b7530234235",
@@ -30,8 +32,8 @@
       "test/fixtures/broken.osm": "8047757c18750ce11d2be05a71c761f902602e1ad8683bcc2afd6fa483ce538e",
       "test/fixtures/mini.osm": "231df3a7805940262324d0c27f1679243f78823f50d359ecc75db9ba969ed4a4"
     },
-    "at": "2026-10-18T17:50:41+00:00",
-    "cp": "CP-5"
+    "at": "2026-10-18T18:08:48+00:00",
+    "cp": "CP-6"
   },
   "features": {
     "design-baseline": {
@@ -471,14 +473,76 @@
           "commit": "ab131e513d2954f81716daa7409faabbcde220b0"
         },
         "CP-6": {
-          "status": "todo",
-          "stage": null,
-          "start_tree": null,
-          "gates": {},
+          "status": "done",
+          "stage": "done",
+          "start_tree": "git:fdd2cd3cc8f6181475ee0273f9bffebb266e9ed9",
+          "gates": {
+            "red": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:b8a28b2b8c82517f19dcbbf1178ccce1ba538eca",
+                  "at": "2026-10-18T18:08:48+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-6/red.command.json"
+                }
+              }
+            },
+            "behavior": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:6293792c720b6c47f5ca543236e09738d4385726",
+                  "at": "2026-10-18T18:32:01+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-6/behavior.command.json"
+                }
+              }
+            },
+            "design": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:6293792c720b6c47f5ca543236e09738d4385726",
+                  "at": "2026-10-18T18:34:43+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-6/design.command.json"
+                }
+              }
+            },
+            "review": {
+              "attempts": 1,
+              "parts": {
+                "standards": {
+                  "status": "pass",
+                  "tree": "git:6293792c720b6c47f5ca543236e09738d4385726",
+                  "at": "2026-10-18T18:38:28+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-6/review.standards.json"
+                },
+                "spec": {
+                  "status": "pass",
+                  "tree": "git:6293792c720b6c47f5ca543236e09738d4385726",
+                  "at": "2026-10-18T18:38:28+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-6/review.spec.json"
+                }
+              }
+            },
+            "judge": {
+              "attempts": 0,
+              "parts": {
+                "judge": {
+                  "status": "pass",
+                  "tree": "git:6293792c720b6c47f5ca543236e09738d4385726",
+                  "at": "2026-10-18T18:38:28+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-6/judge.judge.json"
+                }
+              }
+            }
+          },
           "tests_unlocked": null,
           "user_approved": false,
-          "started_at": null,
-          "completed_at": null,
+          "started_at": "2026-10-18T18:02:13+00:00",
+          "completed_at": "2026-10-18T18:38:28+00:00",
           "commit": null
         }
       },
@@ -1210,6 +1274,108 @@
       "event": "cp_complete",
       "cp": "CP-5",
       "commit": "ab131e513d2954f81716daa7409faabbcde220b0"
+    },
+    {
+      "at": "2026-10-18T18:02:13+00:00",
+      "event": "cp_start",
+      "cp": "CP-6",
+      "branch": "forge/real-towns"
+    },
+    {
+      "at": "2026-10-18T18:08:48+00:00",
+      "event": "gate",
+      "cp": "CP-6",
+      "gate": "red",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T18:08:48+00:00",
+      "event": "tests_locked",
+      "cp": "CP-6",
+      "count": 21
+    },
+    {
+      "at": "2026-10-18T18:17:02+00:00",
+      "event": "gate",
+      "cp": "CP-6",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T18:19:16+00:00",
+      "event": "gate",
+      "cp": "CP-6",
+      "gate": "design",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T18:24:38+00:00",
+      "event": "gate",
+      "cp": "CP-6",
+      "gate": "review",
+      "part": "standards",
+      "status": "fail",
+      "attempt": 1
+    },
+    {
+      "at": "2026-10-18T18:24:38+00:00",
+      "event": "gate",
+      "cp": "CP-6",
+      "gate": "review",
+      "part": "spec",
+      "status": "pass",
+      "attempt": 1
+    },
+    {
+      "at": "2026-10-18T18:32:01+00:00",
+      "event": "gate",
+      "cp": "CP-6",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T18:34:43+00:00",
+      "event": "gate",
+      "cp": "CP-6",
+      "gate": "design",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T18:38:28+00:00",
+      "event": "gate",
+      "cp": "CP-6",
+      "gate": "review",
+      "part": "standards",
+      "status": "pass",
+      "attempt": 1
+    },
+    {
+      "at": "2026-10-18T18:38:28+00:00",
+      "event": "gate",
+      "cp": "CP-6",
+      "gate": "review",
+      "part": "spec",
+      "status": "pass",
+      "attempt": 1
+    },
+    {
+      "at": "2026-10-18T18:38:28+00:00",
+      "event": "gate",
+      "cp": "CP-6",
+      "gate": "judge",
+      "part": "judge",
+      "status": "pass",
+      "attempt": 0
     }
   ]
 }

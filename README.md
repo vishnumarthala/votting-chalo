@@ -65,6 +65,11 @@ No browser is downloaded.
   waits near the destination is the largest and is headed by an invented TDP leader (Madhu Toogutla, Chaitanya,
   Bhupal), who throws stones like the rest. Both wear name tags: the ally a blue shirt and fan flag, the leader a
   yellow shirt and white cap. No real person is depicted.
+- **The scrutiny** ends Nomination Day. Holding the counter wins the run, and then the TDP mob storms the RO Office
+  while the police stand aside: 6 of the 10 filed YSRCP nominations are snatched one by one and torn, 4 are
+  accepted. A torn-paper panel shows "10 filed, 6 snatched and torn, 4 accepted" for the town; it does not animate if
+  your system asks for reduced motion. The scene is scripted, so nothing you press changes it, and the run goes on the
+  leaderboard at the win, so quitting during the scene keeps it. Polling Day ends as before.
 - **Goons** (lone TDP workers) tear your papers (25% per hit). If your papers hit 0%, your Form-A (or voter slip) is
   destroyed and you must fetch a new one. Goons back off from a crowd of 8 or more.
 - **Section 144 ring.** The streets around the destination are barricaded, with a few manned checkposts.
@@ -84,10 +89,11 @@ shared/             DOM-free UMD modules (browser + Node)
   towns.js          the playable towns: names, invented ally and TDP leader, map crop centre, RO office anchor, landmarks to skip
   world.js          town builder, supporters' houses and parked vehicles, tile collision, BFS flow fields, line of sight, barricade ring, fire tiles
   content.js        all text and modes (parties YSRCP and TDP); {town} {mandal} {district} {short} {rival} {ally} {leader} templating
-  sim.js            30 Hz deterministic game: crowd, ally and TDP leader, police, goons, TDP mobs, stones and arson, gas, barricades, documents, filing
+  sim.js            30 Hz deterministic game: crowd, ally and TDP leader, police, goons, TDP mobs, stones and arson, gas, barricades, documents, filing, scrutiny
 client/
   render.js         cached map chunks (roof flags, parked vehicles), people, sites, ring, gas, flames, smoke and charred remains, ambient autos on the roads, minimap, bubbles
-  hud.js            status, minimap, documents, objective arrow, missions, toasts, intro
+  hud.js            status, minimap, documents, objective arrow, missions, toasts, intro, scrutiny progress
+  scrutiny.js       the scrutiny result panel (ScrutinyPanel.open(result)), keyboard-operable, no animation under reduced motion
   input.js          keyboard, mouse steering, touch joystick
   audio.js          Web Audio synthesized effects (no audio files)
   main.js           loop, town picker and menu, events -> effects, leaderboard per town
@@ -98,7 +104,7 @@ scripts/
   osm-to-town.js    offline converter: data/osm/<id>.osm.gz -> data/towns/<id>.json
   serve.js          static dev server
 test/               converter, town builder, sim rules, bot completion of both modes
-e2e/                the menu-to-play journey, menu keyboard focus, contrast and phone width in headless Chromium
+e2e/                the menu-to-play journey, menu keyboard focus, contrast and phone width, the scrutiny panel and reduced motion, and a run from filing to the panel, in headless Chromium
 ```
 
 ### Town data

@@ -8,7 +8,7 @@
   const { TILE, N, WORLD, DT, K, DYN, clamp, hypot, dist, norm, makeRng, buildTown, kindAt, solidAt, moveBody, field, flowDir, lineOfSight, barricadeRing, setFire, fireTiles, walkable } = Wd;
 
   const CAP = 30; // max crowd
-  const SPEED = { walk: 135, run: 215, follow: 1.18, civ: 34, flee: 120, cop: 70, copChase: 112, goon: 85, goonChase: 125, held: 0.75, mobMarch: 100, mobRetreat: 120 };
+  const SPEED = { walk: 135, run: 215, follow: 1.18, civ: 34, flee: 120, cop: 70, copChase: 112, goon: 85, goonChase: 125, held: 0.75, mobMarch: 100, mobRetreat: 120, mobStorm: 220 };
   const CASES = 3; // detentions before you are jailed
   const SHIELD = 3; // supporters needed near you to block an arrest
   const BIG_CROWD = 8; // supporters that make goons back off and (within `backR` px of a mob) drive the mob back
@@ -27,13 +27,21 @@
   // A rioting mob member sets fire to a supporter's house or parked vehicle (never anything else) within `reach` px of it,
   // then waits `cd` s before lighting another. A fire burns for exactly `ticks` ticks (20 s at 30 Hz) and blocks its footprint
   // plus one ring of tiles; at most `max` burn at once. Townspeople within `scareR` px of a new fire run; supporters within
-  // `leaveR` px of a burning one leave the crowd (decision D-20). Together with 3 mobs of up to 8 and `STONE.max` stones that is
-  // 38 extra entities. Distances are from the nearest edge of the house's or vehicle's tiles.
+  // `leaveR` px of a burning one leave the crowd (decision D-20). The most that ever runs at once is 3 mobs of 8, 7 and 7 members
+  // (the first is the largest), `STONE.max` stones and `FIRE.max` fires: 36 extra entities, within the ~40 of decision D-13.
+  // Distances are from the nearest edge of the house's or vehicle's tiles.
   const FIRE = { ticks: 600, max: 4, reach: 80, cd: 4, scareR: 140, leaveR: 56 };
   // The town's invented YSRCP ally waits `dist` px from the start, on the party office plaza. When the candidate comes within `reach` px
   // the ally joins the crowd, and the first time brings `supporters` supporters, spawned `ring` px around them. While the ally is in
   // the crowd a stone costs `STONE.allyDamage` points of papers and the counter hold is `holdCut` s shorter.
   const ALLY = { dist: 44, reach: 34, ring: 22, supporters: 6, holdCut: 2 };
+  // Nomination Day does not end at the counter: once the hold is done the run is won and the scrutiny plays out (decision D-21). `filed`
+  // nominations are on the RO's table; the mob storms the office, snatches `torn` of them one by one (the first `lead` s after the
+  // filing, then one every `gap` s) and tears them `pause` s after the last, which leaves the rest accepted. Mob members stop `standR` px
+  // from the candidate. A member who has not moved half a tile in `stuck` s is set down on the nearest open tile (within `nudge` tiles)
+  // that is closer to the candidate by the flow field. The sequence is scripted, so the player's input cannot change it (the user's
+  // request: 10 filed, 6 torn, 4 accepted).
+  const SCRUTINY_SCRIPT = { filed: 10, torn: 6, lead: 1.5, gap: 0.9, pause: 1.5, standR: 40, stuck: 1, nudge: 3 };
 
   // opts: { seed, town: 'pulivendula', townData, mode: 'nomination' | 'vote', police, goons, mobs, civilians }.
   // Police, goons and mobs are on unless passed as false; civilians is a count (default 150).
@@ -46,6 +54,10 @@
   // Characters: `state.ally` is the town's YSRCP ally (an entity of kind 'ally'; the event { t: 'ally', n, crowd, text } fires when
   // the candidate walks up to them) and `state.leader` the TDP leader (a 'mob' entity with role 'leader'); both carry the invented
   // `name` from Content.TOWNS. `state.hold` is the seconds the counter must be held now: the mode's hold, 2 s less with the ally.
+  // Scrutiny (Nomination Day only): when the hold is done the run is won at once (`state.mode` 'won', `state.result.won`) and the
+  // scrutiny plays on as the epilogue: `state.scrutiny` ({ snatched, torn, accepted, filed, done }) counts it, the events { t: 'scrutiny' }, then
+  // { t: 'snatch', n, torn, accepted, x, y, text } for n = 1..6 and finally { t: 'tear', filed, torn, accepted, x, y, text } come out, and the
+  // last one sets `state.result.scrutiny` = { filed: 10, torn: 6, accepted: 4 }. Polling Day has no scrutiny: `state.scrutiny` stays null.
   function createGame(opts) {
     opts = opts || {};
     const townId = opts.town || Ct.DEFAULT_TOWN, info = Object.prototype.hasOwnProperty.call(Ct.TOWNS, townId) ? Ct.TOWNS[townId] : null;
@@ -66,7 +78,7 @@
 
     const G = {
       tick: 0, mode: 'intro', modeT: 0, gameMode: modeKey, M, map, place, target, docSites, hold: M.hold, ally: null, leader: null,
-      timer: M.time, elapsed: 0, score: 0, combo: { n: 0, t: 0 }, events: [],
+      timer: M.time, elapsed: 0, score: 0, combo: { n: 0, t: 0 }, events: [], scrutiny: null,
       player: null, ents: [], barrs: [], clouds: [], mobs: [], stones: [], fires: [], posts: map.posts,
       supporterProps: map.supporterProps.map((t) => Object.assign({}, t, { state: 'ok' })), // state: 'ok', 'burning' or 'burnt'
       stats: { rec: 0, crowd: 0, brk: 0, lift: 0, doc: 0, slogan: 0, goon: 0 }, missions: [], missionsDone: 0,
@@ -301,22 +313,22 @@
       else c.mode = 'wander';
     }
     const allyIn = () => P.followers.includes(G.ally);
-    // The ally joins the crowd; the first time they bring their supporters too.
+    // The ally joins the crowd and brings their supporters the first time there is room for any of them: a crowd already at CAP
+    // leaves them for the next time the ally joins.
     let allyBrought = false;
     function joinAlly() {
       const ally = G.ally;
       if (!join(ally)) return;
-      const first = !allyBrought;
       let n = 0;
-      allyBrought = true;
-      for (let k = 0; first && k < ALLY.supporters && P.followers.length < CAP; k++) {
+      for (let k = 0; !allyBrought && k < ALLY.supporters && P.followers.length < CAP; k++) {
         const a = (k / ALLY.supporters) * Math.PI * 2;
         let x = ally.x + Math.cos(a) * ALLY.ring, y = ally.y + Math.sin(a) * ALLY.ring;
         if (solidAt(map, Math.floor(x / TILE), Math.floor(y / TILE))) { x = ally.x; y = ally.y; }
         if (join(spawn('civ', x, y, { look: allyRng.int(6), t: 0, sayCd: 0 }))) n++;
       }
-      emit({ t: 'ally', id: ally.id, name: ally.name, x: ally.x, y: ally.y, n, crowd: P.followers.length, text: text(allyRng.pick(first ? Ct.LINES.allyJoined : Ct.LINES.allyBack)) });
-      if (first) say(ally, allyRng.pick(Ct.LINES.ally), null, '#bbdefb');
+      if (n > 0) allyBrought = true;
+      emit({ t: 'ally', id: ally.id, name: ally.name, x: ally.x, y: ally.y, n, crowd: P.followers.length, text: text(allyRng.pick(n > 0 ? Ct.LINES.allyJoined : Ct.LINES.allyBack)) });
+      if (n > 0) say(ally, allyRng.pick(Ct.LINES.ally), null, '#bbdefb');
     }
     const shieldCount = () => { let n = 0; for (const f of P.followers) if (dist(f.x, f.y, P.x, P.y) < 70) n++; return n; };
 
@@ -369,6 +381,7 @@
       }
       G.result = { won, reason, score: G.score, crowd: G.stats.crowd, docs: P.docs.length, missions: G.missionsDone, mode: modeKey, place: G.place, town: townId };
       emit({ t: won ? 'won' : 'over', reason });
+      if (won && modeKey === 'nomination') startScrutiny();
     }
 
     // ------------------------------------------------------------ update: player
@@ -880,7 +893,9 @@
         for (const e of G.ents) if (e.kind === 'civ' && e.mode !== 'follow') civs++;
         for (let k = 0; civs + k < civCount * 0.7 && k < 6; k++) { const s = randomSpot(450); spawn('civ', s.x, s.y, { look: rng.int(6), t: rng() * 3 }); }
       }
-      // police backup grows with time and with your crowd
+    }
+    // Police backup grows with time and with your crowd (while the run is on).
+    function policeBackup() {
       if (opts.police !== false) {
         G.alertT -= DT * (P.followers.length >= 20 ? 1.6 : 1);
         if (G.alertT <= 0) {
@@ -899,6 +914,82 @@
       }
     }
 
+    // ------------------------------------------------------------ scrutiny
+    // The run is already won: the mob storms the RO office, police stand aside, nobody throws or burns anything, and the player's
+    // input is not read. The beats run on ticks, so every replay is the same.
+    function startScrutiny() {
+      const sc = G.scrutiny = { ticks: 0, snatched: 0, torn: SCRUTINY_SCRIPT.torn, filed: SCRUTINY_SCRIPT.filed, accepted: SCRUTINY_SCRIPT.filed - SCRUTINY_SCRIPT.torn, done: false };
+      P.vx = P.vy = P.kx = P.ky = 0; P.grab = 0; P.stun = 0; P.collect = null;
+      G.stones = [];
+      rioters.length = 0;
+      for (const mob of G.mobs) mob.state = 'riot';
+      for (const e of G.ents) {
+        if (e.kind === 'mob') e.mode = 'riot';
+        else if (e.mode === 'chase') backToWork(e);
+      }
+      emit({ t: 'scrutiny', x: target.x, y: target.y, filed: sc.filed, text: text(mobRng.pick(Ct.LINES.scrutiny)) });
+    }
+    function updateScrutiny() {
+      const sc = G.scrutiny;
+      sc.ticks++;
+      for (const e of G.ents) {
+        if (e.dead) continue;
+        if (e.kind === 'civ') updateCiv(e);
+        else if (e.kind === 'ally') updateAlly(e);
+        else if (e.kind === 'mob') storm(e);
+        else move(e, 0, 0, 0); // police and goons stand aside
+      }
+      updateFires();
+      upkeep();
+      if (sc.done) return;
+      const at = (sec) => Math.round(sec / DT);
+      if (sc.snatched < sc.torn) { if (sc.ticks >= at(SCRUTINY_SCRIPT.lead + sc.snatched * SCRUTINY_SCRIPT.gap)) snatch(sc); }
+      else if (sc.ticks >= at(SCRUTINY_SCRIPT.lead + (sc.torn - 1) * SCRUTINY_SCRIPT.gap + SCRUTINY_SCRIPT.pause)) tear(sc);
+    }
+    // A mob member heads for the candidate at the counter and stops `standR` px short of them; one that is stuck is nudged along.
+    function storm(e) {
+      const run = e.storm || (e.storm = { x: e.x, y: e.y, t: 0 });
+      if (dist(e.x, e.y, P.x, P.y) <= SCRUTINY_SCRIPT.standR) { move(e, 0, 0, 0); run.x = e.x; run.y = e.y; run.t = 0; return; }
+      if ((run.t += DT) >= SCRUTINY_SCRIPT.stuck) {
+        if (dist(e.x, e.y, run.x, run.y) < TILE / 2) nudge(e);
+        run.x = e.x; run.y = e.y; run.t = 0;
+      }
+      sees(e, WORLD); // keeps e.los fresh for steerTo
+      const dir = steerTo(e, P.x, P.y, true);
+      move(e, dir.x, dir.y, SPEED.mobStorm);
+    }
+    // Sets a stuck mob member (wedged against a wall, or inside a pocket the flow field cannot leave) on the nearest open tile that
+    // lies closer to the candidate by the flow field, looking no further than `nudge` tiles out. A step, not a teleport; none found: stays.
+    function nudge(e) {
+      const f = playerField(), tx = clamp(Math.floor(e.x / TILE), 0, N - 1), ty = clamp(Math.floor(e.y / TILE), 0, N - 1), here = f[ty * N + tx];
+      for (let r = 0; r <= SCRUTINY_SCRIPT.nudge; r++) {
+        let best = -1, bestV = Infinity;
+        for (let y = Math.max(0, ty - r); y <= Math.min(N - 1, ty + r); y++) {
+          for (let x = Math.max(0, tx - r); x <= Math.min(N - 1, tx + r); x++) {
+            if (Math.max(Math.abs(x - tx), Math.abs(y - ty)) !== r || solidAt(map, x, y)) continue;
+            const v = f[y * N + x];
+            if (v >= 0 && (here < 0 || v < here) && v < bestV) { best = y * N + x; bestV = v; }
+          }
+        }
+        if (best >= 0) { e.x = ((best % N) + 0.5) * TILE; e.y = (Math.floor(best / N) + 0.5) * TILE; return; }
+      }
+    }
+    // The mob member nearest the counter snatches the next nomination off the RO's table and shouts.
+    function snatch(sc) {
+      sc.snatched++;
+      let by = null, bd = Infinity;
+      for (const e of G.ents) if (e.kind === 'mob') { const d = dist(e.x, e.y, target.x, target.y); if (d < bd) { bd = d; by = e; } }
+      emit({ t: 'snatch', n: sc.snatched, torn: sc.torn, accepted: sc.accepted, x: target.x + (sc.snatched - (sc.torn + 1) / 2) * 8, y: target.y, text: text(mobRng.pick(Ct.LINES.snatch), { n: sc.snatched }) });
+      if (by) say(by, mobRng.pick(Ct.LINES.snatchShout), null, '#fff59d');
+    }
+    // The leader tears what is left of them; the rest of the filed nominations are accepted.
+    function tear(sc) {
+      sc.done = true;
+      G.result.scrutiny = { filed: sc.filed, torn: sc.torn, accepted: sc.accepted };
+      emit({ t: 'tear', filed: sc.filed, torn: sc.torn, accepted: sc.accepted, x: target.x, y: target.y, text: text(mobRng.pick(Ct.LINES.tear), { n: sc.torn }) });
+      if (G.leader) say(G.leader, mobRng.pick(Ct.LINES.tearShout), null, '#fff59d');
+    }
+
     function snapPrev() {
       P.px = P.x; P.py = P.y;
       for (const e of G.ents) { e.px = e.x; e.py = e.y; }
@@ -915,6 +1006,7 @@
         }
         return;
       }
+      if (G.mode === 'won' && G.scrutiny) { updateScrutiny(); return; }
       if (G.mode !== 'play') return;
       G.timer -= DT; G.elapsed += DT;
       if (G.timer <= 0) { G.timer = 0; end(false, 'time'); return; }
@@ -935,6 +1027,7 @@
       updateArson();
       updateStones();
       upkeep();
+      policeBackup();
       G.hold = G.M.hold - (allyIn() ? ALLY.holdCut : 0);
       if (G.tick % 15 === 0) updateMissions();
     }

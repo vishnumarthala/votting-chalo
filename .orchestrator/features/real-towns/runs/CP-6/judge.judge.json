@@ -1,0 +1,21 @@
+{
+  "summary": "Re-judgement after one fix round.\n(1) CP-6 meets AC-11 and AC-12 under D-21:\n- filing wins at once, then a scripted epilogue has the TDP mob storm the RO office while police stand aside;\n- it emits scrutiny, 6 snatch and 1 tear, and result.scrutiny is {10,6,4};\n- the panel shows the town and the three lines, with no animation under reduced motion;\n- Polling Day is unchanged.\nMy headless screenshots of the panel at 1100 and 375 px look right, with 0 page errors.\n(2) Tests:\n- T-17 and T-18 are locked;\n- the new e2e/scrutiny-flow.spec.js plays the real game to the panel and was shown to fail without the open call;\n- test/scrutiny-storm.test.js covers 3 towns x 40 seeds and fails without the nudge.\n(3) No gaming: npm test 89, e2e 10 and design_check are green, and the locked tests are intact (the builder's brief edit of a locked file was restored byte for byte).\n(4) Accepted nits:\n- the new e2e names carry no case IDs;\n- the quit test checks the panel only once;\n- the __vc hook comment says read-only;\n- the T-15 test lives in the scrutiny file;\n- there is an extra 'scrutiny' event.\n(5) Content line: I read every new line. There are no real names, none of the quoted lines, and no 'Babu'.\n(6) Ready.",
+  "verdict": "approve",
+  "findings": [
+    {
+      "severity": "nit",
+      "location": "e2e/scrutiny-flow.spec.js",
+      "issue": "Test names carry no case ID, and the quit test checks once.",
+      "fix": "Accepted."
+    }
+  ],
+  "instructions": "",
+  "source": ".orchestrator/features/real-towns/inbox/CP-6-judge-judge.json",
+  "gate": "judge",
+  "cp": "CP-6",
+  "part": "judge",
+  "status": "pass",
+  "tree": "git:6293792c720b6c47f5ca543236e09738d4385726",
+  "at": "2026-10-18T18:38:28+00:00",
+  "failed_attempts": 0
+}

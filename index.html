@@ -8,7 +8,7 @@
 <title>Votting Chalo</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E🗳️%3C/text%3E%3C/svg%3E">
 <style>
-:root{--blue:#1e5bd8;--deep:#0f2f6e;--ink:#1d1a16;--paper:#f6eedd;--muted:#6b5a48}
+:root{--blue:#1e5bd8;--deep:#0f2f6e;--ink:#1d1a16;--paper:#f6eedd;--muted:#6b5a48;--yellow:#f2c200}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:#a5d06b;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);-webkit-tap-highlight-color:transparent}
 canvas{display:block;touch-action:none;outline:none;cursor:crosshair}
@@ -54,8 +54,37 @@ body.touch .help{display:none}
 .ov.on{display:flex}
 .box{background:var(--paper);border-radius:16px;max-width:420px;width:100%;padding:20px 18px 16px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 .box h3{font-size:14px;color:#8a4b2a;font-weight:900;letter-spacing:.5px}
-.box .act{border:2px solid #d8c7a8;background:#fff;border-radius:12px;padding:12px 14px;font-size:16px;font-weight:700;cursor:pointer;color:var(--ink);width:100%;margin-top:8px}
-.box .act.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.box .act,.scr .act{border:2px solid #d8c7a8;background:#fff;border-radius:12px;padding:12px 14px;font-size:16px;font-weight:700;cursor:pointer;color:var(--ink);width:100%;margin-top:8px}
+.box .act.primary,.scr .act.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+/* Scrutiny result: a torn paper card over the menu. Its motion is declared only when the visitor has not asked for less. */
+#scrutiny{overflow:auto}
+.scr{width:100%;max-width:440px;margin:auto;filter:drop-shadow(0 18px 36px rgba(0,0,0,.5))}
+.scr:focus{outline:none}
+.scr{--tear-a:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 14' preserveAspectRatio='none'%3E%3Cpath d='M0 0H100V9L97 12L93 6L89 13L85 8L80 11L76 4L71 12L67 7L62 13L58 9L53 12L49 5L44 11L40 7L35 13L31 8L27 12L22 5L18 11L13 7L9 13L4 9L0 11Z'/%3E%3C/svg%3E");--tear-b:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 12' preserveAspectRatio='none'%3E%3Cpath d='M0 0H100V7L95 11L90 4L86 10L81 6L75 11L70 3L64 9L59 5L53 11L47 6L41 12L36 5L30 10L24 4L19 11L13 6L8 10L3 5L0 9Z'/%3E%3C/svg%3E")}
+.scr-sheet{background:var(--paper);border-radius:16px 16px 0 0;padding:0 20px 40px;-webkit-mask:linear-gradient(#000,#000) top/100% calc(100% - 13px) no-repeat,var(--tear-a) bottom/100% 14px no-repeat;mask:linear-gradient(#000,#000) top/100% calc(100% - 13px) no-repeat,var(--tear-a) bottom/100% 14px no-repeat}
+.scr-band{background:var(--yellow);color:var(--ink);margin:0 -20px 16px;padding:18px 20px 26px;border-radius:16px 16px 0 0;-webkit-mask:linear-gradient(#000,#000) top/100% calc(100% - 11px) no-repeat,var(--tear-b) bottom/100% 12px no-repeat;mask:linear-gradient(#000,#000) top/100% calc(100% - 11px) no-repeat,var(--tear-b) bottom/100% 12px no-repeat}
+.scr-band h2{font-size:clamp(20px,5.4vw,25px);line-height:1.15;font-weight:900;letter-spacing:-.4px;text-wrap:balance}
+.papers{list-style:none;display:grid;grid-template-columns:repeat(5,34px);gap:14px 18px;justify-content:center;margin:6px 0 20px}
+.papers li{position:relative;width:34px;height:44px;background:#fff;border:1px solid #cdbb98;border-radius:2px}
+.papers li::before{content:"";position:absolute;left:4px;right:4px;top:5px;height:4px;background:var(--blue)}
+.papers li::after{content:"";position:absolute;left:4px;right:4px;top:14px;height:18px;background:linear-gradient(#b9a98c,#b9a98c) 0 0/100% 2px no-repeat,linear-gradient(#b9a98c,#b9a98c) 0 6px/100% 2px no-repeat,linear-gradient(#b9a98c,#b9a98c) 0 12px/100% 2px no-repeat}
+.papers li.torn{background:#ece3cf;transform:rotate(var(--tilt)) translateY(7px);clip-path:polygon(0 0,100% 0,100% 46%,80% 62%,64% 44%,42% 66%,24% 48%,0 60%)}
+.papers li.torn::after{display:none}
+.tally{list-style:none;display:grid;gap:8px;margin:0 0 14px}
+.tally li{font-size:18px;font-weight:800;color:var(--ink);line-height:1.2}
+.tally b{font-size:30px;font-weight:900;margin-right:2px;color:var(--blue)}
+.tally .torn{display:inline-block;justify-self:start;background:var(--yellow);padding:2px 10px 2px 8px;border-radius:3px;transform:rotate(-1deg)}
+.tally .torn b{color:var(--ink)}
+.scr-note{font-size:14px;line-height:1.5;color:#4b3b2b}
+.scr-score{font-size:14px;font-weight:700;color:var(--muted);margin:10px 0 4px}
+.scr-disc{font-size:12px;color:#75624e;margin-top:12px;line-height:1.5}
+@media (prefers-reduced-motion:no-preference){
+.scr-sheet{animation:scr-in .5s cubic-bezier(.2,.8,.2,1) both}
+.papers li.torn{animation:scr-rip .55s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(.5s + var(--i) * .13s)}
+}
+@keyframes scr-in{from{transform:translateY(28px) rotate(-1.5deg)}to{transform:none}}
+@keyframes scr-rip{from{transform:translateY(-14px) rotate(0);opacity:0}to{transform:rotate(var(--tilt)) translateY(7px);opacity:1}}
+@media (prefers-reduced-motion:reduce){#scrutiny,#scrutiny *,#scrutiny *::before,#scrutiny *::after{animation:none!important;transition:none!important}}
 #touch,#bPause{display:none}
 body.playing #bPause{display:block}
 body.touch.playing #touch{display:block}
@@ -74,6 +103,21 @@ body.touch.playing #touch{display:block}
 <div id="touch"><button class="tb" id="bRun" type="button">RUN</button><button class="tb" id="bAct" type="button">SLOGAN ✊</button></div>
 <div id="pause" class="ov" role="dialog" aria-modal="true" aria-label="Paused">
  <div class="box"><h3>⏸ PAUSED</h3><button class="act primary" id="resume" type="button">Resume</button><button class="act" id="quit" type="button">Quit to menu</button></div>
+</div>
+
+<div id="scrutiny" class="ov" role="dialog" aria-modal="true" aria-labelledby="scrTitle" aria-describedby="scrTally">
+ <div class="scr" tabindex="-1">
+  <div class="scr-sheet">
+   <div class="scr-band"><h2 id="scrTitle"></h2></div>
+   <ol class="papers" id="scrPapers" aria-hidden="true"></ol>
+   <ul class="tally" id="scrTally"><li id="scrFiled"></li><li id="scrTorn" class="torn"></li><li id="scrOk"></li></ul>
+   <p class="scr-note" id="scrNote"></p>
+   <p class="scr-score" id="scrScore"></p>
+   <button class="act primary" id="scrAgain" type="button"></button>
+   <button class="act" id="scrClose" type="button"></button>
+   <p class="scr-disc" id="scrDisc"></p>
+  </div>
+ </div>
 </div>
 
 <div id="menu">
@@ -107,6 +151,7 @@ body.touch.playing #touch{display:block}
 <script src="client/input.js"></script>
 <script src="client/render.js"></script>
 <script src="client/hud.js"></script>
+<script src="client/scrutiny.js"></script>
 <script src="client/main.js"></script>
 </body>
 </html>

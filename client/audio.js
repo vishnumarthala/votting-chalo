@@ -63,6 +63,8 @@
     riot: () => { [0, 0.12, 0.24].forEach((d) => tone('square', 110, 80, 0.1, 0.12, d)); tone('sawtooth', 196, 147, 0.5, 0.08, 0.36); },
     fire: () => { noise(0.9, 0.22, 2600, 0, 'bandpass'); noise(0.5, 0.16, 800, 0.1); tone('sawtooth', 180, 80, 0.45, 0.06, 0.05); },
     torn: () => { noise(0.25, 0.3, 5000, 0, 'highpass'); tone('sawtooth', 300, 120, 0.25, 0.08); },
+    snatch: () => { noise(0.18, 0.3, 4500, 0, 'highpass'); tone('sawtooth', 380, 160, 0.16, 0.08); },
+    tear: () => { noise(0.5, 0.4, 3500, 0, 'highpass'); noise(0.35, 0.3, 6000, 0.12, 'highpass'); tone('sawtooth', 260, 70, 0.5, 0.1); },
     lostdoc: () => [392, 330, 262].forEach((f, i) => tone('triangle', f, f, 0.18, 0.16, i * 0.12)),
     gas: () => noise(1.2, 0.18, 900),
     push: () => noise(0.08, 0.12, 300),

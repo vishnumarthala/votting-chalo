@@ -1,0 +1,39 @@
+{
+  "summary": "Delta review. All seven previous findings are addressed except the T-15 placement nit. The major join gap is closed: e2e/scrutiny-flow.spec.js drives a real page run (via window.__vc) from the counter hold to the auto-opened panel, with the town and 10/6/4 lines, one leaderboard entry, and no panel in Polling Day. Mutations in scratch copies confirm it bites: deleting the ScrutinyPanel.open call fails the panel test; dropping record() at 'won' fails the filing and quit tests; forcing the scene clock to run (endT ternary) fails the panel test; removing the nudge() call fails the Punganur 40-seed storm test. npm test (89) and npm run e2e (10) pass on the working tree. record() is once-per-run (reset in start()), the win is saved at 'won' so a Quit mid-scene keeps it, and result.scrutiny is set at the tear on the same object that was saved. nudge() is bounded (3 tiles, flow-field closer, no-op if none). Remaining items are minor/nit only.",
+  "verdict": "approve",
+  "findings": [
+    {
+      "severity": "minor",
+      "location": "e2e/scrutiny-flow.spec.js:40,64,85",
+      "issue": "The three new test names carry no planned case ID, which breaks the plan-to-test traceability rule. They cover T-17 and T-18 in the real page.",
+      "fix": "Prefix the names with the case they extend, e.g. 'T-17/T-18 filing a nomination plays the scrutiny scene, ...'."
+    },
+    {
+      "severity": "nit",
+      "location": "e2e/scrutiny-flow.spec.js:77",
+      "issue": "The quit test says the panel 'never opens' but checks panelOpen once, right after Quit. A regression where finish() still ran after Quit would open the panel about 10 s later and go unnoticed.",
+      "fix": "Rename to 'does not open it at that moment', or assert window.__vc.running stays false and the panel is absent after a short fixed wait."
+    },
+    {
+      "severity": "nit",
+      "location": "client/main.js:271",
+      "issue": "The comment calls window.__vc a 'read-only hook', but scrutiny-flow.spec.js now mutates sim state through it (mode, docs, position, submitT).",
+      "fix": "Reword to 'hook for automated playtests' so the comment matches its use."
+    },
+    {
+      "severity": "nit",
+      "location": "test/scrutiny.test.js:171",
+      "issue": "Not fixed: the CP-5 T-15 ally test still sits in the CP-6 scrutiny test file.",
+      "fix": "Move it to test/characters.test.js (or wherever the other T-15 tests live)."
+    }
+  ],
+  "instructions": "",
+  "source": ".orchestrator/features/real-towns/inbox/CP-6-review-standards.json",
+  "gate": "review",
+  "cp": "CP-6",
+  "part": "standards",
+  "status": "pass",
+  "tree": "git:6293792c720b6c47f5ca543236e09738d4385726",
+  "at": "2026-10-18T18:38:28+00:00",
+  "failed_attempts": 1
+}

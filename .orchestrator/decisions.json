@@ -309,6 +309,21 @@
       "remind_at": [],
       "created_at": "2026-10-18T17:30:09.057880+00:00",
       "resolved_at": "2026-10-18T17:30:09.057903+00:00"
+    },
+    {
+      "id": "D-21",
+      "feature": "real-towns",
+      "dimension": "scope",
+      "question": "How does the scrutiny phase relate to the win? (clarifies AC-11)",
+      "options": [],
+      "chosen": "Filing ends the run as won at once (G.mode 'won', as locked tests require); the scrutiny then plays as a scripted epilogue (scrutiny, 6 snatch, 1 tear over ~7.5 s) and result.scrutiny {10,6,4} is set at the tear; the panel opens after the scene. The leaderboard saves at the win, so quitting during the scene keeps the run.",
+      "rationale": "Locked tests from CP-1..CP-5 require mode 'won' at the end of the hold; behaviour of AC-11 is unchanged.",
+      "status": "decided",
+      "blocking": false,
+      "affects": [],
+      "remind_at": [],
+      "created_at": "2026-10-18T18:24:38.420573+00:00",
+      "resolved_at": "2026-10-18T18:24:38.420595+00:00"
     }
   ]
 }

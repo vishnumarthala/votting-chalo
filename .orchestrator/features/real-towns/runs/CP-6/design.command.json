@@ -1,0 +1,21 @@
+{
+  "summary": "design_check ok",
+  "problems": [],
+  "commands": [
+    {
+      "key": "design_check",
+      "cmd": "npx --yes impeccable@4 detect --quiet client index.html",
+      "rc": 0,
+      "seconds": 1.23,
+      "output_tail": ""
+    }
+  ],
+  "metrics": null,
+  "gate": "design",
+  "cp": "CP-6",
+  "part": "command",
+  "status": "pass",
+  "tree": "git:6293792c720b6c47f5ca543236e09738d4385726",
+  "at": "2026-10-18T18:34:43+00:00",
+  "failed_attempts": 0
+}

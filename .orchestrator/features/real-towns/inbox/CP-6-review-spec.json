@@ -1,0 +1,19 @@
+{
+ "verdict": "approve",
+ "tree": "git:6293792c720b6c47f5ca543236e09738d4385726",
+ "summary": "Delta review of c116517ad0b3..6293792c720b. All five previous findings are resolved or recorded. The epilogue minor (sim.js:379) is now decision D-21, and the sim header comment cites it. The ally/policeBackup scope minor was 'acceptable as is' and the delta does not touch it. The quit-during-scene nit is fixed: main.js record() saves the run once, at the 'won' event, and finish() asks again without a second entry. This is shown by e2e/scrutiny-flow.spec.js (the leaderboard has 1 entry at the win and still 1 after the panel; quitting from the pause card during the scene keeps the won run and never opens the panel; Polling Day wraps up with no panel and 1 entry). The reduced-motion nit is fixed: snatch and tear paper bursts and the shake are gated on reducedMotion, which matches D-16 and AC-12 (panel unchanged, T-18 e2e unchanged). The 'scrutiny' event type is still outside the spec event list but documented in the sim header, which stays a nit. The new storm stuck handling (SCRUTINY_SCRIPT.stuck/nudge, nudge()) is confined to the scrutiny scene and is shown by test/scrutiny-storm.test.js (3 towns x 40 seeds, leader within 3 tiles of the counter at the tear). It keeps AC-11 (6 snatch, 1 tear, result.scrutiny {10,6,4}) and the sim stays deterministic. Snatch events now carry torn and accepted, hud.js reads sc.accepted, and ScrutinyPanel's API shrinks to open. These are small and internal, with no new surface. README is updated to say the run goes on the leaderboard at the win, with no promises about unbuilt features. Content line holds: no real names or quoted threat lines appear in the added lines. Re-run: npm test 89 pass, npm run e2e 10 pass. The delta leaves index.html and CSS untouched, so the design_check result is unchanged.",
+ "findings": [
+  {
+   "severity": "nit",
+   "location": "shared/sim.js:929",
+   "issue": "A 'scrutiny' event type (opening toast) is emitted that is not in the spec's 'New events' list (stone, riot, fire, burnt, snatch, tear, ally). It is documented in the sim header comment. Carried over from the previous review, with no new risk.",
+   "fix": "Optional: add it to the spec's event list."
+  },
+  {
+   "severity": "nit",
+   "location": "client/main.js:272",
+   "issue": "The new e2e flow spec drives the run through the window.__vc hook and by setting state (G.mode, P.docs, P.x, P.submitT) in the page. The hook was already there and is read-only, so this is a test-only technique, and it assumes the sim state layout stays stable.",
+   "fix": "None needed. If the state layout changes, update e2e/scrutiny-flow.spec.js with it."
+  }
+ ]
+}

@@ -127,7 +127,12 @@
       panel(ctx, cx - 120, VH * 0.3 - 20, 240, 40);
       text(ctx, '💫 Stone hit! Hold on…', cx, VH * 0.3, 16, '#ffe082', 'center', 900);
     }
-    if (P.submitT > 0) {
+    if (G.scrutiny) {
+      const sc = G.scrutiny, by = VH - (touch ? 200 : 70);
+      panel(ctx, cx - 190, by - 26, 380, 52);
+      text(ctx, sc.done ? 'Scrutiny over: ' + sc.accepted + ' of ' + sc.filed + ' nominations accepted' : 'Scrutiny: ' + sc.snatched + ' of ' + sc.torn + ' nominations snatched', cx, by - 8, 14, '#f2c200', 'center', 900);
+      bar(ctx, cx - 170, by + 8, 340, 10, sc.snatched / sc.torn, '#f2c200');
+    } else if (P.submitT > 0) {
       const by = VH - (touch ? 200 : 70);
       panel(ctx, cx - 170, by - 26, 340, 52);
       text(ctx, G.gameMode === 'vote' ? 'Casting your vote… hold your ground!' : 'Filing nomination… hold the counter!', cx, by - 8, 14, '#c5e1a5', 'center', 900);
