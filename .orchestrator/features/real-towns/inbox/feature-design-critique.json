@@ -1,0 +1,78 @@
+{
+  "verdict": "reject",
+  "summary": "The menu, town picker, error/loading states and the scrutiny panel are strong: they keep the paper-card system (D-15), pass contrast and 12px minimums, show visible 3px blue focus on every control, trap focus in the modal panel, return focus to Play on Escape, switch off animation under reduced motion, and fit 375px and 320px with no sideways scroll. The yellow mob, fan flag, flames and smoke read clearly and consistently on the map. Three majors remain in what the player sees and touches: the new long toasts overflow or collide with the HUD (clipped mid-word on a phone), the new long speech-bubble lines are squeezed to 58-82% width, and the mode toggle's selected state is not exposed to assistive tech (D-16). Minor and nit items are listed after them. Captures are in /tmp/claude-0/-home-user-votting-chalo/07853e19-8cb1-5e3b-ae72-432efa7f6895/scratchpad/crit/ (play-phone.png, play-land.png, bub-desk.png, bub-phone.png, err-375.png, panel-land.png, sc-phone-3.png).",
+  "findings": [
+    {
+      "severity": "major",
+      "location": "client/hud.js:144-153 (toast block); screenshots play-Pulivendula.png, play-Kadapa.png, cp4/fire1.png, crit/play-phone.png, crit/play-land.png",
+      "issue": "The new toasts are 2-3x longer than the old ones (allyJoined 856px, allyLeft 738px, allyBack 647px, scrutiny 667px, fireHouse 628px at 14px) and are drawn centred at y=76 (y=150 on narrow screens) with the panel clamped to VW-40 but the text not clamped or wrapped. On a 1100px desktop the toast runs over the status panel (crowd count, stamina) and the minimap; on a 375px phone (VW 605) 'Ramanna of Pulivendula joins your crowd...' is cut off on both canvas edges ('ulivendula joins ... the counte') and the panel covers the Documents list; in landscape phone it covers the HUD and the pause button.",
+      "fix": "Wrap toast text with the existing wrap() helper to a max width of min(VW-40, the gap between the status panel and the minimap, about 420px) and draw a taller panel per line, or shorten the ally/fire/scrutiny lines to about 60 characters. Offset the narrow-screen start below the Documents panel, or cap toasts to 2 lines each. Re-capture at 375x667, 667x375 and 1100x760."
+    },
+    {
+      "severity": "major",
+      "location": "client/render.js:597-601 (speech bubbles); shared/content.js LINES.ally, leader, copEscort, tearShout, snatchShout; screenshots crit/bub-desk.png, crit/bub-phone.png, cp3/mob2.png",
+      "issue": "Bubble width is capped at 240 and the text is drawn with fillText(..., 230), which squeezes it horizontally. Old lines stayed within 94% of natural width, but the new lines for the ally, the TDP leader, the police escort and the tear shouts measure 280-395px and are squeezed to 58-82% (for example 'Bhayam endhuku? Ramanna unnadu, YSRCP kutumbam mee venta!' at 58%). They look visibly condensed on desktop and are unreadable on a phone, where world text is already 12px x 0.55 zoom, about 6.6px.",
+      "fix": "Word-wrap bubbles to two lines at a width of 240 (make the bubble 38px high) instead of passing maxWidth, or cap the new lines at about 36 characters. Do not compress the glyphs."
+    },
+    {
+      "severity": "major",
+      "location": "index.html:134-135 (.mode buttons) and client/main.js:57-63 (setMode)",
+      "issue": "The picked game mode is shown only by the .sel class (blue border and tint). The buttons have no aria-pressed or radio semantics, so screen-reader users cannot tell which of Nomination Day and Polling Day is chosen, and sighted users get a colour-only cue (WCAG 4.1.2 and 1.4.1). D-16 asks for WCAG 2.2 AA on the menu. The focus ring on the selected card is also almost the same blue as its selected border.",
+      "fix": "Make the pair a role=group (or radiogroup) with aria-pressed (or aria-checked) updated in setMode, and add a non-colour cue to the selected card (a check mark or a heavier border). Optionally use a white focus gap or offset on .mode.sel:focus-visible."
+    },
+    {
+      "severity": "minor",
+      "location": "client/render.js bubbles and popups; screenshot cp3/mob2.png",
+      "issue": "On the mob scene, 7 bubbles, 2 stacked 'Stoned! -10%' popups, 3 toasts and the GRABBED panel pile into one 300x250px area. Bubbles overlap and leave ghost text, and 'Stoned!' prints through the GRABBED panel. The system only caps at 10 bubbles with no collision handling. The new mob, police-escort and ally lines make this common.",
+      "fix": "Show at most 3 bubbles within 200px of the candidate (priority: candidate, ally, leader, then the nearest others). Stack overlapping bubbles upward by 24px. Merge popups of the same kind at the same spot."
+    },
+    {
+      "severity": "minor",
+      "location": "client/hud.js (u floor 0.62) and client/render.js (zoom floor 0.55); crit/play-phone.png",
+      "issue": "On a 375px phone the HUD scale is 0.62 and the world scale 0.55, so the new HUD lines (14px scrutiny bar, 16px stun panel, 14px toasts) render at about 8.7-10px and the existing Documents and Missions text at about 6.5px. D-16 asks for 12px or larger on panels. This is inherited scaling, but the feature adds more phone text.",
+      "fix": "Raise the u floor for phones (for example 0.8) or enlarge the new HUD text so it stays at 12px or more after scaling. Move the Documents list into a collapsible chip on narrow screens."
+    },
+    {
+      "severity": "minor",
+      "location": "index.html:62-82 (scrutiny panel CSS); crit/panel-land.png, crit/panel-small.png",
+      "issue": "The scrutiny panel is about 690px tall. At 667x375 landscape and 320x568 the 'Play again' and 'Back to menu' buttons are below the fold with no scroll cue. The menu has a compact landscape rule but the panel does not.",
+      "fix": "Add @media (max-height:560px): one row of 10 smaller papers, tighter band and tally padding, and the two buttons side by side."
+    },
+    {
+      "severity": "minor",
+      "location": "client/render.js:297-304 (look) and drawVehicle; minimap in drawMinimap",
+      "issue": "TDP yellow #f2c200 competes with the ambient auto-rickshaws, which have yellow canopies and amber bodies (#fdd835, #f9a825), and with the minimap's yellow document squares (#ffd54f, 6px) against 2px TDP dots. The police khaki and the dark-gold mob hat (#8a6d00 against #6d5a2e) are also close. Mobs read mostly by shape, so colour alone does not mark the rival.",
+      "fix": "Give TDP characters a second cue (a 1px dark outline on yellow shirts, or yellow flags on all members), recolour auto canopies to a non-yellow, and make the minimap mob dots 3x3 with a dark edge."
+    },
+    {
+      "severity": "minor",
+      "location": "index.html .card at 375x667 (crit/m667.png)",
+      "issue": "The menu scrolls (854px of content in a 667px view) and the primary Play button starts at y=641, so it is half hidden below the fold on a standard small phone. The new labels, the town select and the status line added about 45px over the old layout.",
+      "fix": "Collapse the mode descriptions to one line on phones, or make the Play button sticky at the bottom of the card, so it is fully visible at 375x667."
+    },
+    {
+      "severity": "nit",
+      "location": "client/main.js:73-84 and 168-190 (showTown/start error path)",
+      "issue": "When Play is pressed again after a failed map load, the status text is identical, so nothing changes on screen and a status region does not announce again. The Play button shows no busy text while it waits up to 15s. The attract background also keeps the previous town while the picker shows the failed one.",
+      "fix": "Say 'Trying again...' (or toggle the text) before each retry, set the Play label to 'Loading map...' while starting, and clear the attract game on a failed load."
+    },
+    {
+      "severity": "nit",
+      "location": "shared/content.js:87 and MODES.nomination.win",
+      "issue": "The note 'Only 4 papers are left of the day' is unclear and uses 'papers' where GLOSSARY.md says 'nomination'. The menu result line that remains after the panel closes still reads 'NOMINATION FILED! Kadapa has a new candidate.' beside 6 of 10 torn, which softens the satire.",
+      "fix": "Use 'Only 4 of the 10 nominations survive the day.' and give nomination runs with a scrutiny a result line that mentions it (for example 'Filed, but the scrutiny tore 6 of 10')."
+    },
+    {
+      "severity": "nit",
+      "location": "client/main.js:209-212 (stone and fire shakes)",
+      "issue": "Snatch and tear bursts and shakes are gated by prefers-reduced-motion, but the new stone-hit (8) and fire (5) screen shakes are not. This is inconsistent, though D-16 only requires the scrutiny animation.",
+      "fix": "Wrap the new Render.shake calls in !reducedMotion.matches."
+    },
+    {
+      "severity": "nit",
+      "location": "client/main.js stopPlaying (focus) and index.html (no :hover styles)",
+      "issue": "After a lost run or Polling Day the menu returns with focus left on the hidden canvas rather than Play. The pause dialog also does not take focus (inherited). Buttons and mode cards have no hover state.",
+      "fix": "Call playBtn.focus() in stopPlaying when no panel opens, and add subtle hover styles on .mode and #opts button."
+    }
+  ]
+}

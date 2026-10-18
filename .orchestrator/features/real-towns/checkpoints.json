@@ -14,8 +14,14 @@
     "npm test and design_check pass"
    ],
    "blocked_by": [],
-   "gates": ["design"],
-   "decision_refs": ["D-19", "D-7", "D-18"]
+   "gates": [
+    "design"
+   ],
+   "decision_refs": [
+    "D-19",
+    "D-7",
+    "D-18"
+   ]
   },
   {
    "id": "CP-2",
@@ -28,9 +34,16 @@
     "mapped bus stations and police stations inside the square appear at their real positions; labels use OSM place names",
     "the disclaimer text and data/towns/README.md (ODbL) are in place; the menu passes the keyboard, contrast and 375 px checks"
    ],
-   "blocked_by": ["CP-1"],
-   "gates": ["design"],
-   "decision_refs": ["D-19", "D-16"]
+   "blocked_by": [
+    "CP-1"
+   ],
+   "gates": [
+    "design"
+   ],
+   "decision_refs": [
+    "D-19",
+    "D-16"
+   ]
   },
   {
    "id": "CP-3",
@@ -42,9 +55,14 @@
     "Content has PARTY = YSRCP and RIVAL = TDP with original lines; no real person's name in any line",
     "render draws yellow shirts, the YSRCP fan flag, the TDP flag and stones"
    ],
-   "blocked_by": ["CP-2"],
+   "blocked_by": [
+    "CP-2"
+   ],
    "gates": [],
-   "decision_refs": ["D-4", "D-5"]
+   "decision_refs": [
+    "D-4",
+    "D-5"
+   ]
   },
   {
    "id": "CP-4",
@@ -55,9 +73,13 @@
     "arson target, blocking/freeing and routing tests pass",
     "render draws supporter roof flags, vehicles, flames, smoke and charred remains"
    ],
-   "blocked_by": ["CP-3"],
+   "blocked_by": [
+    "CP-3"
+   ],
    "gates": [],
-   "decision_refs": ["D-13"]
+   "decision_refs": [
+    "D-13"
+   ]
   },
   {
    "id": "CP-5",
@@ -69,9 +91,13 @@
     "every Content line fills its placeholders",
     "render draws name tags and distinct looks for ally and leader"
    ],
-   "blocked_by": ["CP-4"],
+   "blocked_by": [
+    "CP-4"
+   ],
    "gates": [],
-   "decision_refs": ["D-4"]
+   "decision_refs": [
+    "D-4"
+   ]
   },
   {
    "id": "CP-6",
@@ -83,9 +109,39 @@
     "e2e shows the scrutiny panel text and no animation under reduced motion",
     "npm test, npm run e2e and design_check pass"
    ],
-   "blocked_by": ["CP-5"],
-   "gates": ["design"],
-   "decision_refs": ["D-15", "D-16"]
+   "blocked_by": [
+    "CP-5"
+   ],
+   "gates": [
+    "design"
+   ],
+   "decision_refs": [
+    "D-15",
+    "D-16"
+   ]
+  },
+  {
+   "id": "CP-7",
+   "title": "Readability and accessibility polish",
+   "type": "ui",
+   "goal": "Fix the feature-level design critique's majors and cheap minors: long toasts and speech bubbles wrap instead of overflowing or squeezing; the mode buttons expose their selected state to assistive tech and show a non-colour cue; the scrutiny panel fits short landscape screens; TDP yellow is not confused with ambient autos; reduced motion also stops stone/fire shakes; focus returns to Play after a run; scrutiny copy uses 'nominations'.",
+   "done_when": [
+    "toasts and speech bubbles wrap onto extra lines within the viewport/bubble width with no horizontal text compression (fillText maxWidth no longer squeezes)",
+    "Nomination Day / Polling Day buttons carry aria-pressed (or radio semantics) that tracks the selection, plus a non-colour selected cue",
+    "the scrutiny panel's buttons are reachable without hidden overflow at 667x375 and 320x568",
+    "ambient autos no longer use TDP-like yellow; stone and fire screen shakes respect prefers-reduced-motion; focus returns to Play after any run; panel note and menu result line read correctly after the scrutiny",
+    "npm test, npm run e2e and design_check pass"
+   ],
+   "blocked_by": [
+    "CP-6"
+   ],
+   "gates": [
+    "design"
+   ],
+   "decision_refs": [
+    "D-15",
+    "D-16"
+   ]
   }
  ]
 }

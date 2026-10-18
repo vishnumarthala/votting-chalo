@@ -1,12 +1,12 @@
 {
-  "phase": "build",
+  "phase": "review",
   "feature": "real-towns",
   "paused": false,
   "awaiting_user": null,
   "escalated": null,
   "stop_guard": {
-    "count": 2,
-    "fingerprint": "77950f13014c9619b45772d5e8667795e68345ec162103699006603aac89ce64"
+    "count": 0,
+    "fingerprint": null
   },
   "test_lock": {
     "files": {
@@ -127,8 +127,8 @@
         }
       },
       "approval_request": {
-        "hash": "c78179557c685ecfd361780d654cd729f68bab0176a9cb5012fb5f22ab710459",
-        "at": "2026-10-18T15:14:50.391794+00:00"
+        "hash": "cca91a8a405552fc48fed4dd03549e7104b299842ce59f2affd42e8741f3e036",
+        "at": "2026-10-18T18:51:09.149596+00:00"
       },
       "approved": {
         "at": "2026-10-18T15:16:42+00:00",
@@ -1382,6 +1382,22 @@
       "event": "cp_complete",
       "cp": "CP-6",
       "commit": "7a358d23b5c98c83b904b44f082b81facbdd7780"
+    },
+    {
+      "at": "2026-10-18T18:38:31+00:00",
+      "event": "phase",
+      "frm": "build",
+      "to": "review",
+      "reason": ""
+    },
+    {
+      "at": "2026-10-18T18:51:08+00:00",
+      "event": "resume",
+      "note": ""
+    },
+    {
+      "at": "2026-10-18T18:51:09+00:00",
+      "event": "plan_approval_requested"
     }
   ]
 }

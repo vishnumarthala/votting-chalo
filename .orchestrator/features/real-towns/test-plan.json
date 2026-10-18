@@ -291,6 +291,49 @@
    "criterion": [
     "AC-12"
    ]
+  },
+  {
+   "id": "T-20",
+   "cp": "CP-7",
+   "seam": "index.html in headless Chromium (playwright-core)",
+   "category": "a11y",
+   "level": "e2e",
+   "title": "mode buttons expose their selected state",
+   "given": "the menu at 1280x800 with Nomination Day selected",
+   "when": "the user presses Tab to Polling Day and Space",
+   "then": "Polling Day has aria-pressed='true' (or aria-checked) and Nomination Day 'false', and the selected button shows a cue other than colour (e.g. a visible check mark or 'Selected' text)",
+   "criterion": [
+    "AC-13"
+   ]
+  },
+  {
+   "id": "T-21",
+   "cp": "CP-7",
+   "seam": "Content (TOWNS, PARTY, RIVAL, LINES, fill)",
+   "category": "edge",
+   "level": "unit",
+   "title": "long messages wrap instead of squeezing",
+   "given": "the shared text-wrap helper used by toasts and bubbles, a measure function of 7 px per character, max width 230 px, and the longest filled LINES string for each town",
+   "when": "the helper wraps each string",
+   "then": "every line measures <= 230 px, no word is split unless longer than 230 px, and joining the lines with spaces gives back the original string",
+   "criterion": [
+    "AC-12"
+   ]
+  },
+  {
+   "id": "T-22",
+   "cp": "CP-7",
+   "seam": "index.html in headless Chromium (playwright-core)",
+   "category": "responsive",
+   "level": "e2e",
+   "title": "scrutiny panel buttons reachable on short screens",
+   "given": "a won nomination result in Kadapa handed to the scrutiny panel at 667x375 and at 320x568",
+   "when": "the panel opens and the user presses Tab to the last button",
+   "then": "both 'Play again' and 'Back to menu' are fully inside the viewport when focused (the panel scrolls if needed) and nothing is clipped by overflow:hidden",
+   "criterion": [
+    "AC-12",
+    "AC-13"
+   ]
   }
  ]
 }
