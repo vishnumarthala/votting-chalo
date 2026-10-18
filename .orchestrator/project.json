@@ -16,7 +16,7 @@
     "contract_check": "",
     "infra_validate": "",
     "infra_plan": "",
-    "design_check": "",
+    "design_check": "npx --yes impeccable@4 detect --quiet client index.html",
     "docs_check": ""
   },
   "test_globs": [

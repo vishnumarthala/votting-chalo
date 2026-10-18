@@ -1,12 +1,14 @@
 {
   "models": {
-    "main": null,
-    "subagent": null,
-    "reviewer": null,
-    "alt_reviewer": null,
+    "main": "opus",
+    "subagent": "sonnet",
+    "reviewer": "sonnet",
+    "alt_reviewer": "opus",
     "roles": {}
   },
-  "domains": [],
+  "domains": [
+    "product-web"
+  ],
   "mode": "plan_and_end",
   "default_tier": "standard",
   "thresholds": {
