@@ -74,6 +74,29 @@
     proposers: ['Rule 33 says it is fine, sir!', 'We are the proposers, check again!', 'Sir, everything is attested!'],
   };
 
+  // Who is who: shirt colours in the game
+  const LEGEND = [
+    { color: '#2156d1', label: 'Blue: YSRCP (you)' },
+    { color: '#fbc02d', label: 'Yellow: ruling-front goons' },
+    { color: '#f5f5f5', label: 'White: the public' },
+    { color: '#c8ab72', label: 'Khaki: police' },
+  ];
+
+  // "How democracy is being spoiled": one card the first time each tactic shows up in play
+  const TACTICS = [
+    { id: 'sec144', title: 'Section 144', text: 'Ban gatherings, so the candidate can\u2019t bring supporters.' },
+    { id: 'barricade', title: 'Barricades', text: 'Block every road to the office.' },
+    { id: 'stones', title: 'Stones on the road', text: 'Ruling-front goons pelt the candidate and the crowd.' },
+    { id: 'women', title: 'Attacks on women and children', text: 'Scare families so they stay at home and don\u2019t vote.' },
+    { id: 'police', title: 'Police look away', text: '"No complaint received." The attackers walk free.' },
+    { id: 'arrest', title: 'Arrest the candidate', text: 'Detain the candidate on the way, "for safety".' },
+    { id: 'line', title: 'Police line at the gate', text: 'Stop the candidate at the office gate.' },
+    { id: 'gate', title: 'Shut for you, open for friends', text: 'The gate is shut for the candidate, but opens for ruling-front guests.' },
+    { id: 'papers', title: 'Papers check', text: '"Your signature looks suspicious." Every minute counts.' },
+    { id: 'stall', title: '"Server down"', text: 'Officials stall until time runs out.' },
+    { id: 'clock', title: 'The clock trick', text: 'The office clock runs fast, only today.' },
+  ];
+
   const GATE = {
     line: '🚔 Police line at the gate! Push through together.',
     shut: '🔒 Gate shut for "lunch"! Chant at the gate with 8+ supporters, or sneak round to the side wicket they forgot to lock.',
@@ -100,7 +123,7 @@
       jailed: ['CANDIDATE ARRESTED FOR TRYING TO CONTEST', 'JAIL, NOT BALLOT: CANDIDATE HELD "FOR SAFETY"'],
       timeVote: ['POLLS CLOSE BEFORE VOTER ARRIVES', '"YOUR VOTE HAS ALREADY BEEN CAST," SAYS GANG AT BOOTH'],
       jailedVote: ['VOTER ARRESTED ON THE WAY TO VOTE', 'SECTION 144 STOPS VOTER. GANG AT BOOTH UNAFFECTED.'],
-      low: ['DEMOCRACY ON VENTILATOR. OFFICIALS: "ALL IS WELL"', 'DEMOCRACY RUSHED TO ICU. POLICE: "NO COMPLAINT"'],
+      low: ['DEMOCRACY KILLED IN BROAD DAYLIGHT. OFFICIALS: "ALL IS WELL"', 'DEMOCRACY KILLED IN {TOWN}. POLICE: "NO COMPLAINT"', 'DEMOCRACY DIES ON THE ROAD TO THE {GOAL}'],
       gate: ['GATE SHUT ON CANDIDATE, OPEN FOR "GUESTS"', 'OFFICE CLOCK RUNS 30 MINUTES FAST, ONLY TODAY', 'POLICE SALUTE "GUESTS", STOP CANDIDATE AT GATE'],
     },
     sub: {
@@ -139,5 +162,5 @@
     });
   }
 
-  return { PARTY, DEFAULT_PLACE, MODES, LINES, MISSIONS, TIERS, DEMO, NEWS, GATE, fill };
+  return { PARTY, DEFAULT_PLACE, MODES, LINES, MISSIONS, TIERS, DEMO, NEWS, GATE, LEGEND, TACTICS, fill };
 });

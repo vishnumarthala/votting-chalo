@@ -301,7 +301,7 @@
         if (e.kind !== 'cop' || e.mode === 'chase' || e.mode === 'stun') return;
         e.ignoreT = 2.5;
         const k = norm(e.x - at.x, e.y - at.y); e.fx = k.x || 1; e.fy = k.y;
-        if (G.ignoreCd <= 0) { say(e, rng.pick(Ct.LINES.copIgnore), null, '#fff59d'); G.ignoreCd = 5; }
+        if (G.ignoreCd <= 0) { say(e, rng.pick(Ct.LINES.copIgnore), null, '#fff59d'); G.ignoreCd = 5; emit({ t: 'ignore', x: e.x, y: e.y }); }
       });
     }
     function hurtCiv(c, from) {
@@ -443,7 +443,7 @@
       }
       const toTarget = dist(P.x, P.y, target.x, target.y);
       G.closest = Math.min(G.closest, toTarget);
-      if (!G.ringIn && toTarget < 15.6 * TILE) { G.ringIn = true; toast(Ct.DEMO.ring, '#ffcc80'); demo(-5); }
+      if (!G.ringIn && toTarget < 15.6 * TILE) { G.ringIn = true; toast(Ct.DEMO.ring, '#ffcc80'); demo(-5); emit({ t: 'ring' }); }
 
       // barricade pushing: walking into a barricade wears it down; the crowd pushes with you
       P.pushing = 0;

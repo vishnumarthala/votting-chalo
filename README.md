@@ -39,6 +39,12 @@ npm test        # node:test suites
 
 ## How it plays
 
+- **Who is who.** Blue shirts are YSRCP (you, and anyone who joins your crowd switches to blue), yellow
+  shirts are the ruling front's goons and their "guests", white is the public, khaki is the police.
+- **How democracy is being spoiled.** The first time each of 11 tactics shows up (Section 144, barricades,
+  stones, attacks on women and children, police looking away, arrests, the police line, the gate shut for you
+  but open for friends, the papers check, "server down", the clock trick), a short card explains it. If
+  the meter falls low enough, the run ends with democracy killed.
 - **Where to go.** The NEXT banner always names your next stop and its distance, glowing arrows on the road
   show the walking route, and a pin marks the spot. The corner minimap follows you; tap it for the whole
   town with every document shop, the office and the police stations.

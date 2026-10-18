@@ -139,7 +139,7 @@
     stopPlaying();
     if (!res.won) {
       SFX.flatline();
-      FrontPage.show({ result: res, name: nameEl.value.trim() || 'Our candidate', onPlayAgain: start });
+      FrontPage.show({ result: Object.assign({ tactics: Hud.tacticsSeen }, res), name: nameEl.value.trim() || 'Our candidate', onPlayAgain: start });
     }
   }
   function setPaused(on) {
@@ -178,10 +178,15 @@
   });
 
   // ------------------------------------------------------------ events
+  // first appearance of each tactic -> "How democracy is being spoiled" card
+  const TACTIC_OF = { ring: 'sec144', throw: 'stones', ignore: 'police', detained: 'arrest', line: 'line', gateshut: 'gate', vipgate: 'gate', frisk: 'papers', stall: 'stall', clockjump: 'clock' };
   function handle(evs) {
     const P = game.state.player;
+    if (P.pushing) Hud.tactic('barricade');
     const near = (ev) => Math.abs(ev.x - P.x) < 700 && Math.abs(ev.y - P.y) < 700;
     for (const ev of evs) {
+      if (TACTIC_OF[ev.t] && (ev.t !== 'throw' || near(ev))) Hud.tactic(TACTIC_OF[ev.t]);
+      if (ev.t === 'civhit' && ev.type !== 'man') Hud.tactic('women');
       switch (ev.t) {
         case 'say': Render.say(ev); break;
         case 'toast': Hud.toast(ev.text, ev.color); break;
@@ -206,7 +211,7 @@
         case 'filing': SFX.stamp(); break;
         case 'backup': SFX.backup(); break;
         case 'won': SFX.won(); for (let i = 0; i < 6; i++) Render.burst(P.x + (i - 3) * 30, P.y - 30, 20, ['#0f1b61', '#ffd700', '#fff', '#00a651', '#1a2d8a'], 320, 6); Hud.tier(game.state.gameMode === 'vote' ? 'VOTE CAST! ☑️' : 'NOMINATION FILED! ✅'); break;
-        case 'over': SFX.over(); break;
+        case 'over': SFX.over(); Hud.tier(game.state.demo <= 25 ? 'DEMOCRACY KILLED' : 'DOORS CLOSED'); break;
         case 'throw': if (near(ev)) SFX.whoosh(); break;
         case 'land': Render.addDebris(ev.x, ev.y, ev.kind); if (near(ev)) { (ev.kind === 'stick' ? SFX.crack : ev.kind === 'chappal' ? SFX.slap : SFX.thud)(); Render.burst(ev.x, ev.y, 6, ['#bcaaa4', '#d7ccc8'], 90, 3); } break;
         case 'hit': Render.shake(9); Render.hurtFlash(0.7); Render.popup(ev.x, ev.y - 34, '📄 −12%  💫', '#ff8a80'); break;

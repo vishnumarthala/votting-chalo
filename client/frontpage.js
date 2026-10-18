@@ -97,9 +97,9 @@
     const seed = (r.score | 0) + (r.thrown | 0) * 7 + (r.closest | 0);
     const fill = (s) => C.fill(s, Object.assign({}, r.place || {}, { name: o.name, stop: r.closest, goal: r.goal }));
     const key = r.demo < 20 ? 'low' : r.gateStops > 0 && r.reason !== 'jailed' ? 'gate' : (r.reason === 'jailed' ? 'jailed' : 'time') + (vote ? 'Vote' : '');
-    headline = pick(NEWS.headlines[key] || NEWS.headlines.time, seed);
-    const sub = fill(NEWS.sub[r.reason === 'jailed' ? 'jailed' : 'time']);
     const town = (r.place && r.place.town) || C.DEFAULT_PLACE.town;
+    headline = pick(NEWS.headlines[key] || NEWS.headlines.time, seed).replace('{TOWN}', town.toUpperCase()).replace('{GOAL}', String(r.goal).toUpperCase());
+    const sub = fill(NEWS.sub[r.reason === 'jailed' ? 'jailed' : 'time']);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
@@ -130,7 +130,7 @@
     ctx.fillStyle = 'rgba(243,236,220,.75)'; ctx.fillRect(-85, -25, 170, 50);
     txt('SATIRE', 0, 14, `900 38px ${SANS}`, RED, 'center');
     ctx.restore();
-    txt('Democracy, ' + (r.demo <= 10 ? 'on a ventilator' : r.demo <= 25 ? 'in the ICU' : 'in hospital') + ', ' + town + '.', 40 + cw / 2, top + ch + 24, `italic 18px ${SERIF}`, '#3e2f22', 'center');
+    txt(r.demo <= 10 ? 'Democracy, killed in ' + town + '. Cause of death: "all as per rules".' : 'Democracy, ' + (r.demo <= 25 ? 'in the ICU' : 'in hospital') + ', ' + town + '.', 40 + cw / 2, top + ch + 24, `italic 18px ${SERIF}`, '#3e2f22', 'center');
     const sx = 40 + cw + 30, sw = W - 40 - sx;
     txt('BY THE NUMBERS', sx, top + 24, `900 25px ${SANS}`);
     rule(top + 36, sx, W - 40, 2);
@@ -164,7 +164,8 @@
     ly += 4;
     NEWS.explainer.steps.forEach((s, i) => { txt((i + 1) + '.', lx, ly, `900 20px ${SERIF}`, INK); txt(s, lx + 30, ly, `20px ${SERIF}`, INK); ly += 27; });
     ctx.font = `italic 17px ${SERIF}`;
-    for (const l of wrap(NEWS.explainer.footer, colW)) { if (ly + 22 > bottom) break; txt(l, lx, ly + 4, `italic 17px ${SERIF}`, '#3e2f22'); ly += 21; }
+    const foot = (r.tactics ? 'You saw ' + r.tactics + ' of ' + C.TACTICS.length + ' tactics on the way. ' : '') + NEWS.explainer.footer;
+    for (const l of wrap(foot, colW)) { if (ly + 22 > bottom) break; txt(l, lx, ly + 4, `italic 17px ${SERIF}`, '#3e2f22'); ly += 21; }
     ctx.fillStyle = INK; ctx.fillRect(rx - 20, by, 1.5, bottom - by);
     let qy = by + 20;
     ctx.font = `900 25px ${SERIF}`;

@@ -20,6 +20,8 @@
   let freeMap = null, fields = new Map(), objSite = null, routeCache = {};
   const TAU = Math.PI * 2;
   const NAVY = '#0f1b61', NAVY2 = '#1a2d8a', GREEN = '#00a651', GOLD = '#ffd700'; // YSRCP Germany brand colours
+  // shirt colours: blue = YSRCP, yellow = ruling-front goons, white = the public
+  const BLUE = '#2156d1', BLUE_S = ['#2156d1', '#1a49b8'], YELLOW = '#fbc02d', YELLOW_S = ['#fbc02d', '#fdd835'], WHITES = ['#fafafa', '#f1f1ee', '#eceff1'];
 
   function resize(q) {
     if (q) quality = q;
@@ -198,8 +200,8 @@
     if (o.towel) { ctx.fillStyle = o.towel; ctx.fillRect(-3.5, -r * 1.02, 6, 4.5); ctx.strokeRect(-3.5, -r * 1.02, 6, 4.5); }
     if (o.belt) { ctx.fillStyle = o.belt; ctx.fillRect(-1, -r * 0.95, 2.2, r * 1.9); }
     if (o.scarf) { // party kanduva around the neck (YSRCP: green with a navy edge)
-      if (o.scarf === GREEN) { ctx.strokeStyle = NAVY; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0.5, 0, 5.4, -Math.PI * 0.75, Math.PI * 0.75); ctx.stroke(); }
-      ctx.strokeStyle = o.scarf; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.arc(0.5, 0, 5.4, -Math.PI * 0.75, Math.PI * 0.75); ctx.stroke();
+      if (o.garland) { ctx.strokeStyle = NAVY; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0.5, 0, 5.4, -Math.PI * 0.75, Math.PI * 0.75); ctx.stroke(); }
+      ctx.strokeStyle = o.scarf; ctx.lineWidth = o.garland ? 2.4 : 1.5; ctx.beginPath(); ctx.arc(0.5, 0, 5.4, -Math.PI * 0.6, Math.PI * 0.6); ctx.stroke();
       ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
     }
     if (o.garland) for (let i = 0; i < 9; i++) { const a = -Math.PI * 0.8 + (i * Math.PI * 1.6) / 8; blob(0.5 + Math.cos(a) * 6.3, Math.sin(a) * 6.3, 1.5, 1.5, i % 2 ? '#ffeb3b' : '#ff9800'); }
@@ -251,13 +253,14 @@
   function look(e) {
     const v = e.look || 0, id = e.id || 0;
     switch (e.kind) {
-      case 'player': return { shirt: '#fafafa', legs: '#eceff1', skin: '#9c6644', hair: '#1b1410', scarf: GREEN, garland: true, prop: 'papers' };
+      case 'player': return { shirt: NAVY2, legs: '#eceff1', skin: '#9c6644', hair: '#1b1410', scarf: GREEN, garland: true, prop: 'papers' };
       case 'civ': {
-        const type = e.type || (id % 3 === 1 ? 'woman' : 'man');
+        // white = the public; blue = YSRCP (they switch to blue when they join your crowd)
+        const type = e.type || (id % 3 === 1 ? 'woman' : 'man'), ysr = e.mode === 'follow';
         let o;
-        if (type === 'woman') o = { shirt: SAREES[(v + id) % 8], saree: SAREES[(v + id + 3) % 8], skin: SKIN[(v + id) % 5], hair: '#1b1410', bun: true };
-        else if (type === 'child') o = { shirt: '#fafafa', legs: id % 2 ? '#1a237e' : '#5d4037', kidLegs: SKIN[(v + id) % 5], skin: SKIN[(v + id) % 5], hair: '#1b1410', satchel: id % 3 ? '#8d6e63' : '#c62828', scale: 0.74 };
-        else o = { shirt: SHIRTS[(v + id) % 8], legs: LUNGI[id % 5], skin: SKIN[(v + id) % 5], hair: id % 7 === 0 ? '#9e9e9e' : '#1b1410', towel: id % 5 === 0 ? '#fafafa' : null };
+        if (type === 'woman') o = ysr ? { shirt: BLUE, saree: BLUE_S[id % 2], skin: SKIN[(v + id) % 5], hair: '#1b1410', bun: true } : { shirt: WHITES[id % 3], saree: '#f3ede0', skin: SKIN[(v + id) % 5], hair: '#1b1410', bun: true };
+        else if (type === 'child') o = { shirt: ysr ? BLUE : '#fafafa', legs: id % 2 ? '#1a237e' : '#5d4037', kidLegs: SKIN[(v + id) % 5], skin: SKIN[(v + id) % 5], hair: '#1b1410', satchel: id % 3 ? '#8d6e63' : '#c62828', scale: 0.74 };
+        else o = { shirt: ysr ? BLUE : WHITES[id % 3], legs: LUNGI[id % 5], skin: SKIN[(v + id) % 5], hair: id % 7 === 0 ? '#9e9e9e' : '#1b1410', towel: !ysr && id % 5 === 0 ? '#eeeeee' : null };
         if (e.mode === 'follow') { o.scarf = GREEN; if (type === 'man' && id % 3 === 0) o.prop = 'flag'; }
         if (e.mode === 'hurt') o.hurt = true;
         if (e.bandage) o.bandage = true;
@@ -267,8 +270,8 @@
         ? { shirt: '#b0915a', legs: '#9c7f4c', skin: '#8d5a3b', cap: '#1c2b4a', brim: '#0d1526', badge: '#ffd54f', belt: '#4e342e', prop: 'lathi' }
         : { shirt: '#c8ab72', legs: '#b0915a', skin: '#8d5a3b', cap: '#a88a52', brim: '#4e3b1f', badge: '#ffd54f', belt: '#4e342e', prop: 'lathi' }, { salute: e.salute > 0 });
       case 'official': return { shirt: '#eceff1', legs: '#5d4037', skin: '#a86b45', hair: '#616161', towel: null };
-      case 'goon': if (e.role === 'vip') return { shirt: '#fafafa', legs: '#fafafa', skin: '#8d5a3b', hair: '#424242', scarf: '#c62828', garland: true };
-        return { shirt: ['#263238', '#4a148c', '#3e2723', '#212121'][id % 4], legs: '#212121', skin: '#7b4a2e', hair: '#1b1410', bandana: '#c62828', chain: true, windup: e.throwT > 0 };
+      case 'goon': if (e.role === 'vip') return { shirt: YELLOW, legs: '#fafafa', skin: '#8d5a3b', hair: '#424242', scarf: '#f57f17', garland: true };
+        return { shirt: YELLOW_S[id % 2], legs: '#212121', skin: '#7b4a2e', hair: '#1b1410', bandana: '#f57f17', chain: true, windup: e.throwT > 0 };
       default: return { shirt: '#999', legs: '#555', skin: '#8d5a3b', hair: '#1b1410' };
     }
   }
@@ -803,7 +806,7 @@
     if (!big) for (const e of G.ents) {
       if (e.kind === 'civ' && e.mode !== 'follow') continue;
       if (clipR && Math.hypot(e.x - P.x, e.y - P.y) > clipR) continue;
-      ctx.fillStyle = e.kind === 'cop' ? '#e53935' : e.kind === 'goon' ? '#212121' : '#69f0ae';
+      ctx.fillStyle = e.kind === 'cop' ? '#e53935' : e.kind === 'goon' ? YELLOW : '#64b5f6';
       ctx.beginPath(); ctx.arc(X(e.x), Y(e.y), e.kind === 'civ' ? 1.4 : 2.2, 0, TAU); ctx.fill();
     }
     // objective ring

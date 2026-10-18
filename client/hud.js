@@ -4,6 +4,7 @@
 (function () {
   const toasts = [];
   let tier = null, time = 0, demoPulse = 0;
+  const tactics = { seen: new Set(), queue: [], cur: null };
   const layout = { mini: null, pause: null };
 
   function rr(ctx, x, y, w, h, r) {
@@ -286,6 +287,25 @@
       }
     }
 
+    // ---- "How democracy is being spoiled": one card per tactic, the first time it shows up
+    if (!tactics.cur && tactics.queue.length) tactics.cur = { t: tactics.queue.shift(), life: 5 };
+    if (tactics.cur && P.submitT <= 0) {
+      const c = tactics.cur, T = c.t;
+      c.life -= dt;
+      if (c.life <= 0) tactics.cur = null;
+      else {
+        const all = window.Content.TACTICS, n = all.indexOf(T) + 1;
+        const w = Math.min(460, VW - 24), h = 62, x = (VW - w) / 2, y = BOT - (touch ? 196 : 70) - h;
+        ctx.globalAlpha = Math.min(1, c.life / 0.4, (5 - c.life) / 0.25);
+        ctx.fillStyle = 'rgba(20,14,8,.9)'; rr(ctx, x, y, w, h, 12); ctx.fill();
+        ctx.fillStyle = '#e53935'; rr(ctx, x, y, 6, h, 3); ctx.fill();
+        text(ctx, 'HOW DEMOCRACY IS SPOILED · ' + n + '/' + all.length, x + 18, y + 14, 10, '#ff8a80', 'left', 900, w - 30);
+        text(ctx, T.title, x + 18, y + 33, 15, '#fff', 'left', 900, w - 30);
+        text(ctx, T.text, x + 18, y + 51, 11.5, '#ffe0b2', 'left', 700, w - 30);
+        ctx.globalAlpha = 1;
+      }
+    }
+
     // ---- touch joystick
     const st = window.Input.stick;
     if (st) {
@@ -312,7 +332,7 @@
     const tips = touch
       ? ['Drag on the left half to walk · drag far to run', 'Walk into people to grow your crowd', '3+ supporters close = police can\u2019t grab you']
       : ['WASD / arrows or hold the mouse to walk · Shift / right-click to run', 'Walk into people to grow your crowd · Space = slogan', '3+ supporters close = police can\u2019t grab you'];
-    const h = 50 + intro.length * 19 + 10 + steps.length * 26 + 40 + tips.length * 17 + 36;
+    const h = 50 + intro.length * 19 + 10 + steps.length * 26 + 40 + tips.length * 17 + 30 + 36;
     const x = (VW - w) / 2;
     let y = Math.max(8, (VH - h) / 2);
     ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, 0, VW, VH);
@@ -336,6 +356,15 @@
     text(ctx, '➜ Follow the glowing arrows on the road and the NEXT banner', x + w / 2, cy + 10, 12.5, '#8a4b00', 'center', 800, inner - 16);
     cy += 40;
     tips.forEach((l) => { text(ctx, l, x + w / 2, cy, 12, '#2e4a7a', 'center', 700, inner); cy += 17; });
+    // who is who
+    cy += 8;
+    const leg = window.Content.LEGEND.slice(0, 3), cw = inner / leg.length;
+    leg.forEach((L, i) => {
+      const lx = x + pad + cw * i + 10;
+      ctx.fillStyle = L.color; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(lx, cy, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      text(ctx, L.label, lx + 12, cy + 1, 11, '#1d1a16', 'left', 800, cw - 26);
+    });
+    cy += 22;
     text(ctx, touch ? 'Move to start' : 'Press a move key or Space to start', x + w / 2, y + h - 16, 12, '#9a8670', 'center', 700);
   }
 
@@ -367,6 +396,13 @@
     toast(s, color, life) { toasts.push({ text: s, color: color || '#fff', life: life || 2.8 }); if (toasts.length > 8) toasts.shift(); },
     tier(name) { tier = { text: name, life: 1.6 }; },
     demoHit() { demoPulse = 1; },
-    reset() { toasts.length = 0; tier = null; },
+    reset() { toasts.length = 0; tier = null; tactics.seen.clear(); tactics.queue.length = 0; tactics.cur = null; },
+    tactic(id) {
+      if (tactics.seen.has(id)) return;
+      const T = window.Content.TACTICS.find((t) => t.id === id);
+      if (!T) return;
+      tactics.seen.add(id); tactics.queue.push(T);
+    },
+    get tacticsSeen() { return tactics.seen.size; },
   };
 })();

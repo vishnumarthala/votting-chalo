@@ -52,6 +52,8 @@ kbd{background:#fff;border:1px solid #cdbb98;border-bottom-width:2px;border-radi
 .brand{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12.5px;font-weight:800;color:var(--deep)}
 .brand i{display:inline-block;width:26px;height:16px;border-radius:3px;background:linear-gradient(180deg,var(--deep) 0 33%,#fff 33% 66%,var(--blue) 66%);box-shadow:0 0 0 1px rgba(0,0,0,.15)}
 .brand a{color:var(--blue)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;font-weight:700;color:#3e2f22;margin:0 0 10px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:5px;vertical-align:-2px;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
 body.touch .help{display:none}
 .ov{position:fixed;inset:0;z-index:8;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(5,12,30,.55)}
 .ov.on{display:flex}
@@ -108,6 +110,7 @@ body.touch.playing.mapopen #touch{display:none}
    <button class="mode" type="button" data-m="nomination"><span class="ic">🏛️</span><b>Nomination Day</b><p>Collect 4 documents from offices around town, then file at the RO office before 3 PM.</p></button>
    <button class="mode" type="button" data-m="vote"><span class="ic">🗳️</span><b>Polling Day</b><p>Get your voter slip, then get past the goons "capturing" the booth and cast your vote.</p></button>
   </div>
+  <div class="legend" aria-label="Who is who"><span><i style="background:#2156d1"></i>Blue: YSRCP (you)</span><span><i style="background:#fbc02d"></i>Yellow: ruling-front goons</span><span><i style="background:#f5f5f5"></i>White: the public</span><span><i style="background:#c8ab72"></i>Khaki: police</span></div>
   <button id="play" type="button">PLAY ▶</button>
   <div id="result"></div>
   <div id="opts"><button id="optMute" type="button"></button><button id="optQ" type="button"></button></div>
