@@ -1,0 +1,18 @@
+# Design tree: real-towns
+
+- [x] Problem: real AP towns, YSRCP vs TDP mob with police backing, arson, scrutiny ending (D-3)
+  - [x] Scope in/out, content line (D-4)
+    - [~] Build order while overpass-api.de is blocked (D-17, pending confirmation)
+  - [x] Constraints: content line, no build step, deterministic sim, design_check clean (D-5)
+- [~] Users (D-9, pending confirmation)
+  - [~] Personas: mobile-first casual player (D-10, pending confirmation)
+  - [~] Journeys: town + mode -> play -> scrutiny panel (D-11, pending confirmation)
+- [x] Data: Overpass extract baked into data/towns, ODbL (D-6)
+  - [x] Integrations: none at runtime, India Post removed (D-7)
+- [~] Stack unchanged (D-12, pending confirmation)
+  - [~] e2e/a11y/responsive via playwright-core devDependency (D-18, pending confirmation)
+- [~] Nonfunctional: perf, JSON size, offline, determinism (D-13, pending confirmation)
+- [~] Design direction: keep incumbent system, add TDP yellow, flames, torn-paper panel (D-15, pending confirmation)
+  - [~] Accessibility: WCAG 2.2 AA for menu and panels, reduced motion (D-16, pending confirmation)
+- [x] Acceptance (D-8)
+  - [~] Success metric (D-14, pending confirmation)

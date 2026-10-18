@@ -1,6 +1,6 @@
 {
-  "phase": "done",
-  "feature": "design-baseline",
+  "phase": "grill",
+  "feature": "real-towns",
   "paused": false,
   "awaiting_user": null,
   "escalated": null,
@@ -96,6 +96,21 @@
         "at": "2026-10-18T14:45:47.916316+00:00",
         "quote": "Accept, merge into t1 (Recommended) | Only the 3 towns | Allow overpass-api.de (Recommended)"
       }
+    },
+    "real-towns": {
+      "title": "Real AP towns, YSRCP vs TDP mob, arson and the scrutiny ending",
+      "tier": "standard",
+      "created_at": "2026-10-18T14:57:41+00:00",
+      "grill": {
+        "na": {},
+        "confirmed": null
+      },
+      "approval_request": null,
+      "approved": null,
+      "waiver": null,
+      "current_cp": null,
+      "cps": {},
+      "accepted_at": null
     }
   },
   "history": [
@@ -194,6 +209,12 @@
       "at": "2026-10-18T14:57:03+00:00",
       "event": "feature_accepted",
       "slug": "design-baseline"
+    },
+    {
+      "at": "2026-10-18T14:57:41+00:00",
+      "event": "feature",
+      "slug": "real-towns",
+      "tier": "standard"
     }
   ]
 }
