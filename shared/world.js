@@ -51,6 +51,11 @@
   const LANDMARK_BUILDING = { place_of_worship: ['temple', '#ffe082'], hospital: ['hospital', '#ffffff'], school: ['school', '#ffe0b2'], government: ['govt', '#f5e6c8'], townhall: ['govt', '#f5e6c8'] };
   const COMPOUND_SIZES = [[11, 9], [9, 9], [9, 7], [7, 7]];
   const BUS_STAND_SIZES = [[6, 6], [5, 5], [4, 4]];
+  const REAL_REACH = 3; // tiles: a mapped police or bus station is built this close to its real point where the map allows
+  const NEAR_REACH = 8; // tiles: how far from the real point a station may be built when it does not fit closer
+  const SAME_STATION = 6; // tiles: two mapped points of one kind this close are one station mapped twice
+  const YARD = 6; // a police station's yard is YARD x YARD tiles: a 3x3 building at the top, its site in the bottom row
+  const YARD_SITE = { x: 3.5, y: 5 }; // the site's offset from the yard's top-left corner, in tiles
   const DOC_ANCHORS = [[0.2, 0.25], [0.8, 0.8], [0.15, 0.6], [0.55, 0.3], [0.45, 0.75]]; // where the five shops want to be, as shares of the map
   const NEIGH4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const isStreet = (k) => k === K.ROAD || k === K.WALK || k === K.BRIDGE;
@@ -260,15 +265,60 @@
     else if (gate.side === 'w') zx = (bx - 1) * TILE; else zx = (bx + bw + 1) * TILE;
     return { kind, name, x: zx, y: zy, r: 52, gate: { x: (gx + 0.5) * TILE, y: (gy + 0.5) * TILE }, rect: { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 }, bld };
   }
+  const yardSite = (r) => ({ x: r.x0 + YARD_SITE.x, y: r.y0 + YARD_SITE.y });
+  function addStation(g, x0, y0, site) {
+    g.fill(x0, y0, 3, 3, K.BUILD);
+    g.buildings.push({ x: x0 * TILE, y: y0 * TILE, w: 3 * TILE, h: 3 * TILE, color: '#c5d3e8', kind: 'station', name: 'Police Station' });
+    const s = { kind: 'station', name: 'Police Station', x: site.x * TILE, y: site.y * TILE, r: 40 };
+    g.stations.push(s); g.sites.push(s);
+  }
   function buildStation(g, r) {
     g.release(r);
-    g.fill(r.x0, r.y0, r.x1 - r.x0 + 1, r.y1 - r.y0 + 1, K.PLAZA);
-    const bw = Math.max(3, r.x1 - r.x0 - 3), bh = Math.max(3, Math.floor((r.y1 - r.y0) / 2));
-    const bx = r.x0 + 2, by = r.y0 + 1;
-    g.fill(bx, by, bw, bh, K.BUILD);
-    g.buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#c5d3e8', kind: 'station', name: 'Police Station' });
-    const s = { kind: 'station', name: 'Police Station', x: (bx + bw / 2) * TILE, y: (by + bh + 1) * TILE, r: 40 };
-    g.stations.push(s); g.sites.push(s);
+    g.fill(r.x0, r.y0, YARD, YARD, K.PLAZA);
+    addStation(g, r.x0 + 2, r.y0 + 1, yardSite(r));
+  }
+  // A 3x3 building beside a street near a real point, for where no yard fits amid wide roads: the best spot (nearest the
+  // point, cheapest to clear) as {x0, y0, site}, or null. `site` is the street tile the building faces. A police station
+  // is kept within REAL_REACH of the point by that street tile; a bus stand, which has no site, by its nearest edge (a
+  // station mapped on a junction has pavement all round it, so the building cannot reach the point itself).
+  function findRoadsideSpot(g, at, byEdge) {
+    let best = null, bestCost = Infinity;
+    const reach = REAL_REACH + (byEdge ? 2 : 0);
+    for (let sy = Math.floor(at.y - reach); sy <= Math.ceil(at.y + reach); sy++) {
+      for (let sx = Math.floor(at.x - reach); sx <= Math.ceil(at.x + reach); sx++) {
+        if (!inb(sx, sy) || !g.main[idx(sx, sy)] || !isStreet(g.t[idx(sx, sy)])) continue;
+        for (let k = -2; k <= 0; k++) {
+          for (const [x0, y0] of [[sx + 1, sy + k], [sx - 3, sy + k], [sx + k, sy + 1], [sx + k, sy - 3]]) { // the building on each side of the street tile
+            const away = byEdge ? hypot(Math.max(x0 - at.x, 0, at.x - (x0 + 3)), Math.max(y0 - at.y, 0, at.y - (y0 + 3))) : hypot(sx + 0.5 - at.x, sy + 0.5 - at.y);
+            let cost = away, ok = away <= REAL_REACH && x0 >= 2 && y0 >= 2 && x0 + 3 <= N - 2 && y0 + 3 <= N - 2;
+            for (let y = y0; y < y0 + 3 && ok; y++) for (let x = x0; x < x0 + 3; x++) {
+              if (!clearable(g, idx(x, y))) { ok = false; break; }
+              cost += clearingCost(g, idx(x, y));
+            }
+            if (ok && cost < bestCost) { bestCost = cost; best = { x0, y0, site: { x: sx + 0.5, y: sy + 0.5 } }; }
+          }
+        }
+      }
+    }
+    return best;
+  }
+  function buildRoadsideStation(g, at) {
+    const spot = findRoadsideSpot(g, at, false);
+    if (!spot) return false;
+    g.release({ x0: spot.x0, y0: spot.y0, x1: spot.x0 + 2, y1: spot.y0 + 2 });
+    addStation(g, spot.x0, spot.y0, spot.site);
+    return true;
+  }
+  function addBusStandBuilding(g, x0, y0, w, h, name) {
+    g.fill(x0, y0, w, h, K.BUILD);
+    g.buildings.push({ x: x0 * TILE, y: y0 * TILE, w: w * TILE, h: h * TILE, color: '#ffccbc', kind: 'busstand', name });
+  }
+  function buildRoadsideBusStand(g, at, name) {
+    const spot = findRoadsideSpot(g, at, true);
+    if (!spot) return false;
+    g.release({ x0: spot.x0, y0: spot.y0, x1: spot.x0 + 2, y1: spot.y0 + 2 });
+    addBusStandBuilding(g, spot.x0, spot.y0, 3, 3, name);
+    return true;
   }
   function buildBusStand(g, r, name) {
     g.release(r);
@@ -276,8 +326,7 @@
     g.fill(r.x0, r.y0, w, h, K.PLAZA);
     const bw = Math.min(5, w - 2), bh = Math.min(4, h - 2);
     const bx = Math.floor(r.x0 + (w - bw) / 2), by = Math.floor(r.y0 + (h - bh) / 2);
-    g.fill(bx, by, bw, bh, K.BUILD);
-    g.buildings.push({ x: bx * TILE, y: by * TILE, w: bw * TILE, h: bh * TILE, color: '#ffccbc', kind: 'busstand', name });
+    addBusStandBuilding(g, bx, by, bw, bh, name);
   }
   // The party office, where you start: a small plaza with a building, in the corner of town farthest from the RO office.
   function buildPartyOffice(g, officeTile) {
@@ -300,19 +349,46 @@
     return start;
   }
 
+  // A mapped police station keeps its real position: a yard whose site is within REAL_REACH of the point, else a
+  // building beside the street there, else a yard as near as NEAR_REACH tiles.
+  function placePoliceStation(g, at) {
+    const yard = findRect(g, YARD, YARD, { x: at.x - YARD_SITE.x + YARD / 2, y: at.y - YARD_SITE.y + YARD / 2, r: REAL_REACH });
+    if (yard) return buildStation(g, yard);
+    if (buildRoadsideStation(g, at)) return;
+    const far = findRect(g, YARD, YARD, { x: at.x, y: at.y, r: NEAR_REACH });
+    if (far) buildStation(g, far);
+  }
+  // A mapped bus station keeps its real position like a police station: a stand whose middle is within REAL_REACH of the
+  // point, else a 3x3 building beside the street whose nearest edge is, else a stand as near as NEAR_REACH tiles.
+  function placeBusStand(g, at, name) {
+    const stand = name || 'RTC Bus Stand';
+    const r = bestRect(g, BUS_STAND_SIZES, { x: at.x, y: at.y, r: REAL_REACH });
+    if (r) return buildBusStand(g, r, stand);
+    if (buildRoadsideBusStand(g, at, stand)) return;
+    const far = bestRect(g, BUS_STAND_SIZES, { x: at.x, y: at.y, r: NEAR_REACH });
+    if (far) buildBusStand(g, far, stand);
+  }
+  // The mapped police and bus stations as one point each, in tile units. Points of one kind within SAME_STATION tiles
+  // of a group's first point are one station mapped twice (as a node and as a building) and stand for it at their mean.
+  function mappedStations(landmarks, scale) {
+    const groups = [];
+    for (const l of landmarks) {
+      if (l.kind !== 'police' && l.kind !== 'bus_station') continue;
+      const p = { x: l.x * scale, y: l.y * scale };
+      const same = groups.find((q) => q.kind === l.kind && hypot(q.points[0].x - p.x, q.points[0].y - p.y) <= SAME_STATION);
+      if (same) { same.points.push(p); same.name = same.name || l.name; } else groups.push({ kind: l.kind, name: l.name, points: [p] });
+    }
+    const mean = (q, axis) => q.points.reduce((sum, p) => sum + p[axis], 0) / q.points.length;
+    return groups.map((q) => ({ kind: q.kind, name: q.name, x: mean(q, 'x'), y: mean(q, 'y') }));
+  }
+
   // Places the RO office, polling booth, police stations, bus stands and party office. Mapped police and bus
   // stations keep their real positions; the rest go to the largest clear space near their anchor.
   function placeSites(g, data) {
     const landmarks = data.landmarks || [];
     const near = (p, r) => ({ x: p.x * g.scale, y: p.y * g.scale, r });
-    for (const l of landmarks) {
-      if (l.kind === 'police') {
-        const r = findRect(g, 6, 6, near(l, 8));
-        if (r) buildStation(g, r);
-      } else if (l.kind === 'bus_station') {
-        const r = bestRect(g, BUS_STAND_SIZES, near(l, 8));
-        if (r) buildBusStand(g, r, l.name || 'RTC Bus Stand');
-      }
+    for (const s of mappedStations(landmarks, g.scale)) {
+      if (s.kind === 'police') placePoliceStation(g, s); else placeBusStand(g, s, s.name);
     }
 
     const compound = (where, kind, name, color) => {
@@ -331,19 +407,24 @@
     // at least three police stations: spread them over the town where none is mapped
     for (const [fx, fy] of [[0.5, 0.5], [0.25, 0.75], [0.75, 0.75], [0.75, 0.25], [0.25, 0.25]]) {
       if (g.stations.length >= 3) break;
-      const r = findRect(g, 6, 6, { x: fx * N, y: fy * N, r: N });
+      const r = findRect(g, YARD, YARD, { x: fx * N, y: fy * N, r: N });
       if (r) buildStation(g, r);
     }
     return { office, booth, start: buildPartyOffice(g, officeTile) };
   }
 
+  // A w x h house on the grid at tile (x0, y0); `look` is its roof colour, water tank and drawing seed.
+  function addHouse(g, x0, y0, w, h, look) {
+    g.fill(x0, y0, w, h, K.BUILD);
+    const b = Object.assign({ x: x0 * TILE, y: y0 * TILE, w: w * TILE, h: h * TILE, kind: 'house' }, look);
+    g.buildings.push(b);
+    return b;
+  }
+
   // Blocks with no mapped building get generated house plots, parks or (when large) open land.
   function fillEmptyBlocks(g, rng) {
     const { t } = g, seen = new Uint8Array(N * N);
-    const plot = (x0, y0, w, h) => {
-      g.fill(x0, y0, w, h, K.BUILD);
-      g.buildings.push({ x: x0 * TILE, y: y0 * TILE, w: w * TILE, h: h * TILE, color: ROOF[rng.int(ROOF.length)], kind: 'house', tank: rng() < 0.5, seed: rng.int(1e6) });
-    };
+    const plot = (x0, y0, w, h) => addHouse(g, x0, y0, w, h, { color: ROOF[rng.int(ROOF.length)], tank: rng() < 0.5, seed: rng.int(1e6) });
     for (let s = 0; s < N * N; s++) {
       if (seen[s] || (t[s] !== K.LOT && t[s] !== K.BUILD)) continue;
       const lots = [], stack = [s];
@@ -419,7 +500,8 @@
     return out;
   }
 
-  // A town with too few mapped houses: a new 3x3 house on open grass beside a street, as near the anchor as possible.
+  // A town with too few houses for its shops (a sparse test fixture; the real towns have enough): a new 3x3 house on
+  // open grass beside a street, as near the anchor as possible, marked `newPlot`.
   function newShopPlot(g, office, anchor, reachable) {
     let best = null, bestDoor = null, bs = Infinity;
     for (let y0 = 2; y0 <= N - 5; y0++) for (let x0 = 2; x0 <= N - 5; x0++) {
@@ -432,9 +514,7 @@
       if (door && isStreet(g.get(door.x, door.y)) && reachable(door.x, door.y)) { bs = d; best = { x0, y0 }; bestDoor = door; }
     }
     if (!best) return null;
-    g.fill(best.x0, best.y0, 3, 3, K.BUILD);
-    const b = { x: best.x0 * TILE, y: best.y0 * TILE, w: 3 * TILE, h: 3 * TILE, color: ROOF[(best.x0 + best.y0) % ROOF.length], kind: 'house', tank: false, seed: best.x0 * N + best.y0 };
-    g.buildings.push(b);
+    const b = addHouse(g, best.x0, best.y0, 3, 3, { color: ROOF[(best.x0 + best.y0) % ROOF.length], tank: false, seed: best.x0 * N + best.y0, newPlot: true });
     return { b, door: bestDoor };
   }
   // One house in each of five spread-out places becomes a document shop, with its door on a street the start can reach.

@@ -4,6 +4,7 @@
 - **Supporter**: a townsperson who has joined the candidate's crowd (blue scarf).
 - **Crowd**: the candidate's current supporters; its size drives pull, cop lifting and scaring goons and mobs.
 - **Town**: one of the three playable real places (Pulivendula, Kadapa, Punganur), identified by a town id.
+- **Landmark**: a mapped point of interest kept from OpenStreetMap (police and bus stations, places of worship, hospitals, markets, schools, government offices); police and bus stations become game sites at their real positions (a yard, or a building beside the street where wide roads leave no room).
 - **RO Office**: the Returning Officer's compound where nominations are filed (Nomination Day target).
 - **Polling Booth**: the compound where the vote is cast (Polling Day target).
 - **Nomination**: the set of filing documents; filed when the candidate holds the RO counter.

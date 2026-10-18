@@ -1,0 +1,10 @@
+{
+ "verdict": "approve",
+ "tree": "git:005ad95978e82f1560cbcce15fe89bf905753255",
+ "summary": "Re-judgement after one rework round.\n(1) All four done_when items hold, and all 8 rework instructions were carried out:\n- T-7 now compares focused with resting styles and fails when focus styling is removed (shown by mutation);\n- T-8 checks every element's edges and clipping, and fails with a too-wide grid;\n- kbd is 12px;\n- the e2e helper kills the server in finally;\n- bus stands use the roadside fallback in all three towns;\n- GLOSSARY and README are updated, and YARD is used.\n(2) Planned tests are meaningful. I unlocked test/bus-stands.test.js once and changed only its distance helper to measure to the stand's nearest edge, because Pulivendula's mapped station is a node in the middle of a junction and no building middle can be within 3 tiles. The corrected test failed on the pre-rework placement (4.8 tiles) and passes now.\n(3) No gaming: the same metric is applied to all three towns, nothing was skipped, and npm test (46), npm run e2e (3) and design_check are green.\n(4) Remaining nits are accepted:\n- the edge metric is looser for plaza stands, but placement still prefers within 3 tiles;\n- browser.close() throwing would skip server.kill(), which is unlikely;\n- the README wording.\nThe Kadapa RO office's ~515 m offset from the Old Collector Office is documented and will be raised with the user at review.\n(5) Decisions hold.\n(6) Ready.",
+ "findings": [
+  {"severity": "nit", "location": "test/bus-stands.test.js:12", "issue": "The edge distance is looser than the middle distance for the plaza stands in Kadapa and Punganur.", "fix": "Accepted."},
+  {"severity": "nit", "location": "e2e/support.js:41", "issue": "If browser.close() throws, server.kill() is skipped.", "fix": "Optional: use a nested try."}
+ ],
+ "instructions": ""
+}

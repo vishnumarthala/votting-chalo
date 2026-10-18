@@ -142,10 +142,12 @@ const finish = (pts) => {
 };
 
 // ------------------------------------------------------------------ conversion
-// text: the contents of an .osm file. opts: { centre: [lat, lon], size: metres, anchor?: [lat, lon], id? }.
+// text: the contents of an .osm file. opts: { centre: [lat, lon], size: metres, anchor?: [lat, lon], id?, skip? }.
+// skip: names of mapped landmarks to leave out (matched ignoring case), for features whose tags say more than they are.
 function convert(text, opts) {
   opts = opts || {};
   const { centre } = opts, size = opts.size || 2000;
+  const skipped = new Set((opts.skip || []).map((name) => name.toLowerCase()));
   if (!Array.isArray(centre) || centre.length !== 2 || !centre.every(Number.isFinite)) throw new Error('convert needs opts.centre = [lat, lon]');
   if (!(size > 0)) throw new Error('convert needs a positive opts.size in metres');
   const { nodes, ways, bounds, date } = parseOsm(text);
@@ -159,7 +161,7 @@ function convert(text, opts) {
   town.anchor = { x: round1(anchor[0]), y: round1(anchor[1]) };
 
   const landmark = (kind, tags, [x, y]) => {
-    if (!inside([x, y], size)) return;
+    if (!inside([x, y], size) || (tags.name && skipped.has(tags.name.toLowerCase()))) return;
     const l = { kind, x: round1(x), y: round1(y) };
     if (tags.name) l.name = tags.name;
     town.landmarks.push(l);
@@ -231,7 +233,7 @@ function main(argv) {
   const source = ['.osm.gz', '.osm'].map((ext) => path.join(root, 'data', 'osm', id + ext)).find((f) => fs.existsSync(f));
   if (!source) throw new Error(`no export found: put data/osm/${id}.osm.gz in place`);
   const cfg = TOWNS[id];
-  const town = convertFile(source, { id, centre: cfg.centre, anchor: cfg.anchor, size: cfg.size });
+  const town = convertFile(source, { id, centre: cfg.centre, anchor: cfg.anchor, size: cfg.size, skip: cfg.skip });
   const out = path.join(root, 'data', 'towns', id + '.json');
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, serialize(town));

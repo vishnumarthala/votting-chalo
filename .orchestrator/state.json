@@ -10,18 +10,23 @@
   },
   "test_lock": {
     "files": {
+      "e2e/menu.spec.js": "cc02fe5de315d2a5f7ee6c666a4d9e0b5be596c6d4e9d2e31d56c771580775a3",
       "e2e/town-picker.spec.js": "ea8d27379b507f90bc364822caabc699a7e187ef6e1f5b884db1b4f8c27aadae",
       "test/bot.js": "617e0e9879054034f79761b1f5159ef8ede22fd1589fef6c12ed8eb93f6ca5f6",
+      "test/bus-stands.test.js": "5a022fc6f72efa7039c0de770a919cd4e4bcac51997a4bdab377bd28984e4818",
       "test/design.test.js": "a0f9ca7f26b26e17093d34bda1e55ee0389351c819c746b0fbf076a5f4fbe9fe",
+      "test/map-invariants.js": "28c5711e1bce8f674677e097f86d0657f18fa1beb09e58e3668943cfe382dcbe",
       "test/osm-to-town.test.js": "209438073b2fb2f316a4cd7aef8a5122846b8307a9cbccb049b81f28275ce67e",
       "test/sim.test.js": "810c31ff6ea74415b28febd2887ae17a9cac9584babd7876bdd7408e322ac361",
       "test/towns.js": "5444e4f2882b5659588f0430ef5d40c915241c88b2a64891c3fd1b7530234235",
+      "test/world-roads.test.js": "dac2e566f2340a7ac97992658614860a2d05e7b0beb06e2852dc849d3850c820",
+      "test/world-towns.test.js": "5e801fd3364e7803f3b9753aac7ad7c0038e4b4044a96f0bec88824c4546187c",
       "test/world.test.js": "1a38a9fc6305f74e38484be23801d003187ce86a6f2315ce48c402476ee31996",
       "test/fixtures/broken.osm": "8047757c18750ce11d2be05a71c761f902602e1ad8683bcc2afd6fa483ce538e",
       "test/fixtures/mini.osm": "231df3a7805940262324d0c27f1679243f78823f50d359ecc75db9ba969ed4a4"
     },
-    "at": "2026-10-18T15:25:53+00:00",
-    "cp": "CP-1"
+    "at": "2026-10-18T16:29:10+00:00",
+    "cp": "CP-2"
   },
   "features": {
     "design-baseline": {
@@ -202,14 +207,76 @@
           "commit": "ab5b974118fa26338153f61a80d5274501fbb22b"
         },
         "CP-2": {
-          "status": "todo",
-          "stage": null,
-          "start_tree": null,
-          "gates": {},
+          "status": "done",
+          "stage": "done",
+          "start_tree": "git:61fb35fa2a733016deecf0ef72a4563c0d8fa295",
+          "gates": {
+            "behavior": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:005ad95978e82f1560cbcce15fe89bf905753255",
+                  "at": "2026-10-18T16:29:21+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-2/behavior.command.json"
+                }
+              }
+            },
+            "design": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:005ad95978e82f1560cbcce15fe89bf905753255",
+                  "at": "2026-10-18T16:29:22+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-2/design.command.json"
+                }
+              }
+            },
+            "review": {
+              "attempts": 0,
+              "parts": {
+                "standards": {
+                  "status": "pass",
+                  "tree": "git:005ad95978e82f1560cbcce15fe89bf905753255",
+                  "at": "2026-10-18T16:31:41+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-2/review.standards.json"
+                },
+                "spec": {
+                  "status": "pass",
+                  "tree": "git:005ad95978e82f1560cbcce15fe89bf905753255",
+                  "at": "2026-10-18T16:31:41+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-2/review.spec.json"
+                }
+              }
+            },
+            "judge": {
+              "attempts": 1,
+              "parts": {
+                "judge": {
+                  "status": "pass",
+                  "tree": "git:005ad95978e82f1560cbcce15fe89bf905753255",
+                  "at": "2026-10-18T16:31:41+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-2/judge.judge.json"
+                }
+              }
+            },
+            "red": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:cfdcf5207c02412847bb7aeb89cf1ccfec814ddf",
+                  "at": "2026-10-18T16:29:10+00:00",
+                  "evidence": ".orchestrator/features/real-towns/runs/CP-2/red.command.json"
+                }
+              }
+            }
+          },
           "tests_unlocked": null,
           "user_approved": false,
-          "started_at": null,
-          "completed_at": null,
+          "started_at": "2026-10-18T15:59:16+00:00",
+          "completed_at": "2026-10-18T16:31:41+00:00",
           "commit": null
         },
         "CP-3": {
@@ -535,6 +602,159 @@
       "event": "cp_complete",
       "cp": "CP-1",
       "commit": "ab5b974118fa26338153f61a80d5274501fbb22b"
+    },
+    {
+      "at": "2026-10-18T15:59:16+00:00",
+      "event": "cp_start",
+      "cp": "CP-2",
+      "branch": "forge/real-towns"
+    },
+    {
+      "at": "2026-10-18T16:08:03+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "red",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:08:03+00:00",
+      "event": "tests_locked",
+      "cp": "CP-2",
+      "count": 13
+    },
+    {
+      "at": "2026-10-18T16:12:06+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:14:20+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "design",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:17:47+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "review",
+      "part": "standards",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:17:47+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "review",
+      "part": "spec",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:18:15+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "judge",
+      "part": "judge",
+      "status": "fail",
+      "attempt": 1
+    },
+    {
+      "at": "2026-10-18T16:18:15+00:00",
+      "event": "tests_unlocked",
+      "cp": "CP-2",
+      "reason": "T-7's focus check counts any resting box-shadow as focus (Play and the selected mode pass with no focus style) and T-8's scrollWidth check cannot fail because #menu is fixed and the card clips overflow; both are weaker than AC-13"
+    },
+    {
+      "at": "2026-10-18T16:20:10+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "red",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:20:10+00:00",
+      "event": "tests_locked",
+      "cp": "CP-2",
+      "count": 14
+    },
+    {
+      "at": "2026-10-18T16:28:54+00:00",
+      "event": "tests_unlocked",
+      "cp": "CP-2",
+      "reason": "test/bus-stands.test.js measures to the stand building's middle; a bus station mapped as a node in the middle of a junction (Pulivendula Old Bus Stand Circle) has pavement all round, so no building middle can be within 3 tiles. 'A bus stand within 3 tiles' means its nearest edge."
+    },
+    {
+      "at": "2026-10-18T16:29:10+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "red",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:29:10+00:00",
+      "event": "tests_locked",
+      "cp": "CP-2",
+      "count": 14
+    },
+    {
+      "at": "2026-10-18T16:29:21+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:29:22+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "design",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:31:41+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "review",
+      "part": "standards",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:31:41+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "review",
+      "part": "spec",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T16:31:41+00:00",
+      "event": "gate",
+      "cp": "CP-2",
+      "gate": "judge",
+      "part": "judge",
+      "status": "pass",
+      "attempt": 1
     }
   ]
 }

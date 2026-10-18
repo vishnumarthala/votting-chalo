@@ -1,0 +1,27 @@
+{
+  "summary": "Delta review of c88d72a..005ad95 against the judge's 8 rework instructions; the working tree (minus .orchestrator) hashes to exactly 005ad95. All 8 are carried out and nothing else was added. (1) T-7 (e2e/menu.spec.js) now compares each Tab stop's focused outline/box-shadow with its resting look; in a copy under the scratchpad I injected ':focus-visible{outline:none !important;box-shadow:none !important}' and T-7 failed ('focus on name looks like rest'), so it bites. (2) T-8 now checks every visible element of #menu .card lies within 0..375, card scrollWidth <= clientWidth, Play inside; injecting '.row{grid-template-columns:1fr 400px !important}' made T-8 fail ('elements of the menu card leave the 375 px viewport'). The exact AC-4 disclaimer and the Tab-order, contrast and Play-fit assertions are kept. (3) kbd is 12px (index.html:50); design_check (impeccable detect --quiet client index.html) exits 0 with no findings. (4) e2e/support.js launches Chromium inside the try and the finally closes the browser if it opened and always kills the server. (5) shared/world.js adds findRoadsideSpot/buildRoadsideBusStand and placeBusStand tries full stand, then roadside building, then NEAR_REACH; police-station logic is behaviourally unchanged (byEdge=false path, same reach and cost); new test/bus-stands.test.js carries the T-6 id for all three towns. npm test is 46/46 and npm run e2e 3/3. (6) GLOSSARY 'Landmark' widened as instructed. (7) README.md:108 and data/towns/README.md:23 say Kadapa's RO office is about 500 m east of the Old Collector Office; measured 523 m east, 44 m off north-south, so accurate. (8) world.js:410 uses YARD. Nearest-edge reading of 'a bus stand within 3 tiles of its mapped bus station' (T-6 given, AC): fair. The stand is an extended footprint and the point is a junction node with pavement all round it, so no building middle can sit within 3 tiles; 'within 3 tiles of' conventionally means the nearest part, and the roadside rule already measures police stations to the facing street tile rather than a centre. The reading gives up nothing for the two towns the planned T-6 names: measured against the stand building, Kadapa is 0.50 tiles (edge) / 2.67 (middle) and Punganur 0.46 / 2.63, so both still meet the stricter middle metric; Pulivendula, which T-6 never named, is 2.29 edge / 4.40 middle (previously 7.4 middle). Moving the bus case from test/world-towns.test.js to the new file is the judge's instruction, keeps the T-6 id, and adds Pulivendula. D-19 and D-16 hold; no CP-3..CP-6 content leaked. The previous findings are resolved: RO distance documented, Pulivendula stand within 3 tiles and tested, Landmark widened, T-7 focus check strengthened. The 'skip' option nit stays acceptable as before.",
+  "verdict": "approve",
+  "findings": [
+    {
+      "severity": "nit",
+      "location": "test/bus-stands.test.js:12",
+      "issue": "The test uses the nearest-edge metric for all three towns, so for Kadapa and Punganur it no longer catches a stand drifting from ~2.6 tiles (middle) to ~4.5 tiles (middle), which the original T-6 middle-distance check would have. Kadapa and Punganur do satisfy the stricter metric today.",
+      "fix": "Optional: keep a middle-distance assertion (<= 3) for the towns where a full stand is built, and use the edge metric only for the roadside building."
+    },
+    {
+      "severity": "nit",
+      "location": "README.md:110",
+      "issue": "README says 'a bus stand' within 3 tiles 'where the map allows' without saying that where wide roads leave no room it is a small 3x3 building beside the street, measured to its nearest edge, as it already does for police stations.",
+      "fix": "Optional: add 'a bus stand (a small building beside the street where wide roads leave no room)'."
+    }
+  ],
+  "instructions": "",
+  "source": ".orchestrator/features/real-towns/inbox/CP-2-review-spec.json",
+  "gate": "review",
+  "cp": "CP-2",
+  "part": "spec",
+  "status": "pass",
+  "tree": "git:005ad95978e82f1560cbcce15fe89bf905753255",
+  "at": "2026-10-18T16:31:41+00:00",
+  "failed_attempts": 0
+}

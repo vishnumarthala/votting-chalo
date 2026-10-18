@@ -12,7 +12,8 @@ office before it closes.
 
 Pick your **town** in the menu. The map is built from OpenStreetMap data: the real streets, building
 outlines, river, bus station and neighbourhood names. Blocks with no mapped buildings are filled with
-generated houses. Your town, mandal and district appear in the dialogue. Pulivendula is playable now.
+generated houses. Your town, mandal and district appear in the dialogue. Pulivendula, Kadapa (its old town) and
+Punganur are playable.
 
 > Satire. All characters and the events shown are fictional; no real person is depicted.
 > Map data © OpenStreetMap contributors (ODbL).
@@ -63,7 +64,7 @@ and a deterministic simulation shared between browser and Node. All code, text a
 ```
 index.html          menu, pause, touch buttons, CSS
 shared/             DOM-free UMD modules (browser + Node)
-  towns.js          the playable towns: names, map crop centre, RO office anchor
+  towns.js          the playable towns: names, map crop centre, RO office anchor, landmarks to skip
   world.js          town builder, tile collision, BFS flow fields, line of sight, barricade ring
   content.js        all text and modes; {town} {mandal} {district} templating
   sim.js            30 Hz deterministic game: crowd, police, goons, gas, barricades, documents, filing
@@ -75,17 +76,17 @@ client/
   main.js           loop, town picker and menu, events -> effects, leaderboard per town
 data/
   osm/              the osm.org exports, gzipped (input of the converter)
-  towns/            the town files the game loads (output of the converter)
+  towns/            the town files the game loads (output of the converter); README.md has the ODbL note and sources
 scripts/
   osm-to-town.js    offline converter: data/osm/<id>.osm.gz -> data/towns/<id>.json
   serve.js          static dev server
 test/               converter, town builder, sim rules, bot completion of both modes
-e2e/                the menu-to-play journey in headless Chromium
+e2e/                the menu-to-play journey, menu keyboard focus, contrast and phone width in headless Chromium
 ```
 
 ### Town data
 
-`node scripts/osm-to-town.js pulivendula` crops a 2.0 km square from the town's export and writes
+`node scripts/osm-to-town.js pulivendula` (or `kadapa`, `punganur`) crops a 2.0 km square from the town's export and writes
 `data/towns/pulivendula.json`: roads with their class, building footprints, water, landmarks (police and bus
 stations, temples, hospitals, schools, government offices) and place names, in metres from the square's corner,
 plus the export's bounds and the OpenStreetMap attribution. The crop centre and the RO office anchor of each
@@ -104,8 +105,12 @@ The page loads its scripts and the town file from its own server and makes no ot
 - mapped buildings become solid tiles, one block of tiles per footprint; blocks with no mapped building get generated
   house plots, parks or, at the edge of town, open land;
 - the RO office and the polling booth are walled compounds placed in the largest clear space near their anchors,
-  mapped police and bus stations keep their real positions, and the party office (where you start) is in the corner
-  of town farthest from the RO office;
+  and the party office (where you start) is in the corner of town farthest from the RO office. Kadapa's RO office sits
+  about 500 m east of the Old Collector Office, its anchor, because the dense old town has no clear space for a walled
+  compound nearer;
+- mapped police and bus stations keep their real positions (within 3 tiles where the map allows): a police yard, or a
+  small station building beside the street where wide roads leave no room, and a bus stand; a station mapped twice is
+  built once, and the Kadapa police parade ground is not a station;
 - five document shops are spread across town, with the BLO tent and the patrol posts at road junctions.
 
 Building a town is deterministic: the same file always gives the same map.

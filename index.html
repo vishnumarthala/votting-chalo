@@ -27,7 +27,7 @@ input:focus,select:focus{border-color:var(--blue)}
 canvas:focus-visible{outline:none}
 label{display:block;font-size:13px;font-weight:800;color:#4b3b2b;margin-bottom:3px}
 #townStatus{font-size:13px;min-height:18px;margin:6px 0 10px;color:var(--muted)}
-#townStatus.ok{color:#2e7d32;font-weight:700}#townStatus.err{color:#c62828;font-weight:700}
+#townStatus.ok{color:#1b5e20;font-weight:700}#townStatus.err{color:#c62828;font-weight:700}
 .modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .mode{border:3px solid #e2d3b6;border-radius:14px;padding:10px 12px;cursor:pointer;background:#fffaf0;text-align:left;color:var(--ink)}
 .mode.sel{border-color:var(--blue);background:#e8f0ff;box-shadow:0 0 0 3px rgba(30,91,216,.18)}
@@ -39,7 +39,7 @@ label{display:block;font-size:13px;font-weight:800;color:#4b3b2b;margin-bottom:3
 #play:disabled{opacity:.6}
 #result{font-size:14px;margin:12px 0 0;line-height:1.55}
 #result:empty{display:none}
-#result .win{color:#2e7d32}#result .lose{color:#c62828}
+#result .win{color:#1b5e20}#result .lose{color:#c62828}
 details{margin-top:10px}
 summary{cursor:pointer;font-weight:800;font-size:13px;color:#7a6650}
 #lb{list-style:none;font-size:13px;margin-top:6px;line-height:1.7;color:#3e2f22}
@@ -47,7 +47,7 @@ summary{cursor:pointer;font-weight:800;font-size:13px;color:#7a6650}
 #opts{display:flex;gap:8px;margin-top:10px}
 #opts button{flex:1;border:2px solid #d8c7a8;background:#fffaf0;border-radius:10px;padding:8px;font-weight:800;cursor:pointer;color:#3e2f22;font-size:13px}
 .help{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.8}
-kbd{background:#fff;border:1px solid #cdbb98;box-shadow:inset 0 -1px 0 #cdbb98;border-radius:4px;padding:0 5px;font-size:11px;font-family:inherit}
+kbd{background:#fff;border:1px solid #cdbb98;box-shadow:inset 0 -1px 0 #cdbb98;border-radius:4px;padding:0 5px;font-size:12px;font-family:inherit}
 .disc{font-size:12px;color:#75624e;margin-top:8px;line-height:1.5}
 body.touch .help{display:none}
 .ov{position:fixed;inset:0;z-index:8;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(5,12,30,.55)}
@@ -69,7 +69,7 @@ body.touch.playing #touch{display:block}
 </style>
 </head>
 <body>
-<canvas id="c" tabindex="0"></canvas>
+<canvas id="c" tabindex="-1"></canvas>
 <button id="bPause" type="button" aria-label="Pause">⏸</button>
 <div id="touch"><button class="tb" id="bRun" type="button">RUN</button><button class="tb" id="bAct" type="button">SLOGAN ✊</button></div>
 <div id="pause" class="ov" role="dialog" aria-modal="true" aria-label="Paused">
