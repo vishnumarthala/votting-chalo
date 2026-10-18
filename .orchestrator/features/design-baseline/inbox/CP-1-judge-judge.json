@@ -1,0 +1,20 @@
+{
+ "verdict": "approve",
+ "tree": "git:5d6a86f9edb1961f79e57495784b462ef735e732",
+ "summary": "(1) The diff does exactly D-1: removes .card:before, swaps kbd's border-bottom-width:2px for a 1px inset box-shadow, and sets .disc to 12px #75624e; nothing else in index.html changed. done_when holds: impeccable detect --quiet client index.html exits 0, and also exits 0 with --no-config, so no waiver is doing the work (no .impeccable/ dir, no impeccable-disable comments). npm test: 31/31. (2) T-1 is present, named with its case id, failed red on the real defect (font-size 11px) and passes now; thresholds are WCAG literals (12px, 4.5:1), not derived from the code. No locked tests edited. (3) No gaming: the command was not loosened and nothing was skipped. The kbd restyle is the user's choice in D-1 and addresses the rule's stated concern (the inset shadow follows the radius) while keeping the keycap look. (4) The checkpoint is typed logic, so forge attached no design gate; design_check was run by hand as part of done_when. A before/after headless Chromium screenshot of the menu shows the stripe gone, keycaps visually unchanged, and the disclaimer legible (wraps to three lines instead of two). (5) Respects D-1 and D-2. (6) Ready to show.",
+ "findings": [
+  {
+   "severity": "nit",
+   "location": "index.html:18",
+   "issue": ".card keeps position:relative;overflow:hidden, which existed to hold the removed stripe; overflow:hidden still clips content to the 18px radius, so it is not dead.",
+   "fix": "Leave as is; removing it risks layout changes outside this checkpoint's scope."
+  },
+  {
+   "severity": "nit",
+   "location": "index.html:49",
+   "issue": "kbd stays at 11px inside 12.5px help text; the detector does not flag it and the keys are short labels.",
+   "fix": "None now."
+  }
+ ],
+ "instructions": ""
+}

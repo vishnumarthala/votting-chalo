@@ -1,5 +1,5 @@
 {
-  "phase": "plan",
+  "phase": "build",
   "feature": "design-baseline",
   "paused": false,
   "awaiting_user": null,
@@ -9,9 +9,15 @@
     "fingerprint": null
   },
   "test_lock": {
-    "files": {},
-    "at": null,
-    "cp": null
+    "files": {
+      "test/bot.js": "617e0e9879054034f79761b1f5159ef8ede22fd1589fef6c12ed8eb93f6ca5f6",
+      "test/design.test.js": "a0f9ca7f26b26e17093d34bda1e55ee0389351c819c746b0fbf076a5f4fbe9fe",
+      "test/pincode.test.js": "9676bca2e0e98f0ec913d4abd3cf6f1041f9138531f1af1345d808d77f4d08ee",
+      "test/sim.test.js": "13ed7888d5bbaa3ae5de35541901aa27b651733e3f1aa36546bc3f640129f0dc",
+      "test/world.test.js": "654d761130f901306d911dc4b4e0dad9ad1711ec8adc51be01b12fe606a48eb4"
+    },
+    "at": "2026-10-18T14:16:44+00:00",
+    "cp": "CP-1"
   },
   "features": {
     "design-baseline": {
@@ -26,10 +32,62 @@
         "hash": "ab87edf4065b5cb24b5ce73ab656d103167889fc352a0d9f0c12a3d13907b7c7",
         "at": "2026-10-18T14:14:41.825753+00:00"
       },
-      "approved": null,
+      "approved": {
+        "at": "2026-10-18T14:16:32+00:00",
+        "hash": "ab87edf4065b5cb24b5ce73ab656d103167889fc352a0d9f0c12a3d13907b7c7",
+        "cases": 1,
+        "mode": "verified",
+        "quote": "yes, go ahead"
+      },
       "waiver": null,
       "current_cp": null,
-      "cps": {},
+      "cps": {
+        "CP-1": {
+          "status": "done",
+          "stage": "done",
+          "start_tree": "git:7e1e9363c50ca468b3801100c4e03ac485880cb2",
+          "gates": {
+            "red": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:9a077a643d6a8d1dd057e6578d34c83ca42a0bc5",
+                  "at": "2026-10-18T14:16:44+00:00",
+                  "evidence": ".orchestrator/features/design-baseline/runs/CP-1/red.command.json"
+                }
+              }
+            },
+            "behavior": {
+              "attempts": 0,
+              "parts": {
+                "command": {
+                  "status": "pass",
+                  "tree": "git:5d6a86f9edb1961f79e57495784b462ef735e732",
+                  "at": "2026-10-18T14:16:58+00:00",
+                  "evidence": ".orchestrator/features/design-baseline/runs/CP-1/behavior.command.json"
+                }
+              }
+            },
+            "judge": {
+              "attempts": 0,
+              "parts": {
+                "judge": {
+                  "status": "pass",
+                  "tree": "git:5d6a86f9edb1961f79e57495784b462ef735e732",
+                  "at": "2026-10-18T14:17:51+00:00",
+                  "evidence": ".orchestrator/features/design-baseline/runs/CP-1/judge.judge.json"
+                }
+              }
+            }
+          },
+          "tests_unlocked": null,
+          "user_approved": false,
+          "started_at": "2026-10-18T14:16:32+00:00",
+          "completed_at": "2026-10-18T14:17:51+00:00",
+          "commit": null
+        }
+      },
       "accepted_at": null
     }
   },
@@ -50,6 +108,58 @@
     {
       "at": "2026-10-18T14:14:41+00:00",
       "event": "plan_approval_requested"
+    },
+    {
+      "at": "2026-10-18T14:16:32+00:00",
+      "event": "plan_approved",
+      "feature": "design-baseline",
+      "amend": false
+    },
+    {
+      "at": "2026-10-18T14:16:32+00:00",
+      "event": "phase",
+      "frm": "plan",
+      "to": "build",
+      "reason": ""
+    },
+    {
+      "at": "2026-10-18T14:16:32+00:00",
+      "event": "cp_start",
+      "cp": "CP-1",
+      "branch": "forge/design-baseline"
+    },
+    {
+      "at": "2026-10-18T14:16:44+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "red",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T14:16:44+00:00",
+      "event": "tests_locked",
+      "cp": "CP-1",
+      "count": 5
+    },
+    {
+      "at": "2026-10-18T14:16:58+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "behavior",
+      "part": "command",
+      "status": "pass",
+      "attempt": 0
+    },
+    {
+      "at": "2026-10-18T14:17:51+00:00",
+      "event": "gate",
+      "cp": "CP-1",
+      "gate": "judge",
+      "part": "judge",
+      "status": "pass",
+      "attempt": 0
     }
   ]
 }

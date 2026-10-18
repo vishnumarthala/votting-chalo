@@ -16,7 +16,6 @@ button{font-family:inherit}
 #menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:14px;background:radial-gradient(ellipse at center,rgba(10,25,60,.3),rgba(5,12,30,.78));z-index:5;overflow:auto}
 #menu.hide{display:none}
 .card{background:var(--paper);border-radius:18px;max-width:640px;width:100%;padding:24px 22px 16px;box-shadow:0 20px 60px rgba(0,0,0,.5);position:relative;overflow:hidden;margin:auto;flex-shrink:0}
-.card:before{content:"";position:absolute;left:0;right:0;top:0;height:8px;background:linear-gradient(90deg,var(--deep),var(--blue),#64b5f6)}
 h1{font-size:clamp(32px,7vw,52px);font-weight:900;letter-spacing:-1.5px;line-height:1;color:var(--deep)}
 h1 span{color:var(--blue)}
 .te{font-size:18px;color:#8a4b2a;font-weight:800;margin-top:6px}
@@ -47,8 +46,8 @@ summary{cursor:pointer;font-weight:800;font-size:13px;color:#7a6650}
 #opts{display:flex;gap:8px;margin-top:10px}
 #opts button{flex:1;border:2px solid #d8c7a8;background:#fffaf0;border-radius:10px;padding:8px;font-weight:800;cursor:pointer;color:#3e2f22;font-size:13px}
 .help{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.8}
-kbd{background:#fff;border:1px solid #cdbb98;border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:11px;font-family:inherit}
-.disc{font-size:11px;color:#9a8670;margin-top:8px;line-height:1.5}
+kbd{background:#fff;border:1px solid #cdbb98;box-shadow:inset 0 -1px 0 #cdbb98;border-radius:4px;padding:0 5px;font-size:11px;font-family:inherit}
+.disc{font-size:12px;color:#75624e;margin-top:8px;line-height:1.5}
 body.touch .help{display:none}
 .ov{position:fixed;inset:0;z-index:8;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(5,12,30,.55)}
 .ov.on{display:flex}
