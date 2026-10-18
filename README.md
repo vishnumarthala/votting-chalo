@@ -1,7 +1,7 @@
 # The Death of Democracy 🗳️
 
 A satirical top-down game set in **your own Andhra Pradesh town**. It is nomination day: walk your YSRCP
-candidate through a small maze of streets to the RO Office, gather a crowd ("Jai Jagan!"), dodge the police
+candidate through the streets of a small town to the RO Office, gather a crowd ("Jai Jagan!"), dodge the police
 and the ruling front's goons, and push through the Section 144 barricades and the police at the gate.
 
 **Democracy starts at 100%.** Every goon attack, stone and police lathi charge takes a piece of it. At 0% the
@@ -10,7 +10,7 @@ on the same title:
 
 > **Democracy is killed in broad daylight. Welcome to Andhra Pradesh.**
 
-Enter your **pincode** and the game builds a town for it: the same pincode always gives the same maze.
+Enter your **pincode** and the game builds a town for it: the same pincode always gives the same town.
 Post-office names from India Post become the neighbourhood names, and your town, mandal and district
 appear in the dialogue.
 
@@ -44,7 +44,7 @@ npm test        # node:test suites
   stones, attacks on women and children, police looking away, arrests, the police line, the gate shut for you
   but open for friends, the papers check, "server down"), a short card explains it.
 - **Where to go.** There is one destination: the RO Office. The NEXT banner shows its distance, glowing arrows
-  on the road show the way through the maze, and a pin marks the spot. The corner minimap follows you; tap it
+  on the road show the way through town, and a pin marks the spot. The corner minimap follows you; tap it
   for the whole town with the office, the police station and your party office.
 - **Crowd.** Walk into townspeople to recruit them; the bigger your crowd, the wider your pull (up to 30).
   They follow you through the streets.
@@ -117,17 +117,25 @@ test/               world (40 seeds), sim rules, bot walk to the office, pincode
 
 ### Town generator
 
-A small 48×48-tile maze (1536 px, about two screens across) built from the pincode seed:
+A small Andhra town, 56×56 tiles (1792 px, about two screens across), built from the pincode seed. From top
+to bottom:
 
-- a 7×7 lattice of street crossings with 3-tile streets (road and sidewalks) and 4-tile house blocks;
-- a randomized depth-first maze over the crossings, plus a few extra links, so there are dead ends but
-  also more than one way round;
-- the walled RO office compound (gate, side wicket, counter) in one top corner and the YSRCP party office
-  where you start in the opposite bottom corner;
-- a police station, a temple and a hospital, and the Section 144 ring around the office.
+- paddy fields and a ring of coconut palms around the town (the paddy carries on past the edge);
+- the walled **RO Office** compound (gate, side wicket, counter) with galis down both sides, the Govt Hospital
+  on one side and a temple park on the other;
+- **Collectorate Road**, which leaves town both ways (autos and bikes drive along it), where the Section 144
+  cordon goes up;
+- houses and lanes down to a **canal** with embankment paths and **two bridges**, the natural chokepoints;
+- **Bazaar Street**, lined with striped stalls, where a third of the townspeople are out shopping (the place
+  to build your crowd), with **Gandhi Circle** (a statue on a garden island) where a lane crosses it;
+- **Station Road** with the YSRCP party office where you start, the RTC bus stand and the police station.
 
-Tests check 40 seeds to confirm every site exists and is reachable from the start, and that the maze has
-dead ends but a path short enough for a tiny map.
+Half the towns are mirrored, and the compound, both bridges, the lanes and Gandhi Circle shift with the seed.
+Blocks are split into house plots of different sizes, with the odd dead-end gali, tree or small park.
+
+Tests check 40 seeds to confirm every site exists and is reachable from the start, that every town has the
+canal with two bridges, stalls, Gandhi Circle and palms, that the walk is short, and that the office can
+still be reached with either bridge closed.
 
 ### Simulation
 

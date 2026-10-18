@@ -41,28 +41,40 @@ test('buildings sit on solid tiles and never cover roads', () => {
   }
 });
 
-test('the town is a small maze: dead ends exist and the walk to the office winds', () => {
-  for (let s = 1; s <= 20; s++) {
-    const m = W.generateTown(W.hashStr('maze' + s));
-    let deadEnds = 0;
-    for (const p of m.posts) {
-      const tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
-      let exits = 0;
-      for (const [ox, oy] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) if (!W.solidAt(m, tx + ox, ty + oy)) exits++;
-      if (exits === 1) deadEnds++;
+test('every town has a canal with two bridges, Bazaar Street stalls and Gandhi Circle (40 seeds)', () => {
+  for (let s = 1; s <= 40; s++) {
+    const m = W.generateTown(W.hashStr('town' + s));
+    const cols = new Set();
+    for (let i = 0; i < m.t.length; i++) if (m.t[i] === K.BRIDGE) cols.add(i % N);
+    const spans = [...cols].sort((a, b) => a - b).filter((c, k, a) => k === 0 || a[k - 1] !== c - 1);
+    assert.equal(spans.length, 2, `seed ${s}: bridges`);
+    assert.ok(m.t.some((k) => k === K.WATER), `seed ${s}: canal`);
+    assert.ok(m.buildings.filter((b) => b.kind === 'stall').length >= 8, `seed ${s}: stalls`);
+    assert.ok(m.buildings.some((b) => b.kind === 'statue'), `seed ${s}: Gandhi Circle`);
+    assert.ok(m.t.some((k) => k === K.PALM), `seed ${s}: palms on the edge`);
+    // the walk winds a little but stays short, and there are two ways across the canal
+    const target = tileOf(m.office), [sx, sy] = tileOf(m.start);
+    const f = W.field(m, [target]);
+    const walk = f[sy * N + sx], straight = Math.abs(sx - target[0]) + Math.abs(sy - target[1]);
+    assert.ok(walk >= straight && walk < straight + 40, `seed ${s}: walk ${walk} vs ${straight}`);
+    for (const c of spans) {
+      const dyn = new Uint8Array(N * N);
+      for (let i = 0; i < m.t.length; i++) if (m.t[i] === K.BRIDGE && i % N >= c && i % N <= c + 2) dyn[i] = 1;
+      const g = W.field(Object.assign({}, m, { dyn }), [target]);
+      assert.ok(g[sy * N + sx] > 0, `seed ${s}: office still reachable with the bridge at ${c} closed`);
     }
-    assert.ok(deadEnds >= 1, `seed ${s}: ${deadEnds} dead ends`);
-    const f = W.field(m, [tileOf(m.office)]);
-    const [sx, sy] = tileOf(m.start);
-    const straight = Math.abs(sx - Math.floor(m.office.x / TILE)) + Math.abs(sy - Math.floor(m.office.y / TILE));
-    assert.ok(f[sy * N + sx] >= straight, `seed ${s}: path ${f[sy * N + sx]} vs ${straight}`);
-    assert.ok(f[sy * N + sx] < N * 3, `seed ${s}: path short enough for a tiny map`);
   }
 });
 
 test('bodies collide with buildings and slide along walls', () => {
   const m = W.generateTown(5);
-  const b = m.buildings.find((x) => x.kind === 'house' && x.w >= 3 * TILE);
+  // a house with open ground on its left, and room to slide down that side
+  const b = m.buildings.find((x) => {
+    if (x.kind !== 'house' || x.w < 3 * TILE || x.h < 3 * TILE) return false;
+    const lx = x.x / TILE - 1, my = Math.floor((x.y + x.h / 2) / TILE);
+    return !W.solidAt(m, lx, my) && !W.solidAt(m, lx, my + 1) && !W.solidAt(m, lx - 1, my);
+  });
+  assert.ok(b, 'found a house beside a street');
   const body = { x: b.x - 20, y: b.y + b.h / 2, r: 9 };
   for (let i = 0; i < 30; i++) W.moveBody(body, 6, 0, m);
   assert.ok(body.x + body.r <= b.x + 0.001, 'stopped at the wall');

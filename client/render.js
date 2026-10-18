@@ -6,7 +6,7 @@
   const CH = 16; // tiles per cached chunk
   const COL = {
     [K.GRASS]: '#9cc46a', [K.ROAD]: '#5d5d63', [K.WALK]: '#d8d0c2', [K.BUILD]: '#c9b79c', [K.WATER]: '#4c9bd0',
-    [K.BRIDGE]: '#b9b0a2', [K.WALL]: '#a3553c', [K.PARK]: '#86bd59', [K.TREE]: '#86bd59', [K.PLAZA]: '#e8dfca', [K.FIELD]: '#a5d06b',
+    [K.BRIDGE]: '#b9b0a2', [K.WALL]: '#a3553c', [K.PARK]: '#86bd59', [K.TREE]: '#86bd59', [K.PLAZA]: '#e8dfca', [K.FIELD]: '#a5d06b', [K.PALM]: '#a5d06b',
   };
 
   let cv, ctx, W = 0, H = 0, DPR = 1, zoom = 1, quality = 'hi', bottomPad = 0;
@@ -48,8 +48,8 @@
     const rng = makeRng(map.seed ^ 0xabc);
     ambient = [];
     const A = map.arterials;
-    if (A && A.x.length && A.y.length) for (let i = 0; i < 16; i++) {
-      const vert = rng() < 0.5, line = rng.pick(vert ? A.x : A.y), lane = rng() < 0.5 ? 0 : 2, dir = lane === 0 ? 1 : -1;
+    if (A && (A.x.length || A.y.length)) for (let i = 0; i < 12; i++) {
+      const vert = A.x.length > 0 && (!A.y.length || rng() < 0.5), line = rng.pick(vert ? A.x : A.y), lane = rng() < 0.5 ? 0 : 2, dir = lane === 0 ? 1 : -1;
       ambient.push({ vert, c: (line + lane + 0.5) * T, p: rng() * WORLD, dir: vert ? -dir : dir, v: 70 + rng() * 60, kind: rng() < 0.75 ? 'auto' : 'bike', hue: rng.int(3) });
     }
   }
@@ -86,13 +86,13 @@
   }
   function drawTiles(g, x0, y0) {
     const A = map.arterials;
-    for (let ty = y0; ty < y0 + CH; ty++) for (let tx = x0; tx < x0 + CH; tx++) {
+    for (let ty = y0; ty < Math.min(N, y0 + CH); ty++) for (let tx = x0; tx < Math.min(N, x0 + CH); tx++) {
       const k = map.t[ty * N + tx], x = tx * T, y = ty * T, h = th(tx, ty);
       g.fillStyle = COL[k]; g.fillRect(x, y, T + 0.5, T + 0.5);
       if (k === K.GRASS || k === K.PARK || k === K.TREE) {
         g.fillStyle = 'rgba(60,120,40,.25)';
         g.fillRect(x + (h % 26), y + ((h >> 5) % 26), 3, 3); g.fillRect(x + ((h >> 10) % 28), y + ((h >> 15) % 28), 2, 2);
-      } else if (k === K.FIELD) {
+      } else if (k === K.FIELD || k === K.PALM) {
         g.fillStyle = 'rgba(70,130,40,.35)'; for (let i = 4; i < T; i += 8) g.fillRect(x, y + i, T, 2);
       } else if (k === K.WALK) {
         g.fillStyle = 'rgba(0,0,0,.06)'; g.fillRect(x, y, T, 1); g.fillRect(x, y, 1, T);
@@ -102,9 +102,12 @@
         g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(x + (h % 20), y + 8 + ((h >> 4) % 14), 10, 2);
       } else if (k === K.BRIDGE) {
         const up = map.t[(ty - 1) * N + tx], dn = map.t[(ty + 1) * N + tx];
+        const lf = map.t[ty * N + tx - 1], rt = map.t[ty * N + tx + 1];
         g.fillStyle = '#7d756a';
         if (up === K.WATER) g.fillRect(x, y, T, 3);
         if (dn === K.WATER) g.fillRect(x, y + T - 3, T, 3);
+        if (lf === K.WATER) { g.fillRect(x, y, 4, T); g.fillStyle = '#5d564c'; g.fillRect(x + 1, y + 4, 2, 2); g.fillRect(x + 1, y + 20, 2, 2); g.fillStyle = '#7d756a'; }
+        if (rt === K.WATER) { g.fillRect(x + T - 4, y, 4, T); }
       } else if (k === K.WALL) {
         g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(x, y + 15, T, 2); g.fillRect(x + (ty % 2 ? 8 : 24), y, 2, 15); g.fillRect(x + (ty % 2 ? 24 : 8), y + 17, 2, 15);
       } else if (k === K.ROAD) {
@@ -112,6 +115,15 @@
         if (A.x.some((a) => tx === a + 1) && ty % 2 === 0 && !A.y.some((a) => ty >= a && ty <= a + 2)) { g.fillStyle = '#e8e2c8'; g.fillRect(x + 14, y + 4, 4, 16); }
         if (A.y.some((a) => ty === a + 1) && tx % 2 === 0 && !A.x.some((a) => tx >= a && tx <= a + 2)) { g.fillStyle = '#e8e2c8'; g.fillRect(x + 4, y + 14, 16, 4); }
         g.fillStyle = 'rgba(255,255,255,.04)'; g.fillRect(x + (h % 24), y + ((h >> 6) % 24), 6, 3);
+      }
+      if (k === K.PALM) { // coconut palm: shadow, then fronds radiating from the crown
+        const a0 = (h % 628) / 100;
+        g.fillStyle = 'rgba(0,0,0,.16)'; g.beginPath(); g.arc(x + 20, y + 20, 14, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#2e7d32'; g.lineWidth = 4; g.lineCap = 'round';
+        for (let i = 0; i < 7; i++) { const a = a0 + (i * Math.PI * 2) / 7; g.beginPath(); g.moveTo(x + 16, y + 16); g.quadraticCurveTo(x + 16 + Math.cos(a + 0.3) * 10, y + 16 + Math.sin(a + 0.3) * 10, x + 16 + Math.cos(a) * 17, y + 16 + Math.sin(a) * 17); g.stroke(); }
+        g.lineCap = 'butt';
+        g.fillStyle = '#6d4c41'; g.beginPath(); g.arc(x + 16, y + 16, 3.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#8d6e63'; g.beginPath(); g.arc(x + 19, y + 15, 2, 0, Math.PI * 2); g.arc(x + 14, y + 19, 2, 0, Math.PI * 2); g.fill();
       }
       if (k === K.TREE) {
         g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.arc(x + 19, y + 19, 17, 0, Math.PI * 2); g.fill();
@@ -123,8 +135,37 @@
   function drawBuilding(g, b) {
     // drop shadow, roof, parapet and rooftop clutter
     g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(b.x + 5, b.y + 6, b.w, b.h);
-    if (b.kind === 'market') {
-      for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? '#e53935' : '#fafafa'; g.fillRect(b.x + (i * b.w) / 4, b.y, b.w / 4 + 0.5, b.h); }
+    if (b.kind === 'stall') { // striped awning toward the street, goods peeking out on the other side
+      const AWN = [['#e53935', '#fafafa'], ['#1e88e5', '#fafafa'], ['#43a047', '#fff59d'], ['#fb8c00', '#fff3e0'], ['#8e24aa', '#f3e5f5']][b.awning || 0];
+      const r = makeRng(b.seed || 1), up = b.face > 0, ay = up ? b.y : b.y + 8, ah = b.h - 8;
+      g.fillStyle = '#8d6e63'; g.fillRect(b.x + 2, up ? b.y + b.h - 10 : b.y, b.w - 4, 10);
+      for (let i = 0; i < 4; i++) { const c = ['#ffca28', '#ef5350', '#66bb6a', '#ffa726', '#fff59d'][r.int(5)]; g.fillStyle = c; g.beginPath(); g.arc(b.x + 8 + i * ((b.w - 16) / 3), up ? b.y + b.h - 5 : b.y + 5, 3, 0, Math.PI * 2); g.fill(); }
+      const n = 6;
+      for (let i = 0; i < n; i++) { g.fillStyle = AWN[i % 2]; g.fillRect(b.x + (i * b.w) / n, ay, b.w / n + 0.5, ah); }
+      g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(b.x, up ? ay + ah - 3 : ay, b.w, 3);
+      for (let i = 0; i < n; i++) { g.fillStyle = AWN[i % 2]; g.beginPath(); const sx = b.x + (i * b.w) / n, sy = up ? ay + ah : ay; g.arc(sx + b.w / n / 2, sy, b.w / n / 2, up ? 0 : Math.PI, up ? Math.PI : Math.PI * 2); g.fill(); }
+      return;
+    }
+    if (b.kind === 'statue') { // Gandhi Circle: a round garden island with flowers and a statue on a pedestal
+      const cx = b.x + b.w / 2, cy = b.y + b.h / 2, R = b.w / 2;
+      g.fillStyle = COL[K.ROAD]; g.fillRect(b.x, b.y, b.w, b.h);
+      g.fillStyle = '#d7ccc8'; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#7cb342'; g.beginPath(); g.arc(cx, cy, R - 5, 0, Math.PI * 2); g.fill();
+      for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; g.fillStyle = i % 2 ? '#ff7043' : '#ffee58'; g.beginPath(); g.arc(cx + Math.cos(a) * (R - 11), cy + Math.sin(a) * (R - 11), 3.2, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.arc(cx + 4, cy + 5, 17, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#eceff1'; g.beginPath(); g.arc(cx, cy, 17, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#90a4ae'; g.lineWidth = 2; g.stroke();
+      g.fillStyle = '#b0bec5'; g.beginPath(); g.arc(cx, cy, 11, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#78909c'; g.beginPath(); g.ellipse(cx, cy + 1, 6, 8, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(cx, cy - 5, 4, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#78909c'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx + 4, cy); g.lineTo(cx + 10, cy + 9); g.stroke();
+      return;
+    }
+    if (b.kind === 'busstand') { // a red-roofed shelter with a bench line
+      g.fillStyle = '#c62828'; g.fillRect(b.x, b.y, b.w, b.h);
+      g.fillStyle = '#e53935'; for (let x = b.x + 4; x < b.x + b.w - 4; x += 12) g.fillRect(x, b.y + 4, 6, b.h - 8);
+      g.fillStyle = '#fff'; g.fillRect(b.x + b.w / 2 - 22, b.y + b.h / 2 - 6, 44, 12);
+      g.fillStyle = '#c62828'; g.font = '900 9px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('APSRTC', b.x + b.w / 2, b.y + b.h / 2 + 0.5);
       return;
     }
     g.fillStyle = b.color; g.fillRect(b.x, b.y, b.w, b.h);
@@ -513,10 +554,10 @@
     const P = G.player;
     const px = P.px + (P.x - P.px) * alpha, py = P.py + (P.y - P.py) * alpha;
     const vw = W / zoom, vh = (H - bottomPad) / zoom;
-    // look ahead of the player, but keep the view mostly inside the (small) town; a little slack at the top
-    // so the HUD panels never sit on top of the office gate
+    // look ahead of the player, but keep the view inside the (small) town; a little slack at the top so the
+    // HUD panels never sit on top of the office
     const fit = (v, span, lo, hi) => (WORLD + lo + hi > span ? Math.max(span / 2 - lo, Math.min(WORLD - span / 2 + hi, v)) : WORLD / 2);
-    const tx = fit(px + (P.fx || 0) * 40, vw, vw * 0.08, vw * 0.08), ty = fit(py + (P.fy || 0) * 40, vh, vh * 0.3, vh * 0.08);
+    const tx = fit(px + (P.fx || 0) * 40, vw, vw * 0.05, vw * 0.05), ty = fit(py + (P.fy || 0) * 40, vh, vh * 0.12, vh * 0.05);
     const k = Math.min(1, dt * 5);
     cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
     if (Math.abs(cam.x - px) > vw) { cam.x = tx; cam.y = ty; }
@@ -528,10 +569,14 @@
     ctx.fillStyle = COL[K.FIELD]; ctx.fillRect(0, 0, cv.width, cv.height);
     const s = zoom * DPR;
     ctx.setTransform(s, 0, 0, s, -left * s, -top * s);
+    // paddy rows carry on past the town edge
+    ctx.fillStyle = 'rgba(70,130,40,.35)';
+    for (let y = Math.floor(top / 8) * 8 + 4; y < top + vh + 8; y += 8) ctx.fillRect(left - 2, y, vw + 4, 2);
 
     // map chunks
-    const px0 = Math.max(0, Math.floor(left / (CH * T))), px1 = Math.min(N / CH - 1, Math.floor((left + vw) / (CH * T)));
-    const py0 = Math.max(0, Math.floor(top / (CH * T))), py1 = Math.min(N / CH - 1, Math.floor((top + vh) / (CH * T)));
+    const NC = Math.ceil(N / CH) - 1; // the last chunk row/column may be partial
+    const px0 = Math.max(0, Math.floor(left / (CH * T))), px1 = Math.min(NC, Math.floor((left + vw) / (CH * T)));
+    const py0 = Math.max(0, Math.floor(top / (CH * T))), py1 = Math.min(NC, Math.floor((top + vh) / (CH * T)));
     const ov = 1 / (zoom * DPR); // one device pixel of overlap hides seams between chunks
     for (let cy = py0; cy <= py1; cy++) for (let cx = px0; cx <= px1; cx++) ctx.drawImage(chunk(cx, cy), cx * CH * T, cy * CH * T, CH * T + ov, CH * T + ov);
     const inView = (x, y, m) => x > left - m && x < left + vw + m && y > top - m && y < top + vh + m;

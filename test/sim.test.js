@@ -56,6 +56,8 @@ test('a slogan pulls in people nearby', () => {
   const g = play({ police: false, goons: false, civilians: 20 });
   const P = g.state.player;
   const civs = loneMen(g).slice(0, 4);
+  const far = g.state.posts[0];
+  for (const c of g.state.ents) if (c.kind === 'civ' && !civs.includes(c)) place(c, far.x, far.y);
   civs.forEach((c, i) => place(c, P.x + 60 + i * 10, P.y + 40));
   steps(g, 1, inp({ act: true }));
   assert.equal(P.followers.length, 4);

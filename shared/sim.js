@@ -96,8 +96,17 @@
 
     const postFields = map.posts.map((p) => field(map, [[Math.floor(p.x / TILE), Math.floor(p.y / TILE)]]));
     const civCount = opts.civilians !== undefined ? opts.civilians : 36;
+    // a third of the town is out shopping on Bazaar Street: the place to build your crowd
+    const mk = map.market;
+    const marketSpot = () => {
+      for (let tries = 0; tries < 60; tries++) {
+        const tx = mk.x0 + rng.int(mk.x1 - mk.x0 + 1), ty = mk.y0 + rng.int(mk.y1 - mk.y0 + 1);
+        if (!solidAt(map, tx, ty)) return { x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE };
+      }
+      return randomSpot(0);
+    };
     for (let i = 0; i < civCount; i++) {
-      const s = randomSpot(0);
+      const s = mk && i % 3 === 0 ? marketSpot() : randomSpot(0);
       spawnCiv(s.x, s.y);
     }
     // a queue of women waiting outside the office / booth gate
