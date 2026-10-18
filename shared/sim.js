@@ -13,6 +13,8 @@
   const SHIELD = 3; // supporters needed near you to block an arrest
   const GRAB_TIME = 1.1; // seconds a cop must hold on to arrest you
   const EMPTY_INPUT = { mx: 0, my: 0, run: false, act: false };
+  const THROW = { min: 90, max: 260, air: 6, windup: 0.35 }; // goons throw stones, sticks and chappals
+  const DEMO_STAGES = [75, 50, 25, 10]; // Democracy meter thresholds: unwell, hospital, ICU, ventilator
 
   function createGame(opts) {
     opts = opts || {};
@@ -31,7 +33,9 @@
       player: null, ents: [], barrs: [], clouds: [], posts: map.posts,
       stats: { rec: 0, crowd: 0, brk: 0, lift: 0, doc: 0, slogan: 0, goon: 0 }, missions: [], missionsDone: 0,
       result: null, alertT: 50,
+      projs: [], demo: 100, demoStage: 0, closest: Infinity, ringIn: false, queue: [], queueT: 0, ignoreCd: 0, newsCd: 0,
     };
+    Object.assign(G.stats, { thrown: 0, hits: 0, civHurt: 0, protected: 0 });
     let nextId = 1;
     const emit = (e) => G.events.push(e);
     const say = (who, line, extra, color) => emit({ t: 'say', id: who.id, x: who.x, y: who.y, text: text(line, extra), color });
@@ -42,6 +46,7 @@
       id: 0, kind: 'player', x: map.start.x, y: map.start.y, r: 9, vx: 0, vy: 0, fx: 0, fy: 1, kx: 0, ky: 0,
       papers: 100, stamina: 100, cases: 0, followers: [], docs: (M.given || []).slice(), sloganCd: 0, grab: 0, grabTick: -1,
       collect: null, submitT: 0, state: 'free', heldT: 0, invuln: 0, pushing: 0, running: false, sayCd: 0, inGas: false,
+      daze: 0, guardT: 0,
     };
     P.px = P.x; P.py = P.y;
     G.player = P;
@@ -64,6 +69,18 @@
       G.ents.push(e);
       return e;
     }
+    // townspeople: men, women (some walking with a child) and children (some flying kites)
+    function spawnCiv(x, y, extra) {
+      const r = rng();
+      const type = r < 0.38 ? 'woman' : r < 0.46 ? 'child' : 'man';
+      const c = spawn('civ', x, y, Object.assign({ look: rng.int(6), t: rng() * 3, type, r: type === 'child' ? 6 : 8 }, extra || {}));
+      if (type === 'child') c.kite = rng() < 0.5;
+      else if (type === 'woman' && rng() < 0.4) {
+        const k = spawn('civ', x, y, { look: rng.int(6), t: 0, type: 'child', r: 6, guardRef: c });
+        c.kidRef = k;
+      }
+      return c;
+    }
     const nearestPost = (x, y) => { let bi = 0, bd = Infinity; G.posts.forEach((p, i) => { const d = dist(x, y, p.x, p.y); if (d < bd) { bd = d; bi = i; } }); return bi; };
 
     // Section 144 ring around the destination: most street crossings barricaded, a few manned checkposts
@@ -80,7 +97,24 @@
     const civCount = opts.civilians !== undefined ? opts.civilians : 150;
     for (let i = 0; i < civCount; i++) {
       const s = randomSpot(0);
-      spawn('civ', s.x, s.y, { look: rng.int(6), t: rng() * 3 });
+      spawnCiv(s.x, s.y);
+    }
+    // a queue of women waiting outside the office / booth gate
+    if (civCount > 0) {
+      const out = norm(target.gate.x - target.x, target.gate.y - target.y);
+      const side = { x: -out.y, y: out.x };
+      for (let k = 0; k < 5; k++) {
+        let x = target.gate.x + out.x * 70 + side.x * (k - 2) * 20, y = target.gate.y + out.y * 70 + side.y * (k - 2) * 20;
+        if (solidAt(map, Math.floor(x / TILE), Math.floor(y / TILE))) { x = target.gate.x + out.x * (40 + k * 18); y = target.gate.y + out.y * (40 + k * 18); }
+        if (solidAt(map, Math.floor(x / TILE), Math.floor(y / TILE))) continue;
+        G.queue.push({ x, y, fx: -out.x, fy: -out.y });
+      }
+      for (const q of G.queue) spawnQueue(q);
+    }
+    function spawnQueue(q) {
+      const c = spawn('civ', q.x, q.y, { look: rng.int(6), t: 0, type: 'woman', mode: 'queue', home: q, fx: q.fx, fy: q.fy });
+      q.ref = c;
+      return c;
     }
     if (opts.police !== false) {
       for (let i = 0; i < 12; i++) {
@@ -186,10 +220,13 @@
     // ------------------------------------------------------------ crowd
     function join(c) {
       if (P.followers.length >= CAP || c.mode === 'follow') return false;
+      if (c.type === 'child' && !(c.guardRef && c.guardRef.mode === 'follow')) return false; // children only come with their mother
       c.mode = 'follow'; c.slot = P.followers.length;
       P.followers.push(c);
       G.stats.rec++;
       G.stats.crowd = Math.max(G.stats.crowd, P.followers.length);
+      const k = c.kidRef;
+      if (k && !k.dead && (k.mode === 'wander' || k.mode === 'flee')) join(k);
       return true;
     }
     function leave(c, from, flee) {
@@ -197,6 +234,66 @@
       if (i >= 0) { P.followers.splice(i, 1); P.followers.forEach((f, k) => { f.slot = k; }); }
       if (flee) { c.mode = 'flee'; c.t = 2 + rng() * 1.5; c.cool = 6; const d = norm(c.x - from.x, c.y - from.y); c.dx = d.x || 1; c.dy = d.y; }
       else c.mode = 'wander';
+      if (c.kidRef && c.kidRef.mode === 'follow') leave(c.kidRef, from, flee);
+    }
+
+    // ------------------------------------------------------------ democracy meter
+    function demo(delta) {
+      const before = G.demo;
+      G.demo = clamp(G.demo + delta, 5, 100);
+      if (G.demo !== before) emit({ t: 'demo', v: G.demo, d: G.demo - before });
+      while (G.demoStage < DEMO_STAGES.length && G.demo <= DEMO_STAGES[G.demoStage]) {
+        toast(Ct.DEMO.toasts[G.demoStage], '#ffab91');
+        emit({ t: 'demostage', stage: ++G.demoStage });
+      }
+    }
+
+    // ------------------------------------------------------------ violence against bystanders
+    const vulnerable = (c) => c.type === 'woman' || c.type === 'child';
+    function copsLookAway(at) {
+      query(at.x, at.y, 320, (e) => {
+        if (e.kind !== 'cop' || e.mode === 'chase' || e.mode === 'stun') return;
+        e.ignoreT = 2.5;
+        const k = norm(e.x - at.x, e.y - at.y); e.fx = k.x || 1; e.fy = k.y;
+        if (G.ignoreCd <= 0) { say(e, rng.pick(Ct.LINES.copIgnore), null, '#fff59d'); G.ignoreCd = 5; }
+      });
+    }
+    function hurtCiv(c, from) {
+      if (c.mode === 'follow') leave(c, from, false);
+      if (c.mode === 'help' && c.helpRef) c.helpRef.helperRef = null;
+      c.mode = 'hurt'; c.hurtT = 3.2; c.hitFrom = { x: from.x, y: from.y }; c.cool = 30;
+      move(c, 0, 0, 0);
+      say(c, rng.pick(c.type === 'child' ? Ct.LINES.childHurt : c.type === 'woman' ? Ct.LINES.womanHurt : Ct.LINES.manHurt), null, '#ffcdd2');
+      emit({ t: 'civhit', x: c.x, y: c.y, type: c.type });
+      // the nearest woman runs over to help
+      let helper = null, bd = 170;
+      query(c.x, c.y, 170, (o) => {
+        if (o === c || o.kind !== 'civ' || o.type !== 'woman' || o.helperRef) return;
+        if (!(o.mode === 'wander' || o.mode === 'flee' || o.mode === 'queue' || o.mode === 'follow')) return;
+        const d = dist(o.x, o.y, c.x, c.y);
+        if (d < bd) { bd = d; helper = o; }
+      });
+      if (helper) {
+        if (helper.mode === 'follow') leave(helper, from, false);
+        if (helper.home) { helper.home.ref = null; helper.home = null; }
+        helper.mode = 'help'; helper.helpRef = c; c.helperRef = helper;
+      }
+      if (c.home) { c.home.ref = null; c.home = null; }
+      if (vulnerable(c)) {
+        G.stats.civHurt++;
+        demo(-6);
+        if (G.newsCd <= 0) { toast(rng.pick(c.type === 'child' ? Ct.LINES.childNews : Ct.LINES.womanNews), '#ff8a80'); G.newsCd = 7; }
+        copsLookAway(c);
+      } else demo(-2);
+    }
+    function goHome(c) {
+      const from = c.hitFrom || { x: c.x - c.fx, y: c.y - c.fy };
+      const d = norm(c.x - from.x, c.y - from.y);
+      c.mode = 'home'; c.t = 6; c.bandage = true; c.dx = d.x || 1; c.dy = d.y;
+      const h = c.helperRef;
+      if (h && !h.dead && h.mode === 'help') { h.mode = 'home'; h.t = 6; h.dx = c.dx; h.dy = c.dy; }
+      const k = c.kidRef;
+      if (k && !k.dead && k.mode !== 'follow' && k.mode !== 'hurt') { k.mode = 'home'; k.t = 6; k.dx = c.dx; k.dy = c.dy; }
     }
     const shieldCount = () => { let n = 0; for (const f of P.followers) if (dist(f.x, f.y, P.x, P.y) < 70) n++; return n; };
 
@@ -207,6 +304,7 @@
       const scatter = P.followers.slice(Math.ceil(P.followers.length / 2));
       for (const f of scatter) leave(f, cop, true);
       emit({ t: 'detained', cases: P.cases, x: P.x, y: P.y });
+      demo(-8);
       say(P, rng.pick(Ct.LINES.detained));
       for (const e of G.ents) if (e.kind === 'cop' && e.mode === 'chase') e.mode = e.role === 'post' || e.role === 'guard' ? 'return' : 'patrol';
       if (P.cases >= CASES) end(false, 'jailed');
@@ -247,13 +345,19 @@
         G.score += timeBonus + crowdBonus + paperBonus;
         G.bonus = { timeBonus, crowdBonus, paperBonus };
       }
-      G.result = { won, reason, score: G.score, crowd: G.stats.crowd, docs: P.docs.length, missions: G.missionsDone, mode: modeKey, place: G.place };
+      G.result = {
+        won, reason, score: G.score, crowd: G.stats.crowd, docs: P.docs.length, missions: G.missionsDone, mode: modeKey, place: G.place,
+        demo: Math.round(G.demo), thrown: G.stats.thrown, hits: G.stats.hits, civHurt: G.stats.civHurt, protected: G.stats.protected,
+        arrests: P.cases, barricades: G.stats.brk, closest: Math.max(0, Math.round((G.closest - target.r) / 8)), goal: M.goal,
+      };
       emit({ t: won ? 'won' : 'over', reason });
     }
 
     // ------------------------------------------------------------ update: player
     function updatePlayer(inp) {
       P.invuln = Math.max(0, P.invuln - DT);
+      P.daze = Math.max(0, P.daze - DT);
+      P.guardT = Math.max(0, P.guardT - DT);
       P.sloganCd = Math.max(0, P.sloganCd - DT);
       P.sayCd -= DT;
       if (P.state === 'held') {
@@ -264,12 +368,12 @@
       let mx = inp.mx || 0, my = inp.my || 0;
       const mag = hypot(mx, my);
       if (mag > 1) { mx /= mag; my /= mag; }
-      P.running = !!inp.run && mag > 0.2 && P.stamina > 3;
+      P.running = !!inp.run && mag > 0.2 && P.stamina > 3 && P.daze <= 0;
       P.stamina = clamp(P.stamina + (P.running ? -20 : 13) * DT, 0, 100);
       P.inGas = G.clouds.some((c) => dist(c.x, c.y, P.x, P.y) < c.r);
       const grabbed = P.grabTick === G.tick - 1;
       if (!grabbed) P.grab = Math.max(0, P.grab - DT * 1.5);
-      const speed = (P.running ? SPEED.run : SPEED.walk) * (P.inGas ? 0.6 : 1) * (grabbed ? SPEED.held : 1);
+      const speed = (P.running ? SPEED.run : SPEED.walk) * (P.inGas ? 0.6 : 1) * (grabbed ? SPEED.held : 1) * (P.daze > 0 ? 0.55 : 1);
       const ix = mx * speed + P.kx, iy = my * speed + P.ky;
       P.kx *= 0.85; P.ky *= 0.85;
       if (Math.abs(P.kx) < 1) P.kx = 0;
@@ -279,6 +383,9 @@
       if (mx || my) { P.fx = mx; P.fy = my; }
       moveBody(P, ix * DT, iy * DT, map);
       if (Math.floor(ox / TILE) !== Math.floor(P.x / TILE) || Math.floor(oy / TILE) !== Math.floor(P.y / TILE)) pFieldDirty = pFieldDirty || G.tick - pFieldTick > 3;
+      const toTarget = dist(P.x, P.y, target.x, target.y);
+      G.closest = Math.min(G.closest, toTarget);
+      if (!G.ringIn && toTarget < 15.6 * TILE) { G.ringIn = true; toast(Ct.DEMO.ring, '#ffcc80'); demo(-5); }
 
       // barricade pushing: walking into a barricade wears it down; the crowd pushes with you
       P.pushing = 0;
@@ -298,12 +405,12 @@
 
       // slogan: recruit nearby townspeople and calm scattered supporters; makes goons think twice
       if (inp.act && P.sloganCd <= 0) {
-        P.sloganCd = 2.5;
+        P.sloganCd = 2.5; P.guardT = 3; // the crowd closes ranks around women and children
         G.stats.slogan++;
         say(P, rng.pick(modeKey === 'vote' ? Ct.LINES.sloganVote : Ct.LINES.slogan), null, '#bbdefb');
         let n = 0;
         query(P.x, P.y, 150, (e) => {
-          if (e.kind === 'civ' && e.mode !== 'follow' && n < 6 && P.followers.length < CAP) { if (join(e)) n++; }
+          if (e.kind === 'civ' && (e.mode === 'wander' || e.mode === 'flee') && n < 6 && P.followers.length < CAP) { if (join(e)) n++; }
           else if (e.kind === 'goon' && P.followers.length >= 4 && e.mode !== 'flee') scareGoon(e);
         });
         emit({ t: 'slogan', x: P.x, y: P.y, n });
@@ -361,6 +468,7 @@
       G.stats.brk++;
       pFieldDirty = true;
       emit({ t: 'break', x: b.x, y: b.y, pts: gain(250, true) });
+      demo(3);
     }
 
     // ------------------------------------------------------------ update: NPCs
@@ -396,6 +504,39 @@
         if (e.t <= 0) e.mode = 'wander';
         return;
       }
+      if (e.mode === 'hurt') { e.hurtT -= DT; move(e, 0, 0, 0); if (e.hurtT <= 0) goHome(e); return; }
+      if (e.mode === 'help') {
+        const v = e.helpRef;
+        if (!v || v.dead || v.mode !== 'hurt') { e.helpRef = null; if (e.mode === 'help') e.mode = 'wander'; return; }
+        const d = dist(e.x, e.y, v.x, v.y);
+        if (d > 13) { const dir = norm(v.x - e.x, v.y - e.y); move(e, dir.x, dir.y, SPEED.flee); } else { move(e, 0, 0, 0); e.fx = v.x - e.x || 1; e.fy = v.y - e.y; }
+        return;
+      }
+      if (e.mode === 'home') { // led home after being hurt, then off the map
+        e.t -= DT;
+        const r = move(e, e.dx, e.dy, SPEED.civ * 1.5);
+        if (r.hitX) e.dx = -e.dx;
+        if (r.hitY) e.dy = -e.dy;
+        if (e.t <= 0) e.dead = true;
+        return;
+      }
+      if (e.mode === 'queue') {
+        const h = e.home;
+        if (!h) { e.mode = 'wander'; return; }
+        const d = dist(e.x, e.y, h.x, h.y);
+        if (d > 4) { const dir = norm(h.x - e.x, h.y - e.y); move(e, dir.x, dir.y, SPEED.civ); } else { move(e, 0, 0, 0); e.fx = h.fx; e.fy = h.fy; }
+        return;
+      }
+      const g = e.guardRef;
+      if (g) { // a child stays close to their mother
+        if (g.dead) e.guardRef = null;
+        else if (g.mode === 'home') { e.mode = 'home'; e.t = g.t; e.dx = g.dx; e.dy = g.dy; return; }
+        else if (g.mode !== 'follow') {
+          const d = dist(e.x, e.y, g.x, g.y);
+          if (d > 15) { const dir = norm(g.x - e.x, g.y - e.y); move(e, dir.x, dir.y, Math.min(SPEED.flee, d * 3)); } else move(e, 0, 0, 0);
+          return;
+        }
+      }
       e.t -= DT;
       if (e.t <= 0) {
         e.t = 1.5 + rng() * 3;
@@ -412,6 +553,7 @@
       e.gasCd = Math.max(0, (e.gasCd || 0) - DT);
       e.sayCd -= DT;
       if (e.mode === 'stun') { e.stunT -= DT; move(e, 0, 0, 0); if (e.stunT <= 0) backToWork(e); return; }
+      if (e.ignoreT > 0 && e.mode !== 'chase') { e.ignoreT -= DT; move(e, 0, 0, 0); return; } // "didn't see anything"
       const d = dist(e.x, e.y, P.x, P.y);
       const look = e.role === 'guard' ? 190 : 220;
       if (e.mode !== 'chase' && sees(e, look)) {
@@ -428,6 +570,7 @@
           e.gasCd = 10;
           G.clouds.push({ x: P.x + rng.range(-30, 30), y: P.y + rng.range(-30, 30), r: 75, t: 4.5, max: 4.5 });
           emit({ t: 'gas', x: P.x, y: P.y });
+          demo(-3);
         }
         if (d < e.r + P.r + 3 && P.state === 'free' && P.invuln <= 0) {
           if (shieldCount() >= SHIELD) {
@@ -455,7 +598,7 @@
             if (hit >= 3) break;
             if (dist(f.x, f.y, e.x, e.y) < 46) { leave(f, e, true); hit++; }
           }
-          if (hit) { e.lathiCd = 1.8; emit({ t: 'lathi', x: e.x, y: e.y, n: hit }); if (rng() < 0.4) say(e, rng.pick(Ct.LINES.lathi), null, '#fff59d'); }
+          if (hit) { e.lathiCd = 1.8; demo(-2); emit({ t: 'lathi', x: e.x, y: e.y, n: hit }); if (rng() < 0.4) say(e, rng.pick(Ct.LINES.lathi), null, '#fff59d'); }
         }
         return;
       }
@@ -483,32 +626,131 @@
       say(e, rng.pick(Ct.LINES.goonScared), null, '#ffcdd2');
     }
 
+    // ------------------------------------------------------------ thrown stones, sticks and chappals
+    function startThrow(e, civ) {
+      e.throwT = THROW.windup; e.aimRef = civ || null;
+      e.throwCd = civ ? rng.range(5, 8) : rng.range(2.8, 4.2);
+      const tx = civ ? civ.x : P.x, ty = civ ? civ.y : P.y, k = norm(tx - e.x, ty - e.y);
+      e.fx = k.x || 1; e.fy = k.y;
+      if (e.sayCd <= 0) { say(e, rng.pick(Ct.LINES.throw), null, '#ffcdd2'); e.sayCd = 5; }
+    }
+    function launch(e) {
+      const civ = e.aimRef;
+      e.aimRef = null;
+      if (civ && (civ.dead || civ.mode === 'hurt' || civ.mode === 'home')) return;
+      let tx, ty;
+      const d0 = civ ? dist(e.x, e.y, civ.x, civ.y) : dist(e.x, e.y, P.x, P.y), dur = 0.6 + d0 / 600;
+      if (civ) { tx = civ.x + rng.range(-8, 8); ty = civ.y + rng.range(-8, 8); }
+      else { // lead the target a little: zig-zagging dodges
+        tx = P.x + P.vx * dur * 0.8 + rng.range(-22, 22); ty = P.y + P.vy * dur * 0.8 + rng.range(-22, 22);
+      }
+      const r = rng(), kind = r < 0.55 ? 'stone' : r < 0.8 ? 'stick' : 'chappal';
+      G.projs.push({ id: nextId++, kind, x0: e.x, y0: e.y, x1: tx, y1: ty, t: 0, dur, h: 40 + d0 * 0.25, aimed: !!civ });
+      G.stats.thrown++;
+      emit({ t: 'throw', x: e.x, y: e.y, kind });
+    }
+    function canThrow(e) { return opts.throws !== false && !(e.throwCd > 0) && G.projs.length < THROW.air; }
+    function hitPlayer(pj, from) {
+      G.stats.hits++;
+      tearPapers(from, 12);
+      P.kx *= 1.3; P.ky *= 1.3;
+      P.daze = 0.7; P.stamina = Math.max(0, P.stamina - 20); P.invuln = Math.max(P.invuln, 0.6);
+      for (let n = 0; n < 2; n++) { // the closest supporters scatter
+        let f = null, bd = 80;
+        for (const o of P.followers) { const d = dist(o.x, o.y, P.x, P.y); if (d < bd) { bd = d; f = o; } }
+        if (f) leave(f, from, true);
+      }
+      demo(-4);
+      emit({ t: 'hit', x: P.x, y: P.y, kind: pj.kind });
+      if (P.sayCd <= 0) { say(P, rng.pick(Ct.LINES.hit)); P.sayCd = 3; }
+    }
+    function protect(x, y, byCrowd) {
+      G.stats.protected++;
+      demo(2);
+      emit({ t: 'protect', x, y, crowd: byCrowd, pts: gain(byCrowd ? 80 : 120, true) });
+      if (!byCrowd && P.sayCd <= 0) { say(P, rng.pick(Ct.LINES.protect)); P.sayCd = 3; }
+    }
+    function land(pj) {
+      const x = pj.x1, y = pj.y1, from = { x: pj.x0, y: pj.y0 };
+      emit({ t: 'land', x, y, kind: pj.kind });
+      let victim = null, vd = 18;
+      query(x, y, 22, (e) => {
+        if (e.kind !== 'civ' || e.dead || e.mode === 'hurt' || e.mode === 'home') return;
+        const d = dist(e.x, e.y, x, y);
+        if (d < vd) { vd = d; victim = e; }
+      });
+      const pd = dist(P.x, P.y, x, y);
+      if (P.state === 'free' && pd < 22 && P.invuln <= 0) {
+        if (pj.aimed) { // the candidate stepped in front of the women and children
+          protect(P.x, P.y, false);
+          P.papers = Math.max(1, P.papers - 6);
+          const k = norm(P.x - from.x, P.y - from.y); P.kx = k.x * 150; P.ky = k.y * 150;
+          return;
+        }
+        if (shieldCount() >= SHIELD && rng() < 0.6) { // a supporter takes it for you
+          let f = null, bd = 90;
+          for (const o of P.followers) { if (o.type !== 'man') continue; const d = dist(o.x, o.y, P.x, P.y); if (d < bd) { bd = d; f = o; } }
+          if (f) { hurtCiv(f, from); say(f, rng.pick(Ct.LINES.shield), null, '#e3f2fd'); emit({ t: 'shield', x: f.x, y: f.y }); return; }
+        }
+        hitPlayer(pj, from);
+      } else if (victim) {
+        if (vulnerable(victim) && P.guardT > 0 && dist(victim.x, victim.y, P.x, P.y) < 160) protect(victim.x, victim.y, true);
+        else hurtCiv(victim, from);
+      }
+      query(x, y, 70, (e) => {
+        if (e.kind === 'civ' && e.mode === 'wander') { e.mode = 'flee'; e.t = 1.5 + rng(); e.cool = 4; const d = norm(e.x - x, e.y - y); e.dx = d.x || 1; e.dy = d.y; }
+      });
+    }
+    function updateProjs() {
+      for (let i = G.projs.length - 1; i >= 0; i--) {
+        const pj = G.projs[i];
+        pj.t += DT;
+        if (pj.t < pj.dur) continue;
+        G.projs.splice(i, 1);
+        land(pj);
+        if (G.mode !== 'play') return;
+      }
+    }
+
     function updateGoon(e) {
       e.sayCd -= DT;
       if (e.cool > 0) e.cool -= DT;
+      if (e.throwCd > 0) e.throwCd -= DT;
       if (e.mode === 'flee') {
-        e.t -= DT;
+        e.t -= DT; e.throwT = 0;
         const r = move(e, e.dx, e.dy, SPEED.goonChase);
         if (r.hitX) e.dx = -e.dx;
         if (r.hitY) e.dy = -e.dy;
         if (e.t <= 0) backToWork(e);
         return;
       }
+      if (e.throwT > 0) { e.throwT -= DT; move(e, 0, 0, 0); if (e.throwT <= 0) launch(e); return; }
       const big = P.followers.length >= 8;
-      if (e.mode !== 'chase' && !(e.cool > 0) && !big && sees(e, 230)) {
+      if (e.mode !== 'chase' && !(e.cool > 0) && sees(e, big ? 280 : 230)) {
         e.mode = 'chase'; e.seeT = 0;
         if (e.sayCd <= 0) { say(e, rng.pick(Ct.LINES.goon), null, '#ffcdd2'); e.sayCd = 6; }
       }
       if (e.mode === 'chase') {
         if (sees(e, 600)) e.seeT = 0; else e.seeT += DT;
-        if (big && dist(e.x, e.y, P.x, P.y) < 200) { scareGoon(e); return; }
         if (P.state !== 'free' || e.seeT > 5) { backToWork(e); return; }
+        const d = dist(e.x, e.y, P.x, P.y);
+        const inRange = d > THROW.min && d < THROW.max && e.los;
+        if (big) { // a big crowd: they won't face you, they pelt you from a distance
+          if (d < 130) { scareGoon(e); return; }
+          if (inRange && canThrow(e)) { startThrow(e, null); return; }
+          const k = d < 200 ? -1 : d > 250 ? 1 : 0, dir = norm(P.x - e.x, P.y - e.y);
+          move(e, dir.x * k, dir.y * k, SPEED.goon);
+          if (!k) { e.fx = dir.x || 1; e.fy = dir.y; }
+          return;
+        }
+        if (inRange && canThrow(e)) { if (rng() < 0.6) { startThrow(e, null); return; } e.throwCd = 1.5; }
         const dir = steerTo(e, P.x, P.y, true);
         move(e, dir.x, dir.y, SPEED.goonChase);
         if (dist(e.x, e.y, P.x, P.y) < e.r + P.r + 3 && P.invuln <= 0) {
           if (shieldCount() >= SHIELD) scareGoon(e);
           else {
             tearPapers(e, 25);
+            demo(-3);
             say(e, rng.pick(Ct.LINES.goon), null, '#ffcdd2');
             e.mode = 'flee'; e.t = 3; e.cool = 6;
             const d = norm(e.x - P.x, e.y - P.y); e.dx = d.x || 1; e.dy = d.y;
@@ -518,6 +760,13 @@
       }
       if (e.mode === 'post' || e.mode === 'return') {
         const h = e.home;
+        if (e.mode === 'post' && canThrow(e) && dist(P.x, P.y, target.x, target.y) < 560) {
+          // the gang at the gate pelts the women queuing outside
+          let victim = null;
+          for (const q of G.queue) { const c = q.ref; if (c && !c.dead && c.mode === 'queue') { const d = dist(c.x, c.y, e.x, e.y); if (d > 50 && d < THROW.max) { victim = c; break; } } }
+          if (victim && rng() < 0.5) { startThrow(e, victim); return; }
+          e.throwCd = 2;
+        }
         if (!h || dist(e.x, e.y, h.x, h.y) < 8) { e.mode = 'post'; move(e, 0, 0, 0); return; }
         const dir = norm(h.x - e.x, h.y - e.y);
         move(e, dir.x, dir.y, SPEED.goon);
@@ -529,6 +778,11 @@
     // ------------------------------------------------------------ world upkeep
     function upkeep() {
       for (let i = G.clouds.length - 1; i >= 0; i--) { G.clouds[i].t -= DT; if (G.clouds[i].t <= 0) G.clouds.splice(i, 1); }
+      G.ignoreCd -= DT; G.newsCd -= DT;
+      if (G.queue.some((q) => !q.ref || q.ref.dead || q.ref.home !== q)) {
+        G.queueT -= DT;
+        if (G.queueT <= 0) { const q = G.queue.find((o) => !o.ref || o.ref.dead || o.ref.home !== o); if (q) spawnQueue(q); G.queueT = 10; }
+      } else G.queueT = 10;
       if (G.combo.t > 0) { G.combo.t -= DT; if (G.combo.t <= 0) G.combo.n = 0; }
       for (const b of G.barrs) b.pushT = Math.max(0, b.pushT - DT);
       if (G.ents.some((e) => e.dead)) G.ents = G.ents.filter((e) => !e.dead);
@@ -536,7 +790,7 @@
       if (G.tick % 60 === 0) {
         let civs = 0;
         for (const e of G.ents) if (e.kind === 'civ' && e.mode !== 'follow') civs++;
-        for (let k = 0; civs + k < civCount * 0.7 && k < 6; k++) { const s = randomSpot(450); spawn('civ', s.x, s.y, { look: rng.int(6), t: rng() * 3 }); }
+        for (let k = 0; civs + k < civCount * 0.7 && k < 6; k++) { const s = randomSpot(450); spawnCiv(s.x, s.y); }
       }
       // police backup grows with time and with your crowd
       if (opts.police !== false) {
@@ -584,6 +838,8 @@
         else updateGoon(e);
         if (G.mode !== 'play') return;
       }
+      updateProjs();
+      if (G.mode !== 'play') return;
       upkeep();
       if (G.tick % 15 === 0) updateMissions();
     }
@@ -591,8 +847,8 @@
     function drainEvents() { const ev = G.events; G.events = []; return ev; }
 
     updateMissions();
-    return { state: G, step, drainEvents, text, rng, CASES, CAP, SHIELD, _test: { join, leave, detain, breakBarricade, barricadeAt, tearPapers } };
+    return { state: G, step, drainEvents, text, rng, CASES, CAP, SHIELD, _test: { join, leave, detain, breakBarricade, barricadeAt, tearPapers, launch, startThrow, hurtCiv, demo, spawnCiv } };
   }
 
-  return { createGame, EMPTY_INPUT, SPEED, CAP, CASES, SHIELD };
+  return { createGame, EMPTY_INPUT, SPEED, CAP, CASES, SHIELD, THROW, DEMO_STAGES };
 });

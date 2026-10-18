@@ -15,7 +15,8 @@ Post-office names from India Post become the neighbourhood names, and your town,
 appear in the dialogue.
 
 > Satire. The Neelam Praja Party, its rivals and all characters, shops and events are fictional; no real
-> person or party is depicted.
+> person or party is depicted. The game contains cartoon violence against civilians (no blood), shown to
+> criticise it: the player can only protect people, never hurt them.
 
 ## Play
 
@@ -48,7 +49,24 @@ npm test        # node:test suites
   - Each arrest is a case; **3 cases and you're jailed**. After an arrest you're released at a police station.
   - Backup arrives over time, and sooner if your crowd is large.
 - **Goons** tear your papers (25% per hit). If your papers hit 0%, the document you collected most
-  recently is ruined and you must fetch it again (your starting Form-A or Voter ID is safe). Goons back off from a crowd of 8 or more.
+  recently is ruined and you must fetch it again (your starting Form-A or Voter ID is safe).
+  - They also **throw stones, sticks and chappals**. A shadow grows where each one will land and turns into a
+    red ring just before it hits, so keep moving: zig-zagging dodges most throws. A hit tears your papers,
+    knocks you back and dazes you, drains stamina and scatters the supporters next to you. With 3+
+    supporters close, one may take the stone for you.
+  - Against a crowd of 8 or more they won't come close; they pelt you from a distance instead.
+  - The gang at the office gate pelts the **women queuing outside**. Stray stones hit **women and children**
+    in your procession and on the street: they sit down hurt, another woman runs over to help, and they
+    are led home with a bandage. Nearby police turn their backs ("No complaint received.").
+  - **Protect them:** step in front of a stone aimed at them, or raise a slogan so your crowd closes ranks
+    around the women and children for 3 seconds. Each save scores points and lifts the meter.
+- **Democracy meter.** Starts at 100% and drops with every stone (more when it hits a woman or child),
+  lathi charge, tear gas shell and arrest, and when you enter the Section 144 zone. Broken barricades and
+  protected people raise it. Its stages are Unwell, In hospital, In ICU and On ventilator.
+- **The Daily Ballot.** If you don't make it (time runs out or you're jailed), a satirical front page
+  spins in. It shows a headline, a cartoon of the shuttered office with the ballot box on a stretcher, your
+  numbers, and "How to stop an election without cancelling it". **Share front page** sends it as an image
+  (or downloads it).
 - **Section 144 ring.** The streets around the destination are barricaded, with a few manned checkposts.
   Walk into a barricade to push it; every supporter nearby speeds it up.
 - **Score:** recruits, documents, barricades, lifted cops, scared goons, combos ("Nice!", "Mass!",
@@ -65,11 +83,12 @@ index.html          menu, pause, touch buttons, CSS
 shared/             DOM-free UMD modules (browser + Node)
   world.js          seeded town generator, tile collision, BFS flow fields, line of sight, barricade ring
   content.js        all text and modes; {town} {mandal} {district} templating
-  sim.js            30 Hz deterministic game: crowd, police, goons, gas, barricades, documents, filing
+  sim.js            30 Hz deterministic game: crowd, police, goons, thrown stones, bystanders, Democracy meter, gas, barricades, documents, filing
 client/
   pincode.js        India Post lookup + Andhra Pradesh check + cache + offline district fallback
   render.js         cached map chunks, people, sites, ring, gas, ambient autos, route guide, radar + town map, bubbles
-  hud.js            status, NEXT banner, radar, documents, objective arrow, missions, toasts, intro, map overlay
+  hud.js            status, Democracy meter, NEXT banner, radar, documents, objective arrow, missions, toasts, intro, map overlay
+  frontpage.js      "The Daily Ballot" satirical front page (1080x1350 canvas) with Web Share / download
   input.js          keyboard, mouse steering, touch joystick, minimap taps
   audio.js          Web Audio synthesized effects (no audio files)
   main.js           loop, menu, events -> effects, leaderboard

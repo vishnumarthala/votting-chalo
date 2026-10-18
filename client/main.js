@@ -104,6 +104,7 @@
   }
   function start() {
     if (placeErr) { pinEl.focus(); return; }
+    FrontPage.hide();
     SFX.init();
     store.set('vc_name', nameEl.value.trim());
     const pl = place ? { town: place.town, mandal: place.mandal, district: place.district, pin: place.pin, offices: (place.offices || []).filter((o) => o !== place.town) } : Object.assign({}, Ct.DEFAULT_PLACE);
@@ -136,6 +137,10 @@
     playBtn.textContent = 'PLAY AGAIN ▶';
     renderLb();
     stopPlaying();
+    if (!res.won) {
+      SFX.flatline();
+      FrontPage.show({ result: res, name: nameEl.value.trim() || 'Our candidate', onPlayAgain: start });
+    }
   }
   function setPaused(on) {
     if (!running) return;
@@ -175,6 +180,7 @@
   // ------------------------------------------------------------ events
   function handle(evs) {
     const P = game.state.player;
+    const near = (ev) => Math.abs(ev.x - P.x) < 700 && Math.abs(ev.y - P.y) < 700;
     for (const ev of evs) {
       switch (ev.t) {
         case 'say': Render.say(ev); break;
@@ -201,6 +207,14 @@
         case 'backup': SFX.backup(); break;
         case 'won': SFX.won(); for (let i = 0; i < 6; i++) Render.burst(P.x + (i - 3) * 30, P.y - 30, 20, ['#1e5bd8', '#ffd54f', '#fff', '#66bb6a', '#ff7043'], 320, 6); Hud.tier(game.state.gameMode === 'vote' ? 'VOTE CAST! ☑️' : 'NOMINATION FILED! ✅'); break;
         case 'over': SFX.over(); break;
+        case 'throw': if (near(ev)) SFX.whoosh(); break;
+        case 'land': Render.addDebris(ev.x, ev.y, ev.kind); if (near(ev)) { (ev.kind === 'stick' ? SFX.crack : ev.kind === 'chappal' ? SFX.slap : SFX.thud)(); Render.burst(ev.x, ev.y, 6, ['#bcaaa4', '#d7ccc8'], 90, 3); } break;
+        case 'hit': Render.shake(9); Render.hurtFlash(0.7); Render.popup(ev.x, ev.y - 34, '📄 −12%  💫', '#ff8a80'); break;
+        case 'civhit': if (near(ev)) SFX.cry(); Render.popup(ev.x, ev.y - 26, ev.type === 'man' ? '💫' : '😢', '#fff'); break;
+        case 'shield': SFX.scare(); Render.popup(ev.x, ev.y - 30, '🛡️ took it for you', '#bbdefb'); break;
+        case 'protect': SFX.protect(); Render.popup(ev.x, ev.y - 30, (ev.crowd ? '🛡️ Crowd protected them! +' : '🛡️ You protected them! +') + ev.pts, '#b9f6ca'); break;
+        case 'demo': if (ev.d < 0) Hud.demoHit(); break;
+        case 'demostage': SFX.heartbeat(); Render.shake(4); break;
       }
     }
   }

@@ -3,7 +3,7 @@
 'use strict';
 (function () {
   const toasts = [];
-  let tier = null, time = 0;
+  let tier = null, time = 0, demoPulse = 0;
   const layout = { mini: null, pause: null };
 
   function rr(ctx, x, y, w, h, r) {
@@ -40,6 +40,43 @@
   function nextLine(G, o) {
     if (o.goal) return G.gameMode === 'vote' ? 'Cast your vote at the ' + G.M.goal : 'File your nomination at the ' + G.M.goal;
     return 'Get the ' + o.name;
+  }
+
+  // Democracy meter: % bar plus an ECG trace that slows and flattens as it falls.
+  function ecg(ctx, x, y, w, h, v) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y - h / 2, w, h); ctx.clip();
+    const col = v > 60 ? '#69f0ae' : v > 30 ? '#ffd740' : '#ff5252';
+    ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+    const amp = v <= 5 ? 0 : (h / 2 - 1) * Math.max(0.25, v / 100), period = 46 - (100 - v) * 0.15, off = (time * 40) % period;
+    ctx.beginPath();
+    for (let i = 0; i <= w; i += 1) {
+      const p = (i + off) % period;
+      let dy = 0;
+      if (p > period * 0.5 && p < period * 0.56) dy = -amp * 0.3;
+      else if (p >= period * 0.56 && p < period * 0.62) dy = amp;
+      else if (p >= period * 0.62 && p < period * 0.68) dy = -amp * 0.9;
+      else if (p >= period * 0.68 && p < period * 0.72) dy = amp * 0.2;
+      if (i === 0) ctx.moveTo(x + i, y - dy); else ctx.lineTo(x + i, y - dy);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  function demoRow(ctx, G, x, y, w, compact) {
+    const v = G.demo, col = v > 60 ? '#66bb6a' : v > 30 ? '#ffca28' : '#ef5350';
+    const stage = window.Content.DEMO.labels[G.demoStage] || '';
+    if (demoPulse > 0) { ctx.fillStyle = `rgba(239,83,80,${demoPulse * 0.5})`; rr(ctx, x - 6, y - (compact ? 9 : 12), w + 12, compact ? 20 : 30, 6); ctx.fill(); }
+    if (compact) {
+      text(ctx, '🗳️', x, y + 1, 11);
+      bar(ctx, x + 17, y - 4, w - 75, 9, v / 100, col);
+      text(ctx, Math.round(v) + '%', x + w - 54, y + 1, 10.5, col, 'right', 900);
+      ecg(ctx, x + w - 50, y, 50, 14, v);
+      return;
+    }
+    text(ctx, '🗳️ Democracy · ' + stage, x, y - 4, 11.5, col, 'left', 800, w - 64);
+    text(ctx, Math.round(v) + '%', x + w - 58, y - 4, 12, col, 'right', 900);
+    ecg(ctx, x + w - 52, y + 2, 52, 18, v);
+    bar(ctx, x, y + 7, w - 60, 7, v / 100, col);
   }
 
   // NEXT banner: what to do now, where, how far, and overall progress chips.
@@ -87,7 +124,8 @@
     const score = G.score.toLocaleString('en-IN') + (G.combo.n > 1 ? '  x' + G.combo.n : '');
 
     // ---- status (top-left)
-    const SW = narrow ? 180 : 250, SH = narrow ? 74 : 112;
+    const SW = narrow ? 180 : 250, SH = narrow ? 94 : 136;
+    demoPulse = Math.max(0, demoPulse - dt * 1.5);
     panel(ctx, L, TOP, SW, SH);
     if (narrow) {
       text(ctx, '🕙 ' + clockStr(G), L + 10, TOP + 15, 12, '#fff', 'left', 700);
@@ -97,6 +135,7 @@
       text(ctx, (shieldOn ? '🛡️ ' : '👥 ') + P.followers.length + '/' + game.CAP, L + 10, TOP + 58, 13, shieldOn ? '#b9f6ca' : '#bbdefb', 'left', 800);
       text(ctx, cases, L + 104, TOP + 58, 9, '#fff', 'center');
       text(ctx, score, L + SW - 10, TOP + 58, 13, '#ffd54f', 'right', 900, 50);
+      demoRow(ctx, G, L + 10, TOP + 80, SW - 20, true);
     } else {
       text(ctx, '🕙 ' + clockStr(G), L + 12, TOP + 18, 15, '#fff');
       text(ctx, '⏱ ' + fmt(G.timer), L + SW - 12, TOP + 18, low ? 17 + Math.sin(time * 10) : 15, low ? '#ff5252' : '#ffe0b2', 'right', 900);
@@ -106,6 +145,7 @@
       text(ctx, cases, L + SW - 12, TOP + 62, 12, '#fff', 'right');
       text(ctx, shieldOn ? '🛡️ Crowd shield ON' : '🛡️ Need ' + game.SHIELD + ' supporters close', L + 12, TOP + 88, 12, shieldOn ? '#b9f6ca' : '#ffcc80', 'left', 700);
       text(ctx, score, L + SW - 12, TOP + 88, 14, '#ffd54f', 'right', 900);
+      demoRow(ctx, G, L + 12, TOP + 114, SW - 24, false);
     }
     const statusBottom = TOP + SH;
 
@@ -308,6 +348,7 @@
     objective: () => window.Render.objective(),
     toast(s, color, life) { toasts.push({ text: s, color: color || '#fff', life: life || 2.8 }); if (toasts.length > 8) toasts.shift(); },
     tier(name) { tier = { text: name, life: 1.6 }; },
+    demoHit() { demoPulse = 1; },
     reset() { toasts.length = 0; tier = null; },
   };
 })();

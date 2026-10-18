@@ -49,6 +49,48 @@
     gas: ['My eyes are burning! 😵', '*cough cough*'],
     barricade: ['Everyone push together!', 'Move the barricade aside!'],
     filing: ['Stamp it, sir, time is running out!', 'One minute, signing now!'],
+    // stones on the road (the ruling front's goons are fictional)
+    throw: ['Law and order is perfect!', 'Democracy is fine, go home!', 'Here is your nomination!', 'Development delivered!', 'Peaceful protest, sir!'],
+    hit: ['Ow! Is this democracy?', 'Stones? Seriously?', 'My head! Keep walking!'],
+    shield: ['I\u2019ve got you, anna!', 'Keep going, I\u2019m fine!'],
+    protect: ['Not the children!', 'Hit me, not them!', 'Get behind me, amma!'],
+    womanHurt: ['Ayyo! Why stones at us?', 'We only came to vote!', 'Ayyo, my head!'],
+    childHurt: ['Amma!', 'Why are they throwing stones?', 'I want to go home!'],
+    manHurt: ['Ow!', 'I\u2019m okay, keep going!'],
+    copIgnore: ['Didn\u2019t see anything.', 'No complaint received.', 'Minor incident.', 'Situation under control.'],
+    childNews: ['A child was hit by a stone. Officials: "Situation under control."', 'Schoolkid hurt by a stone. Police: "No complaint received."'],
+    womanNews: ['A woman was hit by a stone. Officials: "Minor incident."', 'Women hit by stones. Police: "Didn\u2019t see anything."'],
+  };
+
+  // Democracy meter: labels by stage (0 = healthy), toasts when a stage is reached
+  const DEMO = {
+    labels: ['Healthy', 'Unwell', 'In hospital', 'In ICU', 'On ventilator'],
+    toasts: ['🤒 Democracy is feeling unwell.', '🏥 Democracy admitted to hospital.', '🚑 Democracy moved to the ICU.', '⚠️ Democracy is on a ventilator.'],
+    ring: '🚧 Section 144 zone: 4 or more people together is now a "crime".',
+  };
+
+  // Satirical front page shown when you don't make it. {name} {stop} {goal} {town} {district}
+  const NEWS = {
+    masthead: 'THE DAILY BALLOT',
+    tagline: 'Fearless. Fictional. Price: one vote.',
+    headlines: {
+      time: ['DOORS CLOSE ON DEMOCRACY', 'NOMINATION? COME BACK IN 5 YEARS', 'OFFICE SHUTS AT 3 PM SHARP. DEMOCRACY ALSO.'],
+      jailed: ['CANDIDATE ARRESTED FOR TRYING TO CONTEST', 'JAIL, NOT BALLOT: CANDIDATE HELD "FOR SAFETY"'],
+      timeVote: ['POLLS CLOSE BEFORE VOTER ARRIVES', '"YOUR VOTE HAS ALREADY BEEN CAST," SAYS GANG AT BOOTH'],
+      jailedVote: ['VOTER ARRESTED ON THE WAY TO VOTE', 'SECTION 144 STOPS VOTER. GANG AT BOOTH UNAFFECTED.'],
+      low: ['DEMOCRACY ON VENTILATOR. OFFICIALS: "ALL IS WELL"', 'DEMOCRACY RUSHED TO ICU. POLICE: "NO COMPLAINT"'],
+    },
+    sub: {
+      time: '{name} was stopped {stop} m from the {goal} as stones rained on {town}.',
+      jailed: '{name} was detained three times on the way to the {goal}. Officials call it "routine".',
+    },
+    police: ['Police: "No complaint received."', 'SP: "Situation fully under control."', 'Officials: "Minor incident, nothing to see."'],
+    explainer: {
+      title: 'HOW TO STOP AN ELECTION WITHOUT CANCELLING IT',
+      steps: ['Declare Section 144', 'Barricade every road', 'Say "documents incomplete"', 'Throw stones on the way', 'Scare the people watching', 'Arrest the candidate'],
+      footer: 'Every step is "legal". That is the trick. Notice it. Talk about it. Go vote.',
+    },
+    disclaimer: 'Satire. Fictional town, party and people. Any resemblance to real events is your own conclusion.',
   };
 
   const MISSIONS = [
@@ -73,5 +115,5 @@
     });
   }
 
-  return { PARTY, DEFAULT_PLACE, MODES, LINES, MISSIONS, TIERS, fill };
+  return { PARTY, DEFAULT_PLACE, MODES, LINES, MISSIONS, TIERS, DEMO, NEWS, fill };
 });
