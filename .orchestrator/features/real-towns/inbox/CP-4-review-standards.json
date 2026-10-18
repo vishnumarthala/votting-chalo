@@ -1,0 +1,31 @@
+{
+  "verdict": "approve",
+  "tree": "git:fa379660b65ac3a128039748202577c74bc810d5",
+  "summary": "Delta review of dfe43659..fa379660. No blocker or major findings. npm test 61/61 green. Locked test/arson.test.js is untouched; the only test change is the new test/arson-extra.test.js, which uses expected values from literals and independent helpers (touches/openBox/edgeDist), not the sim's own code. Mutation check in a scratch copy (repo untouched): removing freeBodies from ignite fails the two eviction tests; disabling the leaveR rule fails the supporter test; disabling the scare rule fails the townsperson test; a Math.random in the fire entry fails the mid-burn determinism test. Eviction (nearestOpenTile/freeBodies) is deterministic (fixed neighbour order, first-best tie-break), bounded (8 levels), and cheap (runs only on ignite, release and backup). D-20 scare/leave rules are documented in sim.js, README and tested; D-19/D-20 not contradicted. Previous findings: FIRE_TICKS duplicate fixed (fire entries carry ticks, render reads f.ticks); G.targets rename fixed (supporterProps, GLOSSARY updated; the non-enumerable getter alias is commented, tied to the locked test, and accepted by the judge); fireTiles now used by sim.js; drawCharred reads t.ang from the copied props. Still open from before: render draw paths untested, BIKE_TANK visual change.",
+  "findings": [
+    {
+      "severity": "minor",
+      "location": "client/render.js:455",
+      "issue": "Carried over: no unit or e2e test draws a fire, so the renamed G.supporterProps reads in the fire loops (455, 552, 553) and f.ticks in drawFlames/drawSmoke/drawBlocked would only fail in a browser. The second done_when item (flags, vehicles, flames, smoke, charred) is verified by hand only.",
+      "fix": "Add one e2e (or a canvas-stub node test) that starts a game, lights a fire via the sim, runs a few frames and asserts no page error."
+    },
+    {
+      "severity": "nit",
+      "location": "client/render.js:219",
+      "issue": "Carried over: sharing drawVehicle changed ambient bikes from a fixed red tank to BIKE_TANK[hue % 4]; an unrequested visual change (harmless).",
+      "fix": "Keep it and note it in the CP summary, or pass a fixed hue for ambient bikes."
+    },
+    {
+      "severity": "nit",
+      "location": "shared/sim.js:289",
+      "issue": "Two of the three freeBodies call sites (release from a station at 289, police backup spawn at 832) have no test; only the ignite path is covered. nearestOpenTile also returns null silently when no open tile is within 8 levels (743), leaving the body pinned.",
+      "fix": "Add a case that releases the candidate into a burning ring and one for backup spawn, or drop the untested calls; optionally comment that null means 'leave the body where it is'."
+    },
+    {
+      "severity": "nit",
+      "location": "test/arson-extra.test.js:1",
+      "issue": "Test names carry no plan case ID (the extra tests have none planned), which weakens plan-to-test traceability.",
+      "fix": "Prefix the names with D-20, AC-8 and AC-14 as the header comment already cites them."
+    }
+  ]
+}

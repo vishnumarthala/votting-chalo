@@ -13,5 +13,6 @@
 - **Mob**: a group of TDP workers in yellow shirts that throws stones and sets fires; police escort it.
 - **Rival leader**: the invented TDP leader of a town's largest mob.
 - **Ally**: the invented YSRCP local leader who joins the candidate with supporters and shields them.
-- **Supporter house / vehicle**: a YSRCP supporter's home or parked vehicle; the only things a mob sets on fire.
+- **Supporter house / vehicle**: a YSRCP supporter's home or parked vehicle; the only things a mob sets on fire. In code they are the `supporterProps` (`map.supporterProps`, `G.supporterProps`), not to be confused with `G.target`, the destination.
 - **Fire**: a burning house or vehicle that blocks nearby tiles for a fixed time.
+- **Charred**: a house or vehicle after its fire; its tiles are open again and it cannot burn twice.

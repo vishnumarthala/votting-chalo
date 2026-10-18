@@ -1,0 +1,9 @@
+{
+ "verdict": "approve",
+ "tree": "git:fa379660b65ac3a128039748202577c74bc810d5",
+ "summary": "Re-judgement after one fix round.\n(1) CP-4 delivers AC-8 and D-20:\n- supporter houses (roof fan flag) and parked vehicles are the only things mobs ignite;\n- each fire blocks its footprint plus one ring for exactly 600 ticks, then frees it and leaves the prop charred;\n- flow fields route around fires;\n- townspeople within 140 px flee a new fire and supporters within 56 px leave the crowd;\n- bodies caught in a new ring are moved to the nearest open tile.\n(2) Tests: T-13 and T-14 are unchanged. The new test/arson-extra.test.js covers eviction, D-20 and mid-burn determinism, and reviewers showed by mutation that each one bites.\n(3) No gaming: npm test (61), e2e (3) and design_check are green.\n(4) Accepted minors and nits:\n- render fire paths have no automated test (my headless run after the rename showed 2 fires burning and 0 page errors);\n- the commented  alias stays until locked arson.test.js is next unlocked;\n- smoke only at 'hi' quality (documented);\n- the bike colour change;\n- release and backup eviction paths are untested.\n(5) The scope-creep finding is overruled by D-20 (from the user-approved plan). Content line holds.\n(6) Ready.",
+ "findings": [
+  {"severity": "minor", "location": "client/render.js:455", "issue": "No automated test draws fires.", "fix": "Covered manually for now; the CP-6 e2e may exercise the play screen further."}
+ ],
+ "instructions": ""
+}

@@ -16,6 +16,9 @@
   const SOLID = new Uint8Array(256);
   for (const k of [K.BUILD, K.WATER, K.WALL, K.TREE, K.FIELD]) SOLID[k] = 1;
 
+  // map.dyn holds what blocks a tile besides its kind: bit 0 is a barricade, the rest count the fires that block it.
+  const DYN = { BARRICADE: 1, FIRE: 2 };
+
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const hypot = (x, y) => Math.sqrt(x * x + y * y);
   const dist = (ax, ay, bx, by) => hypot(ax - bx, ay - by);
@@ -58,6 +61,11 @@
   const YARD_SITE = { x: 3.5, y: 5 }; // the site's offset from the yard's top-left corner, in tiles
   const DOC_ANCHORS = [[0.2, 0.25], [0.8, 0.8], [0.15, 0.6], [0.55, 0.3], [0.45, 0.75]]; // where the five shops want to be, as shares of the map
   const NEIGH4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const SUPPORTER_SHARE = 0.12, SUPPORTERS_MIN = 16, SUPPORTERS_MAX = 80; // a share of the houses on a street are supporters' homes, within these counts
+  const VEHICLE_LOOKS = ['bike', 'bike', 'bike', 'auto', 'auto', 'car'];
+  const PARK_REACH = 3; // tiles: a supporter's vehicle is parked this close to the house
+  const OFFICE_REACH = 5, OFFICE_VEHICLES = 4; // tiles around the party office, and how many vehicles stand there
+  const SITE_CLEAR = 2.5; // tiles: no vehicle is parked this close to a site
   const isStreet = (k) => k === K.ROAD || k === K.WALK || k === K.BRIDGE;
   const idx = (x, y) => y * N + x;
   const inb = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
@@ -413,6 +421,9 @@
     return { office, booth, start: buildPartyOffice(g, officeTile) };
   }
 
+  // The tiles a building covers, as { x0, y0, x1, y1 } with both corners inclusive.
+  const tileRect = (b) => ({ x0: b.x / TILE, y0: b.y / TILE, x1: (b.x + b.w) / TILE - 1, y1: (b.y + b.h) / TILE - 1 });
+
   // A w x h house on the grid at tile (x0, y0); `look` is its roof colour, water tank and drawing seed.
   function addHouse(g, x0, y0, w, h, look) {
     g.fill(x0, y0, w, h, K.BUILD);
@@ -519,7 +530,6 @@
   }
   // One house in each of five spread-out places becomes a document shop, with its door on a street the start can reach.
   function placeDocShops(g, office, reachable) {
-    const rectOf = (b) => ({ x0: b.x / TILE, y0: b.y / TILE, x1: (b.x + b.w) / TILE - 1, y1: (b.y + b.h) / TILE - 1 });
     const shops = [];
     for (let i = 0; i < DOC_SHOPS.length; i++) {
       let best = null, bestDoor = null, bs = Infinity;
@@ -527,7 +537,7 @@
         if (b.kind !== 'house' || b.shop) continue;
         const d = dist(b.x + b.w / 2, b.y + b.h / 2, DOC_ANCHORS[i][0] * WORLD, DOC_ANCHORS[i][1] * WORLD);
         if (d >= bs || dist(b.x, b.y, office.x, office.y) <= 20 * TILE) continue;
-        const door = doorFor(g, rectOf(b), 0);
+        const door = doorFor(g, tileRect(b), 0);
         if (door && reachable(door.x, door.y)) { bs = d; best = b; bestDoor = door; }
       }
       if (!best) {
@@ -555,6 +565,72 @@
       if (blo) { g.sites.push(blo); return blo; }
     }
     throw new Error('buildTown: no spot for the BLO tent');
+  }
+
+  // ------------------------------------------------------------ supporters' houses and parked vehicles
+  // A supporter prop is a house or a parked vehicle a mob can set on fire: { id, kind: 'house' | 'vehicle', look, hue, ang, x,
+  // y, w, h, rect }, with the centre and size in pixels, `rect` in tiles, and `ang` the way a vehicle lies (along the street).
+  // A prop's id is its place in the town's list (`map.supporterProps`).
+  function newProp(kind, look, hue, ang, rect) {
+    return { id: -1, kind, look, hue, ang, x: ((rect.x0 + rect.x1 + 1) / 2) * TILE, y: ((rect.y0 + rect.y1 + 1) / 2) * TILE, w: (rect.x1 - rect.x0 + 1) * TILE, h: (rect.y1 - rect.y0 + 1) * TILE, rect };
+  }
+  // True if a street the start can reach runs along a side of the rectangle.
+  function besideStreet(g, r, reachable) {
+    const street = (x, y) => inb(x, y) && isStreet(g.t[idx(x, y)]) && reachable(x, y);
+    for (let x = r.x0; x <= r.x1; x++) if (street(x, r.y0 - 1) || street(x, r.y1 + 1)) return true;
+    for (let y = r.y0; y <= r.y1; y++) if (street(r.x0 - 1, y) || street(r.x1 + 1, y)) return true;
+    return false;
+  }
+  // The open tile nearest the rectangle (within `reach` tiles) where a vehicle can stand: pavement or open ground beside a
+  // road, or `also` ground, clear of every site and of tiles already taken. Returns {x, y, ang} or null.
+  function parkingSpot(g, r, reach, reachable, taken, also) {
+    const ground = (x, y) => { const k = g.t[idx(x, y)]; return k === K.WALK || k === K.GRASS || (k === K.PLAZA && also(x, y)); };
+    let best = null, bestAway = Infinity;
+    for (let y = r.y0 - reach; y <= r.y1 + reach; y++) for (let x = r.x0 - reach; x <= r.x1 + reach; x++) {
+      if (!inb(x, y) || !ground(x, y) || !reachable(x, y)) continue;
+      const away = hypot(Math.max(r.x0 - x, 0, x - r.x1), Math.max(r.y0 - y, 0, y - r.y1));
+      if (away >= bestAway || away === 0) continue;
+      const road = NEIGH4.find(([ox, oy]) => g.get(x + ox, y + oy) === K.ROAD);
+      if (!road && !also(x, y)) continue;
+      if (g.sites.some((s) => hypot(s.x / TILE - x - 0.5, s.y / TILE - y - 0.5) < SITE_CLEAR)) continue;
+      let crowded = false;
+      for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) if (taken.has(idx(x + ox, y + oy))) crowded = true;
+      if (crowded) continue;
+      bestAway = away; best = { x, y, ang: road && road[0] !== 0 ? Math.PI / 2 : 0 }; // a road to the east or west runs north-south
+    }
+    return best;
+  }
+  // Some houses on the streets are YSRCP supporters' homes, each with a vehicle parked beside the street near it; a few more
+  // vehicles stand at the front of the party office, round the start. The town id and a house's place alone decide whether
+  // it is a supporter's. Vehicles are props on open ground, never solid, so they cannot close a route: only their fire
+  // does, and only for a while.
+  function placeSupporters(g, townId, reachable, start) {
+    const houses = g.buildings.filter((b) => b.kind === 'house' && !b.shop && b.w * b.h >= 2 * TILE * TILE)
+      .map((b) => ({ rect: tileRect(b), key: hashStr(townId + ':' + b.x + ',' + b.y) }))
+      .filter((h) => besideStreet(g, h.rect, reachable))
+      .sort((a, b) => a.key - b.key || a.rect.y0 - b.rect.y0 || a.rect.x0 - b.rect.x0);
+    const count = Math.min(houses.length, clamp(Math.round(houses.length * SUPPORTER_SHARE), SUPPORTERS_MIN, SUPPORTERS_MAX));
+    const chosen = houses.slice(0, count).sort((a, b) => a.rect.y0 - b.rect.y0 || a.rect.x0 - b.rect.x0);
+
+    const props = [], taken = new Set(), nowhere = () => false;
+    const park = (rect, key, reach, also) => {
+      const spot = parkingSpot(g, rect, reach, reachable, taken, also);
+      if (!spot) return;
+      taken.add(idx(spot.x, spot.y));
+      props.push(newProp('vehicle', VEHICLE_LOOKS[key % VEHICLE_LOOKS.length], (key >> 8) % 4, spot.ang, { x0: spot.x, y0: spot.y, x1: spot.x, y1: spot.y }));
+    };
+    for (const h of chosen) {
+      props.push(newProp('house', 'house', h.key % 4, 0, h.rect));
+      park(h.rect, h.key, PARK_REACH, nowhere);
+    }
+    const party = g.buildings.find((b) => b.kind === 'party');
+    if (party) {
+      const r = tileRect(party), plaza = (x, y) => x >= r.x0 - 1 && x <= r.x1 + 1 && y >= r.y0 - 1 && y <= r.y1 + 1;
+      const tx = Math.floor(start.x / TILE), ty = Math.floor(start.y / TILE), front = { x0: tx, y0: ty, x1: tx, y1: ty };
+      for (let k = 0; k < OFFICE_VEHICLES; k++) park(front, hashStr(townId + ':party:' + k), OFFICE_REACH, plaza);
+    }
+    props.forEach((t, i) => { t.id = i; });
+    return props;
   }
 
   // Patrol posts for police and goons: junctions of major roads, thinned out; spread over the roads if there are too few.
@@ -616,14 +692,18 @@
     const reachable = (x, y) => inb(x, y) && reach[idx(x, y)] >= 0;
     const docSites = placeDocShops(g, office, reachable);
     const blo = placeBloTent(g, reachable);
+    const supporterProps = placeSupporters(g, data.id || 'town', reachable, start);
     const labels = (data.places || []).map((p) => ({ x: p.x * g.scale * TILE, y: p.y * g.scale * TILE, text: p.name }));
 
-    return {
-      seed, id: data.id || null, n: N, tile: TILE, world: WORLD, t: g.t, buildings: g.buildings, sites: g.sites, docSites, blo, office, booth, stations: g.stations, start, labels,
+    const map = {
+      seed, id: data.id || null, n: N, tile: TILE, world: WORLD, t: g.t, buildings: g.buildings, sites: g.sites, docSites, blo, office, booth, stations: g.stations, start, labels, supporterProps,
       posts: patrolPosts(g, reachable),
       roads: g.roads.map((r) => ({ class: r.class, w: r.w, pts: r.pts.map(([x, y]) => [x * TILE, y * TILE]) })),
       dyn: new Uint8Array(N * N),
     };
+    // Old name of `supporterProps`, still read by the locked CP-4 test (test/arson.test.js); drop it when that test is renamed.
+    Object.defineProperty(map, 'targets', { get: () => map.supporterProps });
+    return map;
   }
 
   // ------------------------------------------------------------------ queries
@@ -701,6 +781,21 @@
     return true;
   }
 
+  // The tiles a fire at a rectangle of tiles { x0, y0, x1, y1 } blocks: the footprint and one ring around it, inside the map.
+  function fireTiles(rect) {
+    const out = [];
+    for (let y = Math.max(0, rect.y0 - 1); y <= Math.min(N - 1, rect.y1 + 1); y++) for (let x = Math.max(0, rect.x0 - 1); x <= Math.min(N - 1, rect.x1 + 1); x++) out.push(idx(x, y));
+    return out;
+  }
+  // Starts (on) or ends a fire at a rectangle of tiles. The tiles it blocks count it in map.dyn, like barricades do, so two
+  // fires or a fire and a barricade on one tile do not free it for each other. Flow fields built afterwards route around it.
+  // Example: setFire(map, vehicle.rect, true); field(map, [[tx, ty]]) goes round it; setFire(map, vehicle.rect, false) frees it.
+  function setFire(map, rect, on) {
+    for (const i of fireTiles(rect)) {
+      if (on) map.dyn[i] += DYN.FIRE; else if (map.dyn[i] >= DYN.FIRE) map.dyn[i] -= DYN.FIRE;
+    }
+  }
+
   // Section 144 ring: walkable street tiles crossing a circle around the target, grouped into barricades.
   function barricadeRing(m, cx, cy, radiusTiles) {
     const inRing = new Uint8Array(N * N);
@@ -734,5 +829,5 @@
     return groups;
   }
 
-  return { TILE, N, WORLD, DT, K, SOLID, clamp, hypot, dist, norm, makeRng, hashStr, buildTown, kindAt, solidAt, solidPx, walkable, moveBody, field, flowDir, lineOfSight, barricadeRing, DOC_SHOPS };
+  return { TILE, N, WORLD, DT, K, SOLID, clamp, hypot, dist, norm, makeRng, hashStr, buildTown, kindAt, solidAt, solidPx, walkable, moveBody, field, flowDir, lineOfSight, barricadeRing, fireTiles, setFire, DYN, DOC_SHOPS };
 });

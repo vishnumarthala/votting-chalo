@@ -52,6 +52,12 @@ No browser is downloaded.
   they see you and throw stones. A stone that lands on you costs 10 points of papers, scatters up to 2
   supporters and stuns you for half a second; keep walking and they miss. A **crowd of 8 or more** within 150 px of a mob drives
   it back. **Police near a rioting mob escort it** and go for you and your crowd instead.
+- **Arson.** Some houses are YSRCP supporters' homes (a blue fan flag on the roof) and bikes, autos and cars are
+  parked near them and the party office. A rioting mob sets fire only to these as it passes. A fire burns for 20 s
+  and blocks its footprint plus one ring of tiles, so streets close and paths go round it (anyone standing in those
+  tiles when it starts is moved to the nearest open one); then the house or vehicle stays charred. Townspeople
+  within 140 px run from a new fire and supporters within 56 px of a burning one leave your crowd. Smoke is drawn
+  on the high graphics setting only.
 - **Goons** (lone TDP workers) tear your papers (25% per hit). If your papers hit 0%, your Form-A (or voter slip) is
   destroyed and you must fetch a new one. Goons back off from a crowd of 8 or more.
 - **Section 144 ring.** The streets around the destination are barricaded, with a few manned checkposts.
@@ -69,11 +75,11 @@ and a deterministic simulation shared between browser and Node. All code, text a
 index.html          menu, pause, touch buttons, CSS
 shared/             DOM-free UMD modules (browser + Node)
   towns.js          the playable towns: names, map crop centre, RO office anchor, landmarks to skip
-  world.js          town builder, tile collision, BFS flow fields, line of sight, barricade ring
+  world.js          town builder, supporters' houses and parked vehicles, tile collision, BFS flow fields, line of sight, barricade ring, fire tiles
   content.js        all text and modes (parties YSRCP and TDP); {town} {mandal} {district} {short} {rival} templating
-  sim.js            30 Hz deterministic game: crowd, police, goons, TDP mobs and stones, gas, barricades, documents, filing
+  sim.js            30 Hz deterministic game: crowd, police, goons, TDP mobs, stones and arson, gas, barricades, documents, filing
 client/
-  render.js         cached map chunks, people, sites, ring, gas, ambient autos on the roads, minimap, bubbles
+  render.js         cached map chunks (roof flags, parked vehicles), people, sites, ring, gas, flames, smoke and charred remains, ambient autos on the roads, minimap, bubbles
   hud.js            status, minimap, documents, objective arrow, missions, toasts, intro
   input.js          keyboard, mouse steering, touch joystick
   audio.js          Web Audio synthesized effects (no audio files)

@@ -5,7 +5,7 @@
   else root.Sim = factory(root.World, root.Content, () => null);
 })(typeof self !== 'undefined' ? self : this, function (Wd, Ct, loadTown) {
   'use strict';
-  const { TILE, N, WORLD, DT, K, clamp, hypot, dist, norm, makeRng, buildTown, kindAt, solidAt, moveBody, field, flowDir, lineOfSight, barricadeRing } = Wd;
+  const { TILE, N, WORLD, DT, K, DYN, clamp, hypot, dist, norm, makeRng, buildTown, kindAt, solidAt, moveBody, field, flowDir, lineOfSight, barricadeRing, setFire, fireTiles, walkable } = Wd;
 
   const CAP = 30; // max crowd
   const SPEED = { walk: 135, run: 215, follow: 1.18, civ: 34, flee: 120, cop: 70, copChase: 112, goon: 85, goonChase: 125, held: 0.75, mobMarch: 100, mobRetreat: 120 };
@@ -23,10 +23,21 @@
   // A hit costs `damage` points of papers, sends the nearest `scatter` supporters within `scatterR` px running and
   // stuns the candidate for `stunTicks`. A member throws every `minCd` to `maxCd` s; `max` stones fly at once.
   const STONE = { range: 260, speed: 260, hitR: 20, max: 10, damage: 10, stunTicks: 15, scatter: 2, scatterR: 120, minCd: 3.5, maxCd: 5.5 };
+  // A rioting mob member sets fire to a supporter's house or parked vehicle (never anything else) within `reach` px of it,
+  // then waits `cd` s before lighting another. A fire burns for exactly `ticks` ticks (20 s at 30 Hz) and blocks its footprint
+  // plus one ring of tiles; at most `max` burn at once. Townspeople within `scareR` px of a new fire run; supporters within
+  // `leaveR` px of a burning one leave the crowd (decision D-20). Together with 3 mobs of up to 8 and `STONE.max` stones that is
+  // 38 extra entities. Distances are from the nearest edge of the house's or vehicle's tiles.
+  const FIRE = { ticks: 600, max: 4, reach: 80, cd: 4, scareR: 140, leaveR: 56 };
 
   // opts: { seed, town: 'pulivendula', townData, mode: 'nomination' | 'vote', police, goons, mobs, civilians }.
   // Police, goons and mobs are on unless passed as false; civilians is a count (default 150).
   // townData is the town's map file; Node loads data/towns/<town>.json itself, the browser passes the fetched file.
+  // Fires: `state.supporterProps` lists the town's supporter houses and parked vehicles (a copy of `map.supporterProps`, plus
+  // their state 'ok', 'burning' or 'burnt'; an id is a place in the list) and `state.fires` the ones burning now, each with
+  // the ticks `left` of its `ticks`. A fire starts with a 'fire' event and ends `ticks` later with a 'burnt' event; anybody
+  // standing in its tiles is moved out to the nearest open tile. Example: a rioting mob passes a supporter's house, the next
+  // step drains { t: 'fire', id, kind: 'house', x, y, text } and `map.dyn` blocks its tiles until the 'burnt' event.
   function createGame(opts) {
     opts = opts || {};
     const townId = opts.town || Ct.DEFAULT_TOWN, info = Object.prototype.hasOwnProperty.call(Ct.TOWNS, townId) ? Ct.TOWNS[townId] : null;
@@ -46,7 +57,8 @@
     const G = {
       tick: 0, mode: 'intro', modeT: 0, gameMode: modeKey, M, map, place, target, docSites,
       timer: M.time, elapsed: 0, score: 0, combo: { n: 0, t: 0 }, events: [],
-      player: null, ents: [], barrs: [], clouds: [], mobs: [], stones: [], posts: map.posts,
+      player: null, ents: [], barrs: [], clouds: [], mobs: [], stones: [], fires: [], posts: map.posts,
+      supporterProps: map.supporterProps.map((t) => Object.assign({}, t, { state: 'ok' })), // state: 'ok', 'burning' or 'burnt'
       stats: { rec: 0, crowd: 0, brk: 0, lift: 0, doc: 0, slogan: 0, goon: 0 }, missions: [], missionsDone: 0,
       result: null, alertT: 50,
     };
@@ -63,6 +75,8 @@
     };
     P.px = P.x; P.py = P.y;
     G.player = P;
+    // Old name of `supporterProps`, still read by the locked CP-4 test (test/arson.test.js); drop it when that test is renamed.
+    Object.defineProperty(G, 'targets', { get: () => G.supporterProps });
 
     const isOpen = (k) => k === K.WALK || k === K.PARK || k === K.PLAZA || k === K.ROAD || k === K.BRIDGE;
     function randomSpot(minFromPlayer, kinds, rg = rng) {
@@ -90,12 +104,20 @@
     const checkposts = [];
     ring.forEach((g, i) => {
       if (rng() < 0.7 || i === 0) {
-        for (const j of g.tiles) map.dyn[j] = 1;
+        for (const j of g.tiles) map.dyn[j] |= DYN.BARRICADE;
         G.barrs.push({ id: nextId++, tiles: g.tiles, x: g.x, y: g.y, hp: 100, max: 100, pushT: 0 });
       } else checkposts.push(g);
     });
 
-    const postFields = map.posts.map((p) => field(map, [[Math.floor(p.x / TILE), Math.floor(p.y / TILE)]]));
+    // The police patrol along one field per post. `layout` counts fire starts and ends: a field built before the latest one
+    // may lead through a fire or round a street that is open again, so it is built anew when next used.
+    let layout = 0;
+    const buildPostField = (p) => field(map, [[Math.floor(p.x / TILE), Math.floor(p.y / TILE)]]);
+    const postFields = map.posts.map(buildPostField), postFieldAt = map.posts.map(() => 0);
+    function postField(i) {
+      if (postFieldAt[i] !== layout) { postFields[i] = buildPostField(map.posts[i]); postFieldAt[i] = layout; }
+      return postFields[i];
+    }
     const civCount = opts.civilians !== undefined ? opts.civilians : 150;
     for (let i = 0; i < civCount; i++) {
       const s = randomSpot(0);
@@ -138,7 +160,7 @@
           const a = (k / n) * Math.PI * 2, rad = 18 + 4 * (k % 3);
           let x = at.x + Math.cos(a) * rad, y = at.y + Math.sin(a) * rad;
           if (solidAt(map, Math.floor(x / TILE), Math.floor(y / TILE))) { x = at.x; y = at.y; }
-          const m = spawn('mob', x, y, { mob: mob.id, mode: 'idle', home: { x, y }, throwCd: 1 + mobRng() * 2.5, sayCd: mobRng() * 4 });
+          const m = spawn('mob', x, y, { mob: mob.id, mode: 'idle', home: { x, y }, throwCd: 1 + mobRng() * 2.5, torchCd: 0, sayCd: mobRng() * 4 });
           m.stand = 90 + (m.id % 5) * 12; // how close this member marches before stopping to throw
         }
       }
@@ -264,6 +286,7 @@
       for (const s of map.stations) { const d = dist(s.x, s.y, P.x, P.y); if (d < bd) { bd = d; best = s; } }
       P.x = best.x; P.y = best.y; P.px = P.x; P.py = P.y; P.state = 'free'; P.invuln = 5; P.grab = 0; P.stun = 0;
       for (const f of P.followers) { f.x = P.x + (f.x - P.x) * 0.1; f.y = P.y + (f.y - P.y) * 0.1; f.px = f.x; f.py = f.y; }
+      freeBodies([P].concat(P.followers)); // a station can stand in a fire's tiles
       pFieldDirty = true;
       emit({ t: 'released', x: P.x, y: P.y });
       toast('Released from ' + best.name + ' with a warning. ' + (CASES - P.cases) + ' case' + (CASES - P.cases === 1 ? '' : 's') + ' left before jail!', '#ffcc80');
@@ -404,7 +427,7 @@
       return G.barrs.find((b) => b.tiles.includes(j)) || null;
     }
     function breakBarricade(b) {
-      for (const j of b.tiles) map.dyn[j] = 0;
+      for (const j of b.tiles) map.dyn[j] &= ~DYN.BARRICADE;
       G.barrs.splice(G.barrs.indexOf(b), 1);
       G.stats.brk++;
       pFieldDirty = true;
@@ -521,7 +544,7 @@
       // patrol between intersections along precomputed fields
       const p = G.posts[e.postIdx];
       if (dist(e.x, e.y, p.x, p.y) < 40) { e.postIdx = rng.int(G.posts.length); return; }
-      const dir = flowDir(map, postFields[e.postIdx], e.x, e.y) || norm(p.x - e.x, p.y - e.y);
+      const dir = flowDir(map, postField(e.postIdx), e.x, e.y) || norm(p.x - e.x, p.y - e.y);
       move(e, dir.x, dir.y, e.kind === 'goon' ? SPEED.goon : SPEED.cop);
     }
 
@@ -639,7 +662,7 @@
 
     function updateMobMember(e) {
       const mob = mobById.get(e.mob);
-      e.sayCd -= DT; e.throwCd = Math.max(0, e.throwCd - DT);
+      e.sayCd -= DT; e.throwCd = Math.max(0, e.throwCd - DT); e.torchCd = Math.max(0, e.torchCd - DT);
       if (mob.state === 'retreat') {
         const away = norm(e.x - P.x, e.y - P.y);
         if (!away.x && !away.y) away.x = 1;
@@ -687,6 +710,102 @@
       say(P, mobRng.pick(Ct.LINES.stoned), null, '#ffcdd2');
     }
 
+    // ------------------------------------------------------------ arson
+    // Distance in px from a point to the nearest edge of a rectangle of tiles.
+    const rectDist = (x, y, r) => hypot(Math.max(r.x0 * TILE - x, 0, x - (r.x1 + 1) * TILE), Math.max(r.y0 * TILE - y, 0, y - (r.y1 + 1) * TILE));
+    function layoutChanged() { layout++; pFieldDirty = true; }
+
+    // A burning house or vehicle turns its tiles solid under whoever stands in them, and moveBody would then snap that body
+    // back against the edge it walks towards for the whole fire. So anybody whose box touches the tiles of a fire is moved to
+    // the centre of the nearest open tile outside all of them. The search is breadth-first over walkable ground in a fixed
+    // order, so it is deterministic.
+    const EPS = 0.001, EVICT_DEPTH = 8, NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    function nearestOpenTile(b) {
+      const sx = clamp(Math.floor(b.x / TILE), 0, N - 1), sy = clamp(Math.floor(b.y / TILE), 0, N - 1);
+      const seen = new Set([sy * N + sx]);
+      let level = [[sx, sy]];
+      for (let depth = 0; depth < EVICT_DEPTH && level.length; depth++) {
+        let best = null, bd = Infinity;
+        for (const [x, y] of level) {
+          if (solidAt(map, x, y)) continue;
+          const d = dist((x + 0.5) * TILE, (y + 0.5) * TILE, b.x, b.y);
+          if (d < bd) { bd = d; best = { x: (x + 0.5) * TILE, y: (y + 0.5) * TILE }; }
+        }
+        if (best) return best;
+        const next = [];
+        for (const [x, y] of level) for (const [ox, oy] of NEIGHBOURS) {
+          const nx = x + ox, ny = y + oy;
+          if (nx < 0 || ny < 0 || nx >= N || ny >= N || seen.has(ny * N + nx) || !walkable(kindAt(map, nx, ny))) continue;
+          seen.add(ny * N + nx); next.push([nx, ny]);
+        }
+        level = next;
+      }
+      return null;
+    }
+    function freeBodies(bodies) {
+      const burning = new Set();
+      for (const f of G.fires) for (const i of fireTiles(G.supporterProps[f.id].rect)) burning.add(i);
+      for (const b of bodies) {
+        if (b.dead) continue;
+        let inside = false;
+        const x1 = Math.floor((b.x + b.r - EPS) / TILE), y1 = Math.floor((b.y + b.r - EPS) / TILE);
+        for (let y = Math.floor((b.y - b.r) / TILE); y <= y1 && !inside; y++) {
+          for (let x = Math.floor((b.x - b.r) / TILE); x <= x1; x++) if (x >= 0 && y >= 0 && x < N && y < N && burning.has(y * N + x)) { inside = true; break; }
+        }
+        const to = inside ? nearestOpenTile(b) : null;
+        if (to) { b.x = to.x; b.y = to.y; b.px = to.x; b.py = to.y; }
+      }
+    }
+
+    // A rioting member lights the first supporter's house or parked vehicle in reach that has not burnt yet.
+    function updateArson() {
+      for (const m of rioters) {
+        if (G.fires.length >= FIRE.max) return;
+        if (m.dead || m.torchCd > 0) continue;
+        const t = G.supporterProps.find((c) => c.state === 'ok' && rectDist(m.x, m.y, c.rect) <= FIRE.reach);
+        if (t) ignite(t, m);
+      }
+    }
+    function ignite(t, by) {
+      t.state = 'burning'; by.torchCd = FIRE.cd;
+      setFire(map, t.rect, true);
+      G.fires.push({ id: t.id, kind: t.kind, x: t.x, y: t.y, left: FIRE.ticks, ticks: FIRE.ticks });
+      layoutChanged();
+      freeBodies([P].concat(G.ents));
+      emit({ t: 'fire', id: t.id, kind: t.kind, x: t.x, y: t.y, text: text(mobRng.pick(t.kind === 'house' ? Ct.LINES.fireHouse : Ct.LINES.fireVehicle)) });
+      say(by, mobRng.pick(Ct.LINES.arson), null, '#ffcc80');
+      let scared = 0;
+      const half = hypot(t.rect.x1 - t.rect.x0 + 1, t.rect.y1 - t.rect.y0 + 1) * TILE / 2; // from the centre to a corner
+      query(t.x, t.y, FIRE.scareR + half, (e) => {
+        if (e.kind !== 'civ' || e.mode === 'follow' || rectDist(e.x, e.y, t.rect) > FIRE.scareR) return;
+        leave(e, t, true);
+        if (scared++ === 0) say(e, mobRng.pick(Ct.LINES.fireScared), null, '#ffcdd2');
+      });
+    }
+    // Fires burn down: at the end the house or vehicle stays charred and its tiles are open again. Supporters standing too close
+    // to a fire leave the crowd.
+    function updateFires() {
+      const burning = [];
+      for (const f of G.fires) {
+        if (--f.left > 0) { burning.push(f); continue; }
+        const t = G.supporterProps[f.id];
+        t.state = 'burnt';
+        setFire(map, t.rect, false);
+        layoutChanged();
+        emit({ t: 'burnt', id: f.id, kind: f.kind, x: f.x, y: f.y });
+      }
+      G.fires = burning;
+      for (const f of burning) {
+        const t = G.supporterProps[f.id];
+        let said = false;
+        for (const c of P.followers.slice()) {
+          if (rectDist(c.x, c.y, t.rect) > FIRE.leaveR) continue;
+          leave(c, t, true);
+          if (!said) { say(c, mobRng.pick(Ct.LINES.fireCrowd), null, '#ffcdd2'); said = true; }
+        }
+      }
+    }
+
     // ------------------------------------------------------------ world upkeep
     function upkeep() {
       for (let i = G.clouds.length - 1; i >= 0; i--) { G.clouds[i].t -= DT; if (G.clouds[i].t <= 0) G.clouds.splice(i, 1); }
@@ -708,7 +827,9 @@
           if (cops < 42) {
             let st = map.stations[0], bd = Infinity;
             for (const s of map.stations) { const d = dist(s.x, s.y, P.x, P.y); if (d < bd && d > 300) { bd = d; st = s; } }
-            for (let k = 0; k < 3; k++) spawn('cop', st.x + (k - 1) * 16, st.y, { mode: 'patrol', role: k === 0 ? 'gas' : 'patrol', postIdx: nearestPost(P.x, P.y), lathiCd: 0, gasCd: 6, seeT: 0, stunT: 0 });
+            const backup = [];
+            for (let k = 0; k < 3; k++) backup.push(spawn('cop', st.x + (k - 1) * 16, st.y, { mode: 'patrol', role: k === 0 ? 'gas' : 'patrol', postIdx: nearestPost(P.x, P.y), lathiCd: 0, gasCd: 6, seeT: 0, stunT: 0 }));
+            freeBodies(backup);
             emit({ t: 'backup', name: st.name });
             toast('🚨 Police backup from the ' + st.name + '!', '#90caf9');
           }
@@ -747,6 +868,8 @@
         else updateGoon(e);
         if (G.mode !== 'play') return;
       }
+      updateFires();
+      updateArson();
       updateStones();
       upkeep();
       if (G.tick % 15 === 0) updateMissions();
@@ -758,5 +881,5 @@
     return { state: G, step, drainEvents, text, rng, CASES, CAP, SHIELD, _test: { join, leave, detain, breakBarricade, barricadeAt, tearPapers } };
   }
 
-  return { createGame, EMPTY_INPUT, SPEED, CAP, CASES, SHIELD };
+  return { createGame, EMPTY_INPUT, SPEED, CAP, CASES, SHIELD, FIRE };
 });

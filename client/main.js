@@ -199,6 +199,12 @@
           Render.burst(ev.x, ev.y, ev.hit ? 14 : 6, ev.hit ? ['#bdbdbd', '#f2c200', '#fff'] : ['#bcaaa4', '#d7ccc8'], 160, 3);
           if (ev.hit) { Render.shake(8); Render.popup(ev.x, ev.y - 52, 'Stoned! −' + ev.amount + '%', '#ffe082'); }
           break;
+        case 'fire':
+          SFX.fire(); Render.shake(5);
+          Render.burst(ev.x, ev.y, 16, ['#ff7043', '#ffca28', '#ffe082'], 190, 4);
+          Hud.toast(ev.text, '#ffab91', 3.4);
+          break;
+        case 'burnt': Render.burst(ev.x, ev.y, 10, ['#9e9e9e', '#616161', '#bdbdbd'], 70, 6); break;
         case 'riot': SFX.riot(); Hud.toast('⚠️ ' + ev.text, '#ffe082', 3.6); break;
         case 'lostdoc': SFX.lostdoc(); break;
         case 'gas': SFX.gas(); Hud.toast('💨 Tear gas! Supporters are scattering', '#eeeeee'); break;

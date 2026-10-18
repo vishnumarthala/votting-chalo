@@ -1,0 +1,13 @@
+{
+  "verdict": "approve",
+  "tree": "git:fa379660b65ac3a128039748202577c74bc810d5",
+  "summary": "Delta review of dfe43659..fa379660. (a) The 'trapped in the ring' major is fixed. ignite() now calls freeBodies() on the candidate and every entity, and the station release and police backup spawn also call it. freeBodies() moves anybody whose box touches a burning tile to the nearest open tile by a deterministic breadth-first search. test/arson-extra.test.js covers it in two cases: candidate, follower, civilian, cop and goon are all out of the ring right after the 'fire' event, and a candidate who stood on the vehicle then walks more than a tile for 30 ticks while the fire still burns. With freeBodies removed from ignite both cases fail, so they do catch the bug. (b) The scope-creep major is overruled and recorded as D-20. Fire scares civilians within 140 px and makes followers within 56 px leave, and both rules are tested: a supporter 50 px away leaves and runs while one 80 px away stays following, and a civilian 120 px away flees and runs away while one 200 px away does not. README and the FIRE comment cite or match D-20. (c) The new determinism test samples at the fire's first tick and 300 ticks into the burn, and compares fires, prop states, blocked tiles and entities between two games, so it is no longer vacuous. (d) T-13's teleporting given is accepted. The targets getter alias on map and G is non-enumerable and only serves the locked test/arson.test.js. The rename to supporterProps is in GLOSSARY.md, so it does not collide with G.target, the destination. All 58 tests pass under node --test, including T-13, T-14 on all three towns and the 5 new cases. The only open point is a nit: the fast graphics setting draws no smoke, and the README now says so.",
+  "findings": [
+    {
+      "severity": "nit",
+      "location": "client/render.js:553",
+      "issue": "Smoke is drawn only at 'hi' quality, but done_when says render draws smoke. This is reasonable under D-13 and the README now documents it. The render code has no automated test, as before.",
+      "fix": "None needed. If the user wants smoke on 'fast', draw a single puff per fire there."
+    }
+  ]
+}

@@ -34,7 +34,7 @@
   // ------------------------------------------------------------ setup
   function setGame(game) {
     G = game.state; map = G.map;
-    chunks.clear(); particles = []; bubbles.clear();
+    chunks.clear(); particles = []; bubbles.clear(); fireLook.clear();
     cam.x = G.player.x; cam.y = G.player.y;
     buildMini();
     pavedMask = markPavements();
@@ -95,6 +95,7 @@
     drawRibbons(g, area);
     drawTiles(g, cx * CH, cy * CH);
     for (const b of map.buildings) if (b.x < (cx + 1) * px && b.x + b.w > cx * px && b.y < (cy + 1) * px && b.y + b.h > cy * px) drawBuilding(g, b);
+    for (const t of map.supporterProps) if (t.x > cx * px - 40 && t.x < (cx + 1) * px + 40 && t.y > cy * px - 40 && t.y < (cy + 1) * px + 40) drawProp(g, t);
     chunks.set(key, c);
     if (chunks.size > 36) chunks.delete(chunks.keys().next().value);
     return c;
@@ -214,6 +215,36 @@
     }
   }
 
+  // ------------------------------------------------------------ vehicles and supporters' houses
+  const AUTO_BODY = ['#2e7d32', '#f9a825', '#1565c0', '#c62828'], CAR_BODY = ['#eceff1', '#90a4ae', '#8d1f1f', '#37474f'], BIKE_TANK = ['#c62828', '#1565c0', '#f9a825', '#2e7d32'];
+  // A bike, auto or car seen from above, centred on the origin and facing +x. `hue` picks its colour.
+  function drawVehicle(g, look, hue) {
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(-13, -7, 28, 16);
+    if (look === 'auto') {
+      g.fillStyle = AUTO_BODY[hue % 4]; rr(-14, -9, 26, 18, 5, g); g.fill();
+      g.fillStyle = '#fdd835'; rr(-10, -8, 16, 16, 4, g); g.fill();
+      g.fillStyle = '#212121'; g.fillRect(9, -2, 3, 4);
+    } else if (look === 'car') {
+      g.fillStyle = CAR_BODY[hue % 4]; rr(-15, -8, 30, 16, 5, g); g.fill();
+      g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(-5, -6, 11, 12);
+      g.fillStyle = '#263238'; g.fillRect(6, -6, 4, 12); g.fillRect(-9, -6, 3, 12);
+      g.fillStyle = '#fff59d'; g.fillRect(13, -6, 2, 3); g.fillRect(13, 3, 2, 3);
+    } else {
+      g.fillStyle = '#212121'; g.fillRect(-10, -2, 20, 4); g.fillStyle = BIKE_TANK[hue % 4]; g.fillRect(-4, -4, 8, 8);
+    }
+  }
+  // A supporter's house shows the YSRCP fan flag on its roof; a parked vehicle lies along its street.
+  function drawProp(g, t) {
+    if (t.kind === 'vehicle') {
+      g.save(); g.translate(t.x, t.y); g.rotate(t.ang); drawVehicle(g, t.look, t.hue); g.restore();
+      return;
+    }
+    const fx = t.x - 11, fy = t.y - 8;
+    g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(fx + 2, fy + 3, 22, 14);
+    g.strokeStyle = '#6d4c41'; g.lineWidth = 2; g.beginPath(); g.moveTo(fx, fy - 1); g.lineTo(fx, fy + 17); g.stroke();
+    drawFanFlag(g, fx + 1, fy, 22, 14, 0);
+  }
+
   // ------------------------------------------------------------ flags
   // The YSRCP flag: a blue field with a white three-blade ceiling fan, drawn from shapes (no image file).
   // (x, y) is the flag's top-left corner; `spin` turns the blades, in radians.
@@ -288,14 +319,90 @@
   function shake(a) { cam.shake = Math.max(cam.shake, a); }
 
   // ------------------------------------------------------------ text helpers
-  function rr(x, y, w, h, r) {
-    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  function rr(x, y, w, h, r, g) {
+    g = g || ctx;
+    g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
   }
   function label(text, x, y, size, color, bg) {
     ctx.font = `800 ${size}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (bg) { const w = ctx.measureText(text).width + 10; ctx.fillStyle = bg; rr(x - w / 2, y - size * 0.7, w, size * 1.4, 4); ctx.fill(); }
     ctx.fillStyle = color; ctx.fillText(text, x, y);
+  }
+
+  // ------------------------------------------------------------ fire
+  const FLAME_LAYERS = [['rgba(216,67,21,.92)', 1], ['rgba(255,152,0,.95)', 0.7], ['rgba(255,235,59,.95)', 0.4]];
+  const fireLook = new Map(); // supporter prop id -> where its soot, beams and flames go (drawn the same every frame)
+  const footprint = (t) => ({ x: t.rect.x0 * T, y: t.rect.y0 * T, w: (t.rect.x1 - t.rect.x0 + 1) * T, h: (t.rect.y1 - t.rect.y0 + 1) * T });
+  function lookOf(t) {
+    let l = fireLook.get(t.id);
+    if (l) return l;
+    const r = makeRng(t.id * 977 + 13), b = footprint(t), vehicle = t.kind === 'vehicle';
+    l = { soot: [], beams: [], flames: [] };
+    if (!vehicle) {
+      for (let i = 0; i < 4; i++) l.soot.push([r() * (b.w - 14), r() * (b.h - 10), 8 + r() * 14, 6 + r() * 8]);
+      for (let i = 0; i < 3; i++) l.beams.push([6 + r() * (b.w - 12), (r() - 0.5) * 14]);
+    }
+    const n = vehicle ? 2 : Math.max(3, Math.min(7, Math.round((b.w * b.h) / (T * T))));
+    for (let i = 0; i < n; i++) {
+      // a flame's base, from the vehicle's centre or the house's corner
+      l.flames.push(vehicle ? [(r() - 0.5) * 16, (r() - 0.5) * 16, 8 + r() * 3, r() * 6.28] : [6 + r() * (b.w - 12), 10 + r() * (b.h - 10), 9 + r() * 5, r() * 6.28]);
+    }
+    fireLook.set(t.id, l);
+    return l;
+  }
+  // What a fire leaves, drawn over the house or vehicle: scorched ground and a blackened roof or wreck. `k` fades it in
+  // while the fire is still burning.
+  function drawCharred(t, k) {
+    const b = footprint(t), l = lookOf(t);
+    ctx.globalAlpha = k;
+    ctx.fillStyle = 'rgba(30,24,20,.2)'; rr(b.x - 10, b.y - 10, b.w + 20, b.h + 20, 14); ctx.fill();
+    if (t.kind === 'vehicle') {
+      ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.ang);
+      ctx.fillStyle = '#1d1815'; rr(-14, -9, 28, 18, 5); ctx.fill();
+      ctx.fillStyle = '#3a312c'; ctx.fillRect(-8, -6, 14, 12);
+      ctx.fillStyle = '#0d0b0a'; ctx.fillRect(-12, -9, 4, 3); ctx.fillRect(8, 6, 4, 3);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = 'rgba(28,22,19,.94)'; ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; for (const [x, y, w, h] of l.soot) ctx.fillRect(b.x + x, b.y + y, w, h);
+      ctx.strokeStyle = '#4e342e'; ctx.lineWidth = 2.5;
+      for (const [x, lean] of l.beams) { ctx.beginPath(); ctx.moveTo(b.x + x, b.y + 4); ctx.lineTo(b.x + x + lean, b.y + b.h - 4); ctx.stroke(); }
+    }
+    ctx.globalAlpha = 1;
+  }
+  // The street a fire blocks glows, and the burning house or vehicle chars as the fire ages.
+  function drawBlocked(t, f) {
+    const b = footprint(t);
+    ctx.fillStyle = `rgba(255,110,30,${0.16 + 0.06 * Math.sin(time * 9 + t.id)})`;
+    rr(b.x - T, b.y - T, b.w + 2 * T, b.h + 2 * T, 12); ctx.fill();
+    drawCharred(t, (1 - f.left / f.ticks) * 0.85);
+  }
+  function flame(x, y, size, phase) {
+    const k = 0.8 + 0.2 * Math.sin(time * 12 + phase), lean = Math.sin(time * 6 + phase * 1.7) * size * 0.18, tall = size * 1.6 * k;
+    for (const [color, f] of FLAME_LAYERS) {
+      ctx.fillStyle = color; ctx.beginPath();
+      ctx.moveTo(x - size * f * 0.55, y);
+      ctx.quadraticCurveTo(x - size * f * 0.6, y - tall * f * 0.5, x + lean * f, y - tall * f);
+      ctx.quadraticCurveTo(x + size * f * 0.6, y - tall * f * 0.5, x + size * f * 0.55, y);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  // Flames die down over the last third of the fire; the fast graphics setting draws every other one.
+  function drawFlames(t, f) {
+    const b = footprint(t), l = lookOf(t), scale = 0.5 + 0.5 * Math.min(1, (f.left / f.ticks) * 3), step = quality === 'hi' ? 1 : 2;
+    for (let i = 0; i < l.flames.length; i += step) {
+      const [x, y, size, phase] = l.flames[i];
+      if (t.kind === 'vehicle') flame(t.x + x, t.y + y, size * scale, phase); else flame(b.x + x, b.y + y, size * scale, phase);
+    }
+  }
+  function drawSmoke(t, f) {
+    const thin = Math.min(1, (f.left / f.ticks) * 4);
+    for (let i = 0; i < 4; i++) {
+      const p = (time * 0.2 + i / 4 + t.id * 0.37) % 1;
+      ctx.fillStyle = `rgba(62,58,56,${(1 - p) * 0.4 * thin})`;
+      ctx.beginPath(); ctx.arc(t.x + Math.sin(t.id + i * 2) * 10 + 10 + p * 34, t.y - 6 - p * 66, 12 + p * 20, 0, Math.PI * 2); ctx.fill();
+    }
   }
 
   // ------------------------------------------------------------ frame
@@ -331,14 +438,7 @@
       const { x, y, ang } = onLine(a.line, a.s, a.dir);
       if (!inView(x, y, 40)) continue;
       ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(-13, -7, 28, 16);
-      if (a.kind === 'auto') {
-        ctx.fillStyle = ['#2e7d32', '#f9a825', '#1565c0'][a.hue]; rr(-14, -9, 26, 18, 5); ctx.fill();
-        ctx.fillStyle = '#fdd835'; rr(-10, -8, 16, 16, 4); ctx.fill();
-        ctx.fillStyle = '#212121'; ctx.fillRect(9, -2, 3, 4);
-      } else {
-        ctx.fillStyle = '#212121'; ctx.fillRect(-10, -2, 20, 4); ctx.fillStyle = '#c62828'; ctx.fillRect(-4, -4, 8, 8);
-      }
+      drawVehicle(ctx, a.kind, a.hue);
       ctx.restore();
     }
 
@@ -349,6 +449,10 @@
     ctx.strokeStyle = 'rgba(198,40,40,.55)'; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(tg.x, tg.y, 15.6 * T, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
+
+    // charred houses and vehicles, and the streets a fire blocks
+    for (const t of G.supporterProps) if (t.state === 'burnt' && inView(t.x, t.y, 160)) drawCharred(t, 1);
+    for (const f of G.fires) { const t = G.supporterProps[f.id]; if (inView(t.x, t.y, 160)) drawBlocked(t, f); }
 
     // barricades
     for (const b of G.barrs) {
@@ -444,6 +548,10 @@
       if (P.stun > 0) label('💫', px, py - 24, 16, '#000');
     }
 
+    // flames over the people, smoke over the flames
+    for (const f of G.fires) { const t = G.supporterProps[f.id]; if (inView(t.x, t.y, 160)) drawFlames(t, f); }
+    if (quality === 'hi') for (const f of G.fires) { const t = G.supporterProps[f.id]; if (inView(t.x, t.y, 200)) drawSmoke(t, f); }
+
     // stones in flight: a lobbed arc from the thrower to where the candidate stood, with its shadow on the ground
     for (const s of G.stones) {
       const x = s.px + (s.x - s.px) * alpha, y = s.py + (s.y - s.py) * alpha;
@@ -511,6 +619,7 @@
     ctx.globalAlpha = 1;
     ctx.strokeStyle = 'rgba(198,40,40,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x + G.target.x * sc, y + G.target.y * sc, 15.6 * T * sc, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = '#ff7043'; for (const b of G.barrs) ctx.fillRect(x + b.x * sc - 1.5, y + b.y * sc - 1.5, 3, 3);
+    ctx.fillStyle = '#ff6d00'; for (const f of G.fires) ctx.fillRect(x + f.x * sc - 2.5, y + f.y * sc - 2.5, 5, 5);
     for (const s of G.docSites) if (!P.docs.includes(s.doc)) { ctx.fillStyle = '#ffd54f'; ctx.fillRect(x + s.x * sc - 3, y + s.y * sc - 3, 6, 6); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(x + s.x * sc - 3, y + s.y * sc - 3, 6, 6); }
     ctx.fillStyle = YSRCP_BLUE; ctx.fillRect(x + G.target.x * sc - 4, y + G.target.y * sc - 4, 8, 8);
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(x + G.target.x * sc - 4, y + G.target.y * sc - 4, 8, 8);
