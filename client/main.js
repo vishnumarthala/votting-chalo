@@ -2,6 +2,7 @@
 'use strict';
 (function () {
   const { DT, hashStr } = window.World;
+  const MAP_SEED = 1559862272; // every game is played in the same (unnamed) town
   const Ct = window.Content;
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
@@ -17,49 +18,12 @@
   Input.bind(cv);
   document.body.classList.toggle('touch', Input.isTouch);
 
-  const menu = $('menu'), nameEl = $('name'), pinEl = $('pin'), pinStatus = $('pinStatus'), townEl = $('town');
+  const menu = $('menu'), nameEl = $('name');
   const playBtn = $('play'), pauseEl = $('pause');
   let game = null, running = false, paused = false, mapOpen = false, acc = 0, last = performance.now(), endT = 0, view = null;
-  let place = null, placeErr = null, lookupSeq = 0;
 
   // ------------------------------------------------------------ menu
   nameEl.value = store.get('vc_name', '');
-  pinEl.value = store.get('vc_pin', '');
-  const placeLabel = (pl) => [pl.town, pl.mandal && pl.mandal !== pl.town ? pl.mandal + ' mandal' : '', pl.district && pl.district !== pl.mandal ? pl.district + ' district' : ''].filter(Boolean).join(', ');
-  function showPlace(res) {
-    townEl.innerHTML = ''; townEl.style.display = 'none';
-    if (!res) { place = null; placeErr = null; pinStatus.textContent = 'No pincode: you will play in the fictional town of ' + Ct.DEFAULT_PLACE.town + '.'; pinStatus.className = ''; return; }
-    if (!res.ok) { place = null; placeErr = res.message; pinStatus.textContent = '⚠️ ' + res.message; pinStatus.className = 'err'; return; }
-    place = res.place; placeErr = null;
-    pinStatus.textContent = '📍 ' + placeLabel(place) + (res.warning ? ' · ' + res.warning : '');
-    pinStatus.className = res.warning ? 'warn' : 'ok';
-    const offices = (place.offices || []).filter(Boolean);
-    if (offices.length > 1) {
-      for (const o of offices) { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; if (o === place.town) opt.selected = true; townEl.appendChild(opt); }
-      townEl.style.display = '';
-    }
-  }
-  townEl.addEventListener('change', () => { if (place) { place = Object.assign({}, place, { town: townEl.value }); pinStatus.textContent = '📍 ' + placeLabel(place); } });
-  async function lookupPin() {
-    const raw = pinEl.value.trim(), seq = ++lookupSeq;
-    if (!raw) { showPlace(null); return; }
-    const v = Pincode.validate(raw);
-    if (!v.ok) { showPlace(raw.length < 6 ? { ok: false, message: 'Enter all 6 digits.' } : v); return; }
-    pinStatus.textContent = '🔎 Looking up ' + v.pin + '…'; pinStatus.className = '';
-    playBtn.disabled = true;
-    const res = await Pincode.lookup(v.pin, { storage: window.localStorage });
-    if (seq !== lookupSeq) return;
-    playBtn.disabled = false;
-    showPlace(res);
-    if (res.ok) store.set('vc_pin', v.pin);
-  }
-  let pinTimer = 0;
-  pinEl.addEventListener('input', () => {
-    pinEl.value = pinEl.value.replace(/\D/g, '').slice(0, 6);
-    clearTimeout(pinTimer);
-    pinTimer = setTimeout(lookupPin, pinEl.value.length === 6 ? 50 : 600);
-  });
-  lookupPin();
 
   // People size: phones see the town zoomed out, so people start one size up there
   const SIZES = [['normal', 'Normal', 1], ['big', 'Big', 1.35], ['bigger', 'Bigger', 1.7]];
@@ -85,17 +49,15 @@
 
   // ------------------------------------------------------------ lifecycle
   function newGame(pl, seed) {
-    const g = window.Sim.createGame({ seed, mapSeed: hashStr('town:' + (pl.pin || pl.town)), place: pl, names: pl.offices });
+    const g = window.Sim.createGame({ seed, mapSeed: MAP_SEED, place: pl });
     Render.setGame(g);
     return g;
   }
   function start() {
-    if (placeErr) { menu.classList.remove('hide'); pinEl.focus(); return; }
     FrontPage.hide();
     SFX.init();
     store.set('vc_name', nameEl.value.trim());
-    const pl = place ? { town: place.town, mandal: place.mandal, district: place.district, pin: place.pin, offices: (place.offices || []).filter((o) => o !== place.town) } : Object.assign({}, Ct.DEFAULT_PLACE);
-    game = newGame(pl, hashStr(pl.pin + '|' + nameEl.value + '|' + Date.now()));
+    game = newGame(Object.assign({}, Ct.DEFAULT_PLACE), hashStr(nameEl.value + '|' + Date.now()));
     Hud.reset();
     menu.classList.add('hide');
     running = true; paused = false; acc = 0; endT = 0; last = performance.now();
@@ -104,7 +66,7 @@
     cv.focus();
   }
   playBtn.addEventListener('click', start);
-  [nameEl, pinEl].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); start(); } }));
+  nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); start(); } });
 
   function stopPlaying(toMenu) {
     running = false; paused = false; mapOpen = false;

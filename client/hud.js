@@ -259,7 +259,7 @@
     const band = ctx.createLinearGradient(x, 0, x + w, 0);
     band.addColorStop(0, '#0f1b61'); band.addColorStop(0.45, '#1a2d8a'); band.addColorStop(0.75, '#00a651'); band.addColorStop(1, '#ffd700');
     ctx.fillStyle = band; rr(ctx, x, y, w, 10, 5); ctx.fill();
-    text(ctx, M.title.toUpperCase() + ' · ' + G.place.town, x + w / 2, y + 34, 19, '#0f1b61', 'center', 900, inner);
+    text(ctx, M.title.toUpperCase(), x + w / 2, y + 34, 19, '#0f1b61', 'center', 900, inner);
     let cy = y + 62;
     intro.forEach((l) => { text(ctx, l, x + w / 2, cy, 14, '#3e2f22', 'center', 700); cy += 19; });
     cy += 10;
@@ -297,7 +297,7 @@
     const head = 58, foot = narrow ? 78 : 50;
     const size = Math.max(120, Math.min(VW - 24, VH - head - foot - 8));
     const x = (VW - size) / 2, y = head + Math.max(0, (VH - head - foot - size) / 2);
-    text(ctx, '🗺️ ' + G.place.town + ' · town map', VW / 2, y - 38, 16, '#fff', 'center', 900, VW - 24);
+    text(ctx, '🗺️ Town map', VW / 2, y - 38, 16, '#fff', 'center', 900, VW - 24);
     text(ctx, 'NEXT: ' + nextLine(G, o) + ' · ' + metres(G, o) + ' m', VW / 2, y - 16, 12.5, o.color, 'center', 800, VW - 24);
     window.Render.drawBigMap(x, y, size, o);
     ctx.font = '700 11.5px system-ui,sans-serif';

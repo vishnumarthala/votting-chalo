@@ -39,7 +39,7 @@
   const ROOF = ['#e8c39e', '#f2d7a6', '#cfe0e8', '#f3c1b4', '#e7e2a7', '#d8c9ef', '#c8e6c0', '#f0b98d', '#ddd2c2', '#bfd8f0'];
 
   // ------------------------------------------------------------------ generation
-  // A small Andhra town, built from the pincode seed. Local layout (party office on the left; half the towns
+  // A small Andhra town, built from a seed. Local layout (party office on the left; half the towns
   // are mirrored, and every street, bridge and landmark position shifts with the seed):
   //   rows  0-2   paddy fields and palms
   //   rows  3-12  RO office compound, side galis, hospital on one side, temple park on the other
@@ -49,7 +49,7 @@
   //   rows 32-47  Bazaar Street lined with stalls, Gandhi Circle, lanes
   //   rows 48-52  Station Road: party office (start), bus stand, police station
   //   rows 53-55  paddy fields and palms
-  // opts: { names: [neighbourhood names from the pincode lookup] }
+  // opts: { names: [extra neighbourhood names, used before the built-in ones] }
   function generateTown(seed, opts) {
     const rng = makeRng(seed);
     const t = new Uint8Array(N * N).fill(K.LOT);

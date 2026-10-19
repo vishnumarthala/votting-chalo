@@ -1,5 +1,5 @@
 // Original game text: political satire. The parties are real; all people, places and events are fictional.
-// Placeholders: {town} {mandal} {district} {short} {party} {doc} {n} {s}
+// Placeholders: {short} {party} {n} {s}, plus optional {town} {mandal} {district} when a place is given
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Content = factory();
@@ -7,20 +7,20 @@
   'use strict';
 
   const PARTY = { name: 'YSR Congress Party', short: 'YSRCP', color: '#00a651' };
-  const DEFAULT_PLACE = { town: 'Kothapalli', mandal: 'Kothapalli', district: 'Godavari', pin: '' };
+  const DEFAULT_PLACE = { town: '', mandal: '', district: '' }; // the town is unnamed
 
   const MODE = {
     title: 'Nomination Day',
     goal: 'RO Office',
     hold: 6,
-    intro: 'Your Form-A is ready. Get your candidate through the streets of {town} to the {district} RO Office and file the nomination. Democracy starts at 100%. Every TDP goon attack and police lathi charge takes a piece of it.',
+    intro: 'Your Form-A is ready. Get your candidate through the streets to the RO Office and file the nomination. Democracy starts at 100%. Every TDP goon attack and police lathi charge takes a piece of it.',
   };
 
   // Simple English with a light Telugu touch (anna, Ammo, Ayyo and a couple of slogans).
   const LINES = {
-    start: ['To the {district} RO Office! Jai Jagan! ✊', 'Papers ready. Crowd ready. Jai {short}!', 'Jai Jagan!'],
+    start: ['To the RO Office! Jai Jagan! ✊', 'Papers ready. Crowd ready. Jai {short}!', 'Jai Jagan!'],
     slogan: ['Jai Jagan! ✊', 'Jai {short}!', 'Jagananna, we are with you!', 'Our town, our right!', 'Make way for the people!'],
-    join: ['I\u2019m coming too!', 'Anna, we are with you!', 'Selfie later, nomination first!', 'Give me a flag!', 'For {town}!', 'Jai Jagan! Count me in!'],
+    join: ['I\u2019m coming too!', 'Anna, we are with you!', 'Selfie later, nomination first!', 'Give me a flag!', 'For our town!', 'Jai Jagan! Count me in!'],
     cop: ['Section 144, sir! No crowds!', 'Where are you going? Got permission?', 'Stop! Show your papers!', 'Come to the station. Just a small enquiry.', 'Road closed for "security reasons".'],
     copLifted: ['Ayyo, too many people!', 'Sir, put me down!', 'Control room, send backup!'],
     lathi: ['Clear the road!', 'Lathi charge!'],

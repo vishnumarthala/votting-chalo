@@ -1,6 +1,6 @@
 # The Death of Democracy 🗳️
 
-A satirical top-down game set in **your own Andhra Pradesh town**. It is nomination day: walk your YSRCP
+A satirical top-down game set in a small Andhra Pradesh town. It is nomination day: walk your YSRCP
 candidate through the streets of a small town to the RO Office, gather a crowd ("Jai Jagan!"), dodge the police
 and the TDP goons, and push through the Section 144 barricades and the police at the gate.
 
@@ -10,9 +10,7 @@ on the same title:
 
 > **Democracy is killed in broad daylight. Welcome to Andhra Pradesh.**
 
-Enter your **pincode** and the game builds a town for it: the same pincode always gives the same town.
-Post-office names from India Post become the neighbourhood names, and your town, mandal and district
-appear in the dialogue.
+Every game is played in the same unnamed town, so the streets stay the same from run to run.
 
 > Satire. The player's side is the YSRCP (brand colours: navy `#0F1B61`, green
 > `#00A651`, gold). The yellow goons are labelled TDP. The goons, police, officials and all other characters,
@@ -119,19 +117,18 @@ shared/             DOM-free UMD modules (browser + Node)
   content.js        all text, the end title; {town} {mandal} {district} templating
   sim.js            30 Hz deterministic game: crowd, police, goons, thrown stones, bystanders, Democracy meter, gas, barricades, gate, filing
 client/
-  pincode.js        India Post lookup + Andhra Pradesh check + cache + offline district fallback
   render.js         cached map chunks, people, sites, ring, gas, ambient autos, gold guide arrow, radar + town map, bubbles
   hud.js            Democracy meter, NEXT banner / gate step guide, radar, toasts, intro, map overlay
   frontpage.js      "The Daily Ballot" end-title front page (1080x1350 canvas) with Web Share / download
   input.js          keyboard, mouse steering, touch joystick, minimap taps
   audio.js          Web Audio synthesized effects (no audio files)
   main.js           loop, menu, events -> effects
-test/               world (40 seeds), sim rules, bot walk to the office, pincode parsing
+test/               world (40 seeds), sim rules, bot walk to the office
 ```
 
 ### Town generator
 
-A small Andhra town, 56×56 tiles (1792 px, about two screens across), built from the pincode seed. From top
+A small Andhra town, 56×56 tiles (1792 px, about two screens across), built from a seed (the game always uses the same one). From top
 to bottom:
 
 - paddy fields and a ring of coconut palms around the town (the paddy carries on past the edge);
@@ -146,7 +143,7 @@ to bottom:
   walled forecourt with a sentry box, the national flag and a police jeep with its lights flashing, in front of
   a building with the police star on the roof and a POLICE STATION sign on the street side.
 
-Half the towns are mirrored, and the compound, both bridges, the lanes and Gandhi Circle shift with the seed.
+The generator mirrors half its towns, and the compound, both bridges, the lanes and Gandhi Circle shift with the seed.
 Blocks are split into house plots of different sizes, with the odd dead-end gali, tree or small park.
 
 Tests check 40 seeds to confirm every site exists and is reachable from the start, that every town has the

@@ -93,7 +93,6 @@
   // Just the end title on a front page: masthead, headline, the cartoon, a satire stamp.
   function render(o) {
     const C = window.Content, NEWS = C.NEWS, END = C.END, r = o.result;
-    const town = (r.place && r.place.town) || C.DEFAULT_PLACE.town;
     headline = END.title + ' ' + END.sub;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -102,7 +101,7 @@
     // masthead
     rule(36, 40, W - 40, 3);
     const date = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    txt(date, 40, 62, `16px ${SERIF}`); txt(town.toUpperCase() + ' EDITION', W - 40, 62, `bold 16px ${SERIF}`, INK, 'right');
+    txt(date, 40, 62, `16px ${SERIF}`); txt('ANDHRA PRADESH EDITION', W - 40, 62, `bold 16px ${SERIF}`, INK, 'right');
     txt(NEWS.masthead, W / 2, 140, `900 86px ${SERIF}`, INK, 'center');
     rule(156, 40, W - 40, 1.5);
     txt(NEWS.tagline, W / 2, 178, `italic 18px ${SERIF}`, INK, 'center');
