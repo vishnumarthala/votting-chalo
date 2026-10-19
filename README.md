@@ -36,9 +36,22 @@ npm test        # node:test suites
 | Town map (pauses the game) | Tab, or click the minimap | tap the minimap |
 | Pause · mute · graphics | Esc/P · M · G | ⏸ |
 
-**People size.** If the people look too small (phones show more of the town), use **👤 People** on the start
-menu to switch between Normal, Big and Bigger. Only the people, their icons and speech bubbles grow; the map
-and the game rules stay the same. The choice is saved on the device. Touch devices start on Big.
+**On phones.** Touch devices get their own setup:
+- **View:** zoomed out ~20% (about 19×32 tiles in portrait instead of 15×26), with People size starting on
+  **Bigger** so people stay readable.
+- **Compact HUD:** a smaller minimap, and in landscape the NEXT banner sits in the top row so the street stays
+  clear.
+- **Fewer overlays:** no "How democracy is spoiled" cards, one toast, at most two speech bubbles, and damage
+  shown as one short "−8%".
+- **Joystick:** a ghost joystick says "Drag here to walk" until you first move. Drag anywhere on the left 70%;
+  a quick tap is a slogan.
+- **Short intro card:** "Tap or drag to start".
+- **Kinder difficulty:** each democracy loss is 25% smaller, goons throw at you ~30% less often, and police
+  take 1.6× longer to grab you.
+
+**People size.** You can still change it with **👤 People** on the start menu (Normal, Big, Bigger). Only the
+people, their icons and speech bubbles grow; the map and the rules stay the same. The choice is saved on the
+device.
 
 ## How it plays
 

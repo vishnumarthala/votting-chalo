@@ -34,6 +34,8 @@
     // Big screens see ~680 world px on the short side; phones zoom in (~0.8) so people stay readable.
     const short = Math.min(W, H - bottomPad);
     zoom = Math.max(0.72, Math.min(1.5, short >= 680 ? short / 680 : 0.8 + (short - 400) / 1400));
+    // phones zoom out ~20% more so stones and police are seen in time (people stay readable via People size)
+    if (window.Input && window.Input.isTouch && short < 680) zoom = Math.max(0.58, Math.min(zoom, 0.64 + (short - 390) / 1400));
     const res = Math.min(2, zoom * DPR);
     if (Math.abs(res - chunkRes) > 0.01) { chunkRes = res; chunks.clear(); }
   }
@@ -495,7 +497,8 @@
     const key = ev.id !== undefined ? 'e' + ev.id : 'b' + bubbleSeq++;
     bubbles.delete(key);
     bubbles.set(key, { id: ev.id, x: ev.x, y: ev.y, text: ev.text, color: ev.color || '#fff', life: 3 });
-    while (bubbles.size > (focus ? 3 : 6)) bubbles.delete(bubbles.keys().next().value);
+    const phone = window.Input && window.Input.isTouch && Math.min(W, H) < 500;
+    while (bubbles.size > (phone ? 2 : focus ? 3 : 6)) bubbles.delete(bubbles.keys().next().value);
   }
   function shake(a) { cam.shake = Math.max(cam.shake, a); }
   function addDebris(x, y, kind) { debris.push({ x, y, kind, rot: Math.random() * TAU, life: 6 }); if (debris.length > 40) debris.shift(); }

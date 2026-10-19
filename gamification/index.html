@@ -79,6 +79,7 @@ body.touch.playing.mapopen #touch{display:none}
 @keyframes fpIn{0%{transform:rotate(-900deg) scale(.04);opacity:0}70%{opacity:1}100%{transform:rotate(-1.5deg) scale(1);opacity:1}}
 @keyframes fpBtns{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#fp .fp-paper,#fp .fp-actions{animation:none}}
+@media (orientation:landscape) and (max-height:500px){#bAct{width:66px;height:66px;font-size:11px;bottom:calc(14px + env(safe-area-inset-bottom))}#bRun{width:52px;height:52px;font-size:11px;right:calc(94px + env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom))}}
 @media (max-width:520px){#fp{gap:8px;padding:8px}#fp .fp-paper{height:min(calc(100dvh - 72px),calc((100vw - 16px) * 1.25))}#fp button{padding:9px 12px;font-size:14px}}
 @media (max-width:520px){#menu{padding:10px}.card{padding:16px 14px 12px;border-radius:16px}h1{font-size:31px;letter-spacing:-1px}.te{font-size:15px;margin-top:4px}.tag{font-size:13px;margin:6px 0 10px;line-height:1.4}.row{margin-bottom:10px}input,select{font-size:16px;padding:10px 11px}#play{font-size:18px;padding:12px}#opts{margin-top:8px}#opts button{padding:7px 4px;font-size:12px}.disc{font-size:10.5px}}
 @media (orientation:landscape) and (max-height:560px){.card{padding:12px 16px 10px}.te{font-size:13px}.tag{font-size:12px;margin:4px 0 8px}h1{font-size:28px}input{padding:7px 10px;font-size:16px}#play{padding:9px;font-size:17px}}

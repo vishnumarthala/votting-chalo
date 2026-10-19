@@ -3,7 +3,7 @@
 'use strict';
 (function () {
   const toasts = [];
-  let tier = null, time = 0, demoPulse = 0;
+  let tier = null, time = 0, demoPulse = 0, walked = false;
   const tactics = { seen: new Set(), queue: [], cur: null };
   const layout = { mini: null, pause: null };
 
@@ -110,8 +110,16 @@
   }
 
   // NEXT banner: what to do now, where and how far.
-  function banner(ctx, G, o, x, y, w, h) {
+  function banner(ctx, G, o, x, y, w, h, compact) {
     const P = G.player;
+    if (compact) { // narrow strip (phone landscape): title and distance only
+      const gs = gateStep(G, o);
+      ctx.fillStyle = 'rgba(20,14,8,.8)'; rr(ctx, x, y, w, h, 10); ctx.fill();
+      ctx.fillStyle = o.color; rr(ctx, x, y, 5, h, 3); ctx.fill();
+      text(ctx, (gs ? 'STEP ' + gs.n + '/' + STEPS + ' ' : '🏛️ ') + nextLine(G, o).replace('File your nomination at the ', ''), x + 12, y + 12, 12, '#fff', 'left', 900, w - 20);
+      text(ctx, gs ? gs.sub : metres(G, o) + ' m · follow the gold arrow', x + 12, y + h - 11, 10.5, '#ffe0b2', 'left', 700, w - 20);
+      return;
+    }
     ctx.fillStyle = 'rgba(20,14,8,.8)'; rr(ctx, x, y, w, h, 12); ctx.fill();
     ctx.fillStyle = o.color; rr(ctx, x, y, 6, h, 3); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.beginPath(); ctx.arc(x + 28, y + h / 2, 16, 0, Math.PI * 2); ctx.fill();
@@ -139,17 +147,19 @@
     const L = 10 + sa.l / u, R = VW - 10 - sa.r / u, TOP = 10 + sa.t / u, BOT = VH - 10 - sa.b / u;
     const obj = window.Render.objective();
     const focus = inFocus(G);
+    // phones: a compact HUD and fewer overlays, so the street stays visible
+    const phone = touch && (narrow || VH < 450), playing = G.mode === 'play';
 
     // ---- top-left: the Democracy meter, nothing else
-    const ms = narrow ? 112 : VH < 520 ? 120 : 150, mx = R - ms - 4, my = TOP + 4;
-    const SW = narrow ? Math.max(160, Math.min(210, mx - 4 - L - 48)) : 300, SH = narrow ? 82 : 102; // leave room for the pause button
+    const ms = phone ? 88 : narrow ? 112 : VH < 520 ? 120 : 150, mx = R - ms - 4, my = TOP + 4;
+    const SW = narrow ? Math.max(160, Math.min(210, mx - 4 - L - 48)) : phone ? 230 : 300, SH = phone ? 70 : narrow ? 82 : 102; // leave room for the pause button
     demoPulse = Math.max(0, demoPulse - dt * 1.2);
     demoMeter(ctx, G, L, TOP, SW, SH, narrow);
     const statusBottom = TOP + SH;
 
     // ---- radar (top-right); tap/click opens the full town map
     window.Render.drawRadar(mx, my, ms, obj);
-    const hint = touch ? '🗺️ Tap: town map' : '🗺️ Click / Tab: map';
+    const hint = phone ? '🗺️ Map' : touch ? '🗺️ Tap: town map' : '🗺️ Click / Tab: map';
     ctx.font = '800 9.5px system-ui,sans-serif';
     const hw = ctx.measureText(hint).width + 12;
     ctx.fillStyle = 'rgba(20,14,8,.8)'; rr(ctx, mx + ms / 2 - hw / 2, my + ms - 17, hw, 15, 7); ctx.fill();
@@ -158,7 +168,7 @@
     // live player count, under the radar
     const live = window.Live && window.Live.count;
     let liveH = 0;
-    if (live) {
+    if (live && !(phone && playing)) { // phones: only on the intro card, not over the street
       const s = (live === 1 ? '1' : live.toLocaleString('en-IN')) + ' playing now';
       ctx.font = '800 11px system-ui,sans-serif';
       const lw = ctx.measureText(s).width + 30, lx = R - lw, ly = my + ms + 8;
@@ -169,17 +179,20 @@
       text(ctx, s, lx + 21, ly + 10.5, 11, '#fff', 'left', 800);
       liveH = 26;
     }
-    layout.pause = narrow ? { x: ((L + SW + mx - 4) / 2) * u, y: (TOP + 22) * u } : { x: (mx - 34) * u, y: (TOP + 22) * u };
+    layout.pause = phone && VW > VH * 1.3 ? { x: (L + SW + 27) * u, y: (TOP + 20) * u } : narrow ? { x: ((L + SW + mx - 4) / 2) * u, y: (TOP + 22) * u } : { x: (mx - 34) * u, y: (TOP + 22) * u };
 
     // ---- NEXT banner
-    let bx, by = TOP, bw, bh = 46, under = narrow;
-    if (narrow) { bx = L; bw = R - L; by = Math.max(statusBottom, my + ms + 4 + liveH) + 8; }
+    let bx, by = TOP, bw, bh = phone ? 40 : 46, under = narrow;
+    const flat = phone && VW > VH * 1.3; // phone landscape: banner in the top row between monitor and minimap
+    if (flat) { bx = L + SW + 54; bw = Math.max(160, mx - 10 - bx); bh = 36; by = TOP + 2; }
+    else if (narrow) { bx = L; bw = R - L; by = Math.max(statusBottom, my + ms + 4 + liveH) + 8; }
     else {
       const l = L + SW + 14, r = mx - 66;
       bw = Math.min(470, r - l); bx = l + (r - l - bw) / 2;
-      if (bw < 260) { under = true; bx = L; bw = Math.min(R - L - ms - 20, 380); by = statusBottom + 8; }
+      if (bw < 260 && phone) { bw = Math.max(200, r - l); bx = l; bh = 36; } // phone landscape: keep it in the top row
+      else if (bw < 260) { under = true; bx = L; bw = Math.min(R - L - ms - 20, 380); by = statusBottom + 8; }
     }
-    if (G.mode === 'play' || G.mode === 'intro') banner(ctx, G, obj, bx, by, bw, bh);
+    if (G.mode === 'play' || G.mode === 'intro') banner(ctx, G, obj, bx, by, bw, bh, flat);
     const bannerBottom = by + bh;
 
     // ---- centre: grab / detained / filing
@@ -199,7 +212,7 @@
     for (let i = toasts.length - 1; i >= 0; i--) { toasts[i].life -= dt; if (toasts[i].life <= 0) toasts.splice(i, 1); }
     let ty = narrow ? bannerBottom + 26 : Math.max(TOP + 66, under ? 0 : bannerBottom + 22);
     const tmax = narrow ? VW - 24 : Math.max(240, VW - 2 * (L + SW + 10));
-    for (const t of toasts.slice(focus ? -1 : narrow ? -3 : -4)) {
+    for (const t of toasts.slice(focus || phone ? -1 : narrow ? -3 : -4)) {
       ctx.globalAlpha = Math.min(1, t.life / 0.4);
       ctx.font = '800 14px system-ui,sans-serif';
       const w = Math.min(tmax, ctx.measureText(t.text).width + 26);
@@ -224,8 +237,10 @@
 
     // ---- "How democracy is being spoiled": one card per tactic, the first time it shows up
     // (held back near the office; the end screen lists them all)
+    // (phones skip them: they cover the lower half of the street)
+    if (phone) tactics.queue.length = 0;
     if (!tactics.cur && tactics.queue.length && !focus) tactics.cur = { t: tactics.queue.shift(), life: 5 };
-    if (tactics.cur && !focus) {
+    if (tactics.cur && !focus && !phone) {
       const c = tactics.cur, T = c.t;
       c.life -= dt;
       if (c.life <= 0) tactics.cur = null;
@@ -242,8 +257,20 @@
       }
     }
 
-    // ---- touch joystick
+    // ---- touch joystick (a ghost one with a hint until the first walk)
     const st = window.Input.stick;
+    if (st && Math.hypot(st.x - st.ox, st.y - st.oy) > 12) walked = true;
+    if (touch && !st && !walked && (G.mode === 'play' || G.mode === 'intro')) {
+      const gx = 90, gy = VH - (phone ? 150 : 170), pulse = 0.55 + 0.25 * Math.sin(time * 4), nudge = Math.sin(time * 3) * 18;
+      ctx.globalAlpha = pulse;
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(gx, gy, 50, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(gx + nudge * 0.6, gy - Math.abs(nudge), 22, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.font = '900 13px system-ui,sans-serif';
+      const tw = ctx.measureText('Drag here to walk').width + 20;
+      ctx.fillStyle = 'rgba(20,14,8,.85)'; rr(ctx, gx - tw / 2, gy + 60, tw, 24, 12); ctx.fill();
+      text(ctx, 'Drag here to walk', gx, gy + 72, 13, '#fff', 'center', 900);
+    }
     if (st) {
       ctx.globalAlpha = 0.5;
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(st.ox / u, st.oy / u, 50, 0, Math.PI * 2); ctx.stroke();
@@ -260,10 +287,15 @@
     const G = game.state, M = G.M;
     const w = Math.min(560, VW - 24), pad = 20, inner = w - pad * 2;
     ctx.font = '700 14px system-ui,sans-serif';
-    const intro = wrap(ctx, game.text(M.intro), inner);
-    const steps = [['🏛️', 'Find your way through the streets to the ' + M.goal], ['⏳', 'Stand in the blue circle until it is filed'], ['🗳️', window.Content.OPPONENT.short + ' goons and police lathis kill democracy. At 0% it is over']];
-    const tips = touch
-      ? ['Drag on the left half to walk · drag far to run', 'Walk into people to grow your crowd', '3+ supporters close = police can\u2019t grab you']
+    const phone = touch && (VW < 640 || VH < 450);
+    const intro = phone ? [] : wrap(ctx, game.text(M.intro), inner);
+    const steps = phone
+      ? [['🏛️', 'Walk to the ' + M.goal], ['⏳', 'Stand in the blue circle to file'], ['🗳️', window.Content.OPPONENT.short + ' goons and lathis kill democracy']]
+      : [['🏛️', 'Find your way through the streets to the ' + M.goal], ['⏳', 'Stand in the blue circle until it is filed'], ['🗳️', window.Content.OPPONENT.short + ' goons and police lathis kill democracy. At 0% it is over']];
+    const tips = phone
+      ? ['Drag on the left to walk · tap = slogan', 'Walk into people to grow your crowd']
+      : touch
+      ? ['Drag on the left to walk · drag far to run · tap = slogan', 'Walk into people to grow your crowd', '3+ supporters close = police can\u2019t grab you']
       : ['WASD / arrows or hold the mouse to walk · Shift / right-click to run', 'Walk into people to grow your crowd · Space = slogan', '3+ supporters close = police can\u2019t grab you'];
     const h = 50 + intro.length * 19 + 10 + steps.length * 26 + 40 + tips.length * 17 + 30 + 36;
     const x = (VW - w) / 2;
@@ -286,7 +318,7 @@
     });
     cy += 4;
     ctx.fillStyle = 'rgba(249,168,37,.18)'; rr(ctx, x + pad, cy - 4, inner, 28, 8); ctx.fill();
-    text(ctx, '➜ Follow the gold arrow at your feet and the NEXT banner', x + w / 2, cy + 10, 12.5, '#8a4b00', 'center', 800, inner - 16);
+    text(ctx, phone ? '➜ Follow the gold arrow at your feet' : '➜ Follow the gold arrow at your feet and the NEXT banner', x + w / 2, cy + 10, 12.5, '#8a4b00', 'center', 800, inner - 16);
     cy += 40;
     tips.forEach((l) => { text(ctx, l, x + w / 2, cy, 12, '#2e4a7a', 'center', 700, inner); cy += 17; });
     // who is who
@@ -298,7 +330,7 @@
       text(ctx, L.label.replace(/ \(.*\)/, ''), lx + 12, cy + 1, 11, '#1d1a16', 'left', 800, cw - 26); // the full name is in the intro text above
     });
     cy += 22;
-    text(ctx, touch ? 'Move to start' : 'Press a move key or Space to start', x + w / 2, y + h - 16, 12, '#9a8670', 'center', 700);
+    text(ctx, touch ? 'Tap or drag to start' : 'Press a move key or Space to start', x + w / 2, y + h - 16, 12, '#9a8670', 'center', 700);
   }
 
   // Full-screen town map (game is paused while it is open).
@@ -329,7 +361,7 @@
     toast(s, color, life) { toasts.push({ text: s, color: color || '#fff', life: life || 2.8 }); if (toasts.length > 8) toasts.shift(); },
     tier(name, color, life) { tier = { text: name, color: color || '#ffd54f', life: life || 1.6 }; },
     demoHit() { demoPulse = 1; },
-    reset() { toasts.length = 0; tier = null; tactics.seen.clear(); tactics.queue.length = 0; tactics.cur = null; },
+    reset() { walked = false; toasts.length = 0; tier = null; tactics.seen.clear(); tactics.queue.length = 0; tactics.cur = null; },
     tactic(id) {
       if (tactics.seen.has(id)) return;
       const T = window.Content.TACTICS.find((t) => t.id === id);

@@ -1,12 +1,12 @@
 // Input: keyboard (WASD/arrows), mouse (hold to walk toward the pointer, right button to run) and touch
-// (drag anywhere on the left to steer, drag far to run; buttons for SLOGAN and RUN).
+// (drag anywhere on the left 70% to steer, drag far to run, quick tap = slogan; buttons for SLOGAN and RUN).
 'use strict';
 (function () {
   const KEYS = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', ShiftLeft: 'run', ShiftRight: 'run', Space: 'act', KeyE: 'act', Enter: 'act' };
   const held = { up: false, down: false, left: false, right: false, run: false };
   let actLatch = false, enabled = false;
   const mouse = { down: false, run: false, x: 0, y: 0 };
-  const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+  const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0, t0: 0 };
   let runBtn = false, tapHandler = null;
   const meta = [];
   const isTouch = matchMedia('(hover:none) and (pointer:coarse)').matches || 'ontouchstart' in window;
@@ -33,8 +33,8 @@
       if (!enabled) return;
       if (window.SFX) window.SFX.init();
       if (e.pointerType === 'touch') {
-        if (stick.id === null && e.clientX < innerWidth * 0.6) {
-          stick.id = e.pointerId; stick.ox = stick.x = e.clientX; stick.oy = stick.y = e.clientY;
+        if (stick.id === null && e.clientX < innerWidth * 0.7) {
+          stick.id = e.pointerId; stick.ox = stick.x = e.clientX; stick.oy = stick.y = e.clientY; stick.t0 = performance.now();
         } else actLatch = true; // second finger / right side tap: slogan
         cv.setPointerCapture(e.pointerId);
         return;
@@ -48,7 +48,11 @@
       if (e.pointerType !== 'touch') { mouse.x = e.clientX; mouse.y = e.clientY; }
     });
     const up = (e) => {
-      if (e.pointerId === stick.id) { stick.id = null; return; }
+      if (e.pointerId === stick.id) {
+        // a quick tap without dragging = slogan (and it starts the game from the intro card)
+        if (performance.now() - stick.t0 < 250 && Math.hypot(stick.x - stick.ox, stick.y - stick.oy) < 10) actLatch = true;
+        stick.id = null; return;
+      }
       if (e.pointerType !== 'touch') { if (e.button === 2) mouse.run = false; else mouse.down = false; }
     };
     cv.addEventListener('pointerup', up);

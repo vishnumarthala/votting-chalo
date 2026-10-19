@@ -30,7 +30,7 @@ h1{margin-top:10px;font-size:clamp(34px,7.5vw,64px);font-weight:900;line-height:
 h1 .w{display:block;font-size:.5em;letter-spacing:-.5px;color:#cfd8ff;font-weight:800;margin-bottom:4px}
 h1 .d{color:#5be38f}
 .te{margin-top:10px;font-size:18px;font-weight:800;color:var(--gold)}
-.intro{margin:12px auto 0;max-width:560px;font-size:16px;line-height:1.55;color:#dfe5ff}
+.intro{margin:0 auto;text-align:center;max-width:560px;font-size:16px;line-height:1.55;color:#dfe5ff}
 /* the play card: a folded newspaper you open to play */
 .play{display:block;width:100%;max-width:560px;text-decoration:none;color:var(--ink);background:var(--paper);border-radius:16px;overflow:hidden;
   box-shadow:0 24px 60px rgba(0,0,0,.55);transform:rotate(-1deg);transition:transform .18s ease,box-shadow .18s ease}
@@ -50,7 +50,7 @@ h1 .d{color:#5be38f}
 .stats b{color:#fff;font-size:15px}
 footer{max-width:640px;text-align:center;font-size:12px;line-height:1.5;color:#94a0d4}
 @media (prefers-reduced-motion:reduce){.play{transition:none;transform:none}}
-@media (max-width:520px){.kicker{font-size:11px;letter-spacing:1px}.kicker:before,.kicker:after{width:14px}body{gap:18px}.intro{font-size:15px}.cta{padding:12px 14px}.cta .go{padding:10px 16px;font-size:16px}}
+@media (max-width:520px){.kicker{font-size:11px;letter-spacing:1px}.kicker:before,.kicker:after{width:14px}body{gap:16px;justify-content:flex-start;padding-top:22px}h1{font-size:38px}.te{font-size:16px;margin-top:6px}.intro{font-size:15px}.cta{padding:12px 14px}.cta .go{padding:10px 16px;font-size:16px}}
 </style>
 </head>
 <body>
@@ -60,7 +60,6 @@ footer{max-width:640px;text-align:center;font-size:12px;line-height:1.5;color:#9
  <div class="kicker">Nomination Day · Andhra Pradesh</div>
  <h1><span class="w">Welcome to</span>The Death of <span class="d">Democracy</span></h1>
  <div class="te">నామినేషన్ వేద్దాం, ఓటు వేద్దాం! ✊🗳️</div>
- <p class="intro">Walk your <b>YSRCP</b> candidate to the RO Office to file a nomination. On the way: Section 144, barricades, police lathis and <b>TDP (Telugu Drama Party)</b> goons throwing stones. Democracy starts at 100%. See how long it survives.</p>
 </header>
 
 <a class="play" href="/gamification" aria-label="Play The Death of Democracy">
@@ -76,6 +75,8 @@ footer{max-width:640px;text-align:center;font-size:12px;line-height:1.5;color:#9
   <div class="go">PLAY ▶</div>
  </div>
 </a>
+
+<p class="intro">Walk your <b>YSRCP</b> candidate to the RO Office to file a nomination. On the way: Section 144, barricades, police lathis and <b>TDP (Telugu Drama Party)</b> goons throwing stones. Democracy starts at 100%. See how long it survives.</p>
 
 <div class="stats" id="stats" aria-live="polite"></div>
 

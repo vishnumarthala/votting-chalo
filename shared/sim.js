@@ -276,7 +276,9 @@
     }
 
     // ------------------------------------------------------------ democracy meter
+    // opts.easy (touch devices): every loss is 25% smaller
     function demo(delta) {
+      if (opts.easy && delta < 0) delta *= 0.75;
       const before = G.demo;
       if (G.mode === 'over') return;
       G.demo = clamp(G.demo + delta, 0, 100);
@@ -735,7 +737,7 @@
           } else {
             // a grab takes a moment; running breaks free (cops are slower than a running candidate)
             if (P.grabTick !== G.tick) { P.grabTick = G.tick; if (P.grab === 0) { emit({ t: 'grab', x: P.x, y: P.y }); say(e, rng.pick(Ct.LINES.cop), null, '#fff59d'); } }
-            P.grab += DT / GRAB_TIME;
+            P.grab += DT / (opts.easy ? GRAB_TIME * 1.6 : GRAB_TIME); // easy: more time to break free
             if (P.grab >= 1) { P.grab = 0; detain(e); }
           }
         }
@@ -784,7 +786,7 @@
     // ------------------------------------------------------------ thrown stones, sticks and chappals
     function startThrow(e, civ) {
       e.throwT = THROW.windup; e.aimRef = civ || null;
-      e.throwCd = civ ? rng.range(5, 8) : rng.range(2.8, 4.2);
+      e.throwCd = civ ? rng.range(5, 8) : rng.range(2.8, 4.2) * (opts.easy ? 1.4 : 1); // easy: fewer stones at the candidate
       const tx = civ ? civ.x : P.x, ty = civ ? civ.y : P.y, k = norm(tx - e.x, ty - e.y);
       e.fx = k.x || 1; e.fy = k.y;
       if (e.sayCd <= 0) { say(e, rng.pick(Ct.LINES.throw), null, '#ffcdd2'); e.sayCd = 5; }

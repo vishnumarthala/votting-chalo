@@ -518,3 +518,13 @@ test('a route-following bot walks the maze to the office on several towns when p
     assert.equal(g.state.result.reason, 'rejected', `seed ${seed}: ${g.state.result.reason}`);
   }
 });
+
+test('easy mode (touch devices) makes every democracy loss 25% smaller', () => {
+  const hard = play({ police: false, goons: false, civilians: 0 });
+  const easy = play({ police: false, goons: false, civilians: 0, easy: true });
+  hard._test.demo(-8); easy._test.demo(-8);
+  assert.equal(hard.state.demo, 92);
+  assert.equal(easy.state.demo, 94);
+  easy._test.demo(3);
+  assert.equal(easy.state.demo, 97, 'gains are unchanged');
+});

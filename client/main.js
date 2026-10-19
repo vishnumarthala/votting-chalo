@@ -27,7 +27,7 @@
 
   // People size: phones see the town zoomed out, so people start one size up there
   const SIZES = [['normal', 'Normal', 1], ['big', 'Big', 1.35], ['bigger', 'Bigger', 1.7]];
-  let size = SIZES.findIndex((z) => z[0] === store.get('vc_ps', Input.isTouch ? 'big' : 'normal'));
+  let size = SIZES.findIndex((z) => z[0] === store.get('vc_ps', Input.isTouch ? 'bigger' : 'normal'));
   if (size < 0) size = 0;
   Render.setPeopleScale(SIZES[size][2]);
   function syncOpts() {
@@ -49,7 +49,7 @@
 
   // ------------------------------------------------------------ lifecycle
   function newGame(pl, seed) {
-    const g = window.Sim.createGame({ seed, mapSeed: MAP_SEED, place: pl });
+    const g = window.Sim.createGame({ seed, mapSeed: MAP_SEED, place: pl, easy: Input.isTouch }); // touch: kinder difficulty
     Render.setGame(g);
     return g;
   }
@@ -123,6 +123,7 @@
 
   // ------------------------------------------------------------ events
   // first appearance of each tactic -> "How democracy is being spoiled" card
+  let demoLoss = 0, demoPopT = 0;
   const TACTIC_OF = { ring: 'sec144', throw: 'stones', ignore: 'police', detained: 'arrest', line: 'line', gateshut: 'gate', vipgate: 'gate', frisk: 'papers', stall: 'stall' };
   function handle(evs) {
     const P = game.state.player;
@@ -156,7 +157,15 @@
         case 'shield': SFX.scare(); Render.popup(ev.x, ev.y - 30, '🛡️ took it for you', '#bbdefb'); break;
         case 'protect': SFX.protect(); Render.popup(ev.x, ev.y - 30, ev.crowd ? '🛡️ Crowd protected them!' : '🛡️ You protected them!', '#b9f6ca'); break;
         case 'demo':
-          if (ev.d < 0) { Hud.demoHit(); if (ev.v > 0) Render.popup(P.x, P.y - 52, '−' + Math.round(-ev.d) + '% DEMOCRACY', '#ff5252'); }
+          if (ev.d < 0) {
+            Hud.demoHit();
+            // one popup at a time: hits close together are summed into the next one
+            demoLoss += -ev.d;
+            if (ev.v > 0 && performance.now() - demoPopT > 700) {
+              Render.popup(P.x, P.y - 52, '−' + Math.round(demoLoss) + (Input.isTouch ? '%' : '% DEMOCRACY'), '#ff5252');
+              demoLoss = 0; demoPopT = performance.now();
+            }
+          }
           break;
         case 'demostage': SFX.heartbeat(); Render.shake(6); Hud.tier('DEMOCRACY: ' + Ct.DEMO.labels[ev.stage].toUpperCase(), '#ff5252', 2.2); break;
         case 'line': SFX.backup(); Render.shake(3); break;
