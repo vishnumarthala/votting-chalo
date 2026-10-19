@@ -16,8 +16,11 @@ const TYPES = {
   '.webp': 'image/webp',
 };
 const PUBLIC = ['index.html', 'shared', 'client'];
+// the live player count, kept in memory locally (Redis on Vercel)
+const presence = require('../api/presence.js').makeHandler(require('../api/presence.js').memoryStore());
 
 http.createServer((req, res) => {
+  if (req.url.split('?')[0] === '/api/presence') { presence(req, res); return; }
   let rel;
   try {
     rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '') || 'index.html';

@@ -105,6 +105,34 @@ and the game rules stay the same. The choice is saved on the device. Touch devic
   Walk into a barricade to push it; every supporter nearby speeds it up.
 - There is no clock, no score and no documents to collect: just the walk, and what it costs.
 
+## How many people play
+
+Everything below fits Vercel's free **Hobby** plan.
+
+**Visitors and page views: Vercel Web Analytics** (cookieless, no personal data). It's loaded from
+`index.html` on the live site only, never on localhost. In the Vercel dashboard open the project →
+**Analytics** → **Enable**, then deploy once. Hobby includes 50,000 events a month (each page view is one);
+after that, collection pauses until the next month. Nothing is billed. Custom events (games started, shares)
+are a Pro feature, so the game doesn't send any.
+
+**Live count: "N playing now"** on the menu and under the minimap in game. Each open game pings
+`/api/presence` (a Vercel function in [api/presence.js](api/presence.js)) once a minute, and the count is how
+many games pinged in the last 90 seconds. Tabs that are hidden, or idle for 10 minutes, stop pinging and drop
+out. The ids live in a free Upstash Redis database:
+
+1. In the Vercel dashboard: **Storage** → **Create Database** → **Upstash for Redis** → free plan → connect it
+   to this project. That adds the `KV_REST_API_URL` and `KV_REST_API_TOKEN` environment variables
+   (`UPSTASH_REDIS_REST_URL`/`_TOKEN` work too).
+2. Deploy. Until the database is connected, the endpoint answers "not configured" and the count simply
+   isn't shown.
+
+Free-tier budget: each player costs about 1 function call and 2 Redis commands per minute. Upstash's free
+500,000 commands a month cover roughly 4,000 hours of play (Vercel's 1,000,000 function calls cover more). If
+a quota runs out, the count hides itself and the game carries on. Locally, `npm run serve` keeps the count in
+memory.
+
+Note: Vercel's Hobby plan is for non-commercial use.
+
 ## Architecture
 
 The structure follows the mantarjantar.com approach: plain JavaScript, Canvas 2D, no framework or bundler,

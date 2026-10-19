@@ -155,11 +155,25 @@
     ctx.fillStyle = 'rgba(20,14,8,.8)'; rr(ctx, mx + ms / 2 - hw / 2, my + ms - 17, hw, 15, 7); ctx.fill();
     text(ctx, hint, mx + ms / 2, my + ms - 9.5, 9.5, '#fff', 'center', 800);
     layout.mini = { x: (mx - 6) * u, y: (my - 6) * u, w: (ms + 12) * u, h: (ms + 12) * u };
+    // live player count, under the radar
+    const live = window.Live && window.Live.count;
+    let liveH = 0;
+    if (live) {
+      const s = (live === 1 ? '1' : live.toLocaleString('en-IN')) + ' playing now';
+      ctx.font = '800 11px system-ui,sans-serif';
+      const lw = ctx.measureText(s).width + 30, lx = R - lw, ly = my + ms + 8;
+      ctx.fillStyle = 'rgba(20,14,8,.78)'; rr(ctx, lx, ly, lw, 20, 10); ctx.fill();
+      const pulse = (time * 0.6) % 1;
+      ctx.fillStyle = `rgba(0,230,118,${0.5 * (1 - pulse)})`; ctx.beginPath(); ctx.arc(lx + 12, ly + 10, 4 + pulse * 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#00e676'; ctx.beginPath(); ctx.arc(lx + 12, ly + 10, 4, 0, Math.PI * 2); ctx.fill();
+      text(ctx, s, lx + 21, ly + 10.5, 11, '#fff', 'left', 800);
+      liveH = 26;
+    }
     layout.pause = narrow ? { x: ((L + SW + mx - 4) / 2) * u, y: (TOP + 22) * u } : { x: (mx - 34) * u, y: (TOP + 22) * u };
 
     // ---- NEXT banner
     let bx, by = TOP, bw, bh = 46, under = narrow;
-    if (narrow) { bx = L; bw = R - L; by = Math.max(statusBottom, my + ms + 4) + 8; }
+    if (narrow) { bx = L; bw = R - L; by = Math.max(statusBottom, my + ms + 4 + liveH) + 8; }
     else {
       const l = L + SW + 14, r = mx - 66;
       bw = Math.min(470, r - l); bx = l + (r - l - bw) / 2;
