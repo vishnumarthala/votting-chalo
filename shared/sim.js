@@ -143,9 +143,20 @@
       }
     }
     if (opts.goons !== false) {
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 4; i++) {
         const pi = rng.int(map.posts.length), p = map.posts[pi];
         spawn('goon', p.x, p.y, { mode: 'patrol', postIdx: rng.int(map.posts.length), seeT: 0, stunT: 0 });
+      }
+      // a TDP goon holds the near end of each canal bridge, so every route runs into one
+      const cols = new Map();
+      for (let i = 0; i < N * N; i++) if (map.t[i] === K.BRIDGE) { const x = i % N, y = Math.floor(i / N); const c = cols.get(x); cols.set(x, c ? { y0: Math.min(c.y0, y), y1: Math.max(c.y1, y) } : { y0: y, y1: y }); }
+      const xs = [...cols.keys()].sort((p, q) => p - q);
+      for (let k = 0; k < xs.length; k++) {
+        if (k > 0 && xs[k - 1] === xs[k] - 1) continue; // first column of each bridge
+        let w = 1; while (cols.has(xs[k] + w)) w++;
+        const cx = (xs[k] + w / 2) * TILE, foot = cols.get(xs[k]).y1 + 2.5, near = map.start.y > cols.get(xs[k]).y1 * TILE;
+        const y = (near ? foot : cols.get(xs[k]).y0 - 1.5) * TILE;
+        if (!solidAt(map, Math.floor(cx / TILE), Math.floor(y / TILE))) spawn('goon', cx, y, { mode: 'post', home: { x: cx, y }, seeT: 0, stunT: 0 });
       }
       // a gang hangs around the office gate
       const m = 3;
@@ -159,7 +170,7 @@
 
     // ------------------------------------------------------------ the gate showdown
     // police line -> gate shut ("lunch") -> only candidate + 4 -> papers check -> clerk stalls -> rejection;
-    // meanwhile the ruling front's "guests" walk in and out and the police salute them.
+    // meanwhile TDP leaders ("guests") walk in and out and the police salute them.
     const GATE_ON = opts.gate !== false && !!target.gateTiles;
     const gOut = target.out || { x: 0, y: 1 }, gSide = { x: -gOut.y, y: gOut.x };
     const gateOutSpot = { x: target.gate.x + gOut.x * 96, y: target.gate.y + gOut.y * 96 };
@@ -271,7 +282,6 @@
       G.demo = clamp(G.demo + delta, 0, 100);
       if (G.demo !== before) emit({ t: 'demo', v: G.demo, d: G.demo - before });
       while (G.demoStage < DEMO_STAGES.length && G.demo <= DEMO_STAGES[G.demoStage]) {
-        toast(Ct.DEMO.toasts[G.demoStage], '#ffab91');
         emit({ t: 'demostage', stage: ++G.demoStage });
       }
       if (G.demo <= 0) { toast(Ct.DEMO.dead, '#ff8a80'); end('killed'); }
@@ -532,7 +542,7 @@
           emit({ t: 'say', x: target.gate.x, y: target.gate.y - 14, text: text(rng.pick(Ct.LINES.gateShut)), color: '#fff59d' });
         }
       }
-      // the gate (and the police line) part for the ruling front's guests
+      // the gate (and the police line) part for TDP leaders
       const wasOpen = g.openT > 0;
       for (const e of G.ents) if (e.role === 'vip' && dist(e.x, e.y, target.gate.x, target.gate.y) < 64) g.openT = Math.max(g.openT, 0.5);
       if (g.openT > 0 && !wasOpen && (g.shut || g.line)) {
@@ -688,7 +698,7 @@
       e.sayCd -= DT;
       if (e.mode === 'stun') { e.stunT -= DT; move(e, 0, 0, 0); if (e.stunT <= 0) backToWork(e); return; }
       if (e.ignoreT > 0 && e.mode !== 'chase') { e.ignoreT -= DT; move(e, 0, 0, 0); return; } // "didn't see anything"
-      if (e.salute > 0 && e.mode !== 'chase') { e.salute -= DT; move(e, 0, 0, 0); return; } // saluting the ruling front's guests
+      if (e.salute > 0 && e.mode !== 'chase') { e.salute -= DT; move(e, 0, 0, 0); return; } // saluting TDP leaders
       const d = dist(e.x, e.y, P.x, P.y);
       const look = e.role === 'guard' ? 190 : 220;
       // once you are checked and inside, the gate police step back: the officials take over

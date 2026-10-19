@@ -192,8 +192,10 @@
         case 'civhit': if (near(ev)) SFX.cry(); Render.popup(ev.x, ev.y - 26, ev.type === 'man' ? '💫' : '😢', '#fff'); break;
         case 'shield': SFX.scare(); Render.popup(ev.x, ev.y - 30, '🛡️ took it for you', '#bbdefb'); break;
         case 'protect': SFX.protect(); Render.popup(ev.x, ev.y - 30, ev.crowd ? '🛡️ Crowd protected them!' : '🛡️ You protected them!', '#b9f6ca'); break;
-        case 'demo': if (ev.d < 0) Hud.demoHit(); break;
-        case 'demostage': SFX.heartbeat(); Render.shake(4); break;
+        case 'demo':
+          if (ev.d < 0) { Hud.demoHit(); if (ev.v > 0) Render.popup(P.x, P.y - 52, '−' + Math.round(-ev.d) + '% DEMOCRACY', '#ff5252'); }
+          break;
+        case 'demostage': SFX.heartbeat(); Render.shake(6); Hud.tier('DEMOCRACY: ' + Ct.DEMO.labels[ev.stage].toUpperCase(), '#ff5252', 2.2); break;
         case 'line': SFX.backup(); Render.shake(3); break;
         case 'gateshut': SFX.clang(); Render.shake(5); break;
         case 'chant': SFX.slogan(); Render.popup(ev.x, ev.y - 40, '📣 ' + ev.n + '/' + ev.need, '#bbdefb'); break;

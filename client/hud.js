@@ -1,4 +1,4 @@
-// Heads-up display (screen space): Democracy meter and status, NEXT-objective banner, radar, objective arrow,
+// Heads-up display (screen space): Democracy meter, NEXT-objective banner, radar,
 // toasts, intro card and the full town map. Phones get a compact layout with bigger text.
 'use strict';
 (function () {
@@ -54,7 +54,7 @@
       const waiting = P.followers.filter((f) => f.inner === false).length;
       return { n: 4, main: 'Stand in the blue circle', sub: 'In front of the clerk · ' + metres(G, o) + ' m' + (waiting ? ' · only you + 4 allowed in' : '') };
     }
-    if (g.phase === 'line' && g.line) return { n: 1, main: 'Push through the police line', sub: 'Walk into it with your crowd · or slip through when it parts for "guests"' };
+    if (g.phase === 'line' && g.line) return { n: 1, main: 'Push through the police line', sub: 'Walk into it with your crowd · or slip through when it parts for TDP leaders' };
     if (g.shut) {
       const n = P.followers.length;
       return { n: 2, main: 'Gate shut for "lunch"', sub: n >= 8 ? 'Shout slogans at the gate (' + g.pressure + '/4) · or use the side wicket' : 'Use the side wicket · or bring 8+ supporters to chant (you have ' + n + ')' };
@@ -68,13 +68,14 @@
     return 'File your nomination at the ' + G.M.goal;
   }
 
-  // Democracy meter: % bar plus an ECG trace that slows and flattens as it falls.
-  function ecg(ctx, x, y, w, h, v) {
+  // Democracy as an ICU monitor: the heartbeat slows and flattens as it falls.
+  function ecg(ctx, x, y, w, h, v, lw) {
     ctx.save();
     ctx.beginPath(); ctx.rect(x, y - h / 2, w, h); ctx.clip();
-    const col = v > 60 ? '#69f0ae' : v > 30 ? '#ffd740' : '#ff5252';
-    ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
-    const amp = v <= 5 ? 0 : (h / 2 - 1) * Math.max(0.25, v / 100), period = 46 - (100 - v) * 0.15, off = (time * 40) % period;
+    const col = monitorColor(v);
+    ctx.strokeStyle = col; ctx.lineWidth = lw || 1.6; ctx.lineJoin = 'round';
+    ctx.shadowColor = col; ctx.shadowBlur = 6;
+    const amp = v <= 0 ? 0 : (h / 2 - 1) * Math.max(0.2, v / 100), period = 46 + (100 - v) * 0.7, off = (time * 40) % period;
     ctx.beginPath();
     for (let i = 0; i <= w; i += 1) {
       const p = (i + off) % period;
@@ -88,24 +89,24 @@
     ctx.stroke();
     ctx.restore();
   }
-  const demoColor = (v) => (v > 60 ? '#66bb6a' : v > 30 ? '#ffca28' : '#ef5350');
-  // The main meter: label, big %, full-width bar, stage and heartbeat. Laid out so nothing overlaps.
-  function demoMeter(ctx, G, x, y, w, compact) {
-    const v = G.demo, col = demoColor(v);
-    const stage = window.Content.DEMO.labels[G.demoStage] || '';
-    const h = compact ? 40 : 58;
-    if (demoPulse > 0) { ctx.fillStyle = `rgba(239,83,80,${demoPulse * 0.5})`; rr(ctx, x - 6, y - 4, w + 12, h + 8, 8); ctx.fill(); }
-    const pct = Math.round(v) + '%', ps = compact ? 17 : 22;
+  const monitorColor = (v) => (v > 60 ? '#69f0ae' : v > 30 ? '#ffd740' : '#ff5252');
+  function demoMeter(ctx, G, x, y, w, h, compact) {
+    const v = G.demo, col = monitorColor(v);
+    const stage = (window.Content.DEMO.labels[G.demoStage] || '').toUpperCase();
+    ctx.fillStyle = 'rgba(6,14,10,.9)'; rr(ctx, x, y, w, h, 12); ctx.fill();
+    ctx.strokeStyle = demoPulse > 0 ? `rgba(255,82,82,${0.4 + demoPulse * 0.6})` : 'rgba(255,255,255,.16)';
+    ctx.lineWidth = demoPulse > 0 ? 3 : 1.5; rr(ctx, x, y, w, h, 12); ctx.stroke();
+    if (demoPulse > 0) { ctx.fillStyle = `rgba(255,23,68,${demoPulse * 0.28})`; rr(ctx, x, y, w, h, 12); ctx.fill(); }
+    const pad = compact ? 9 : 12, ls = compact ? 10.5 : 12;
+    text(ctx, '🗳️ DEMOCRACY', x + pad, y + pad + ls / 2, ls, '#e0e0e0', 'left', 900);
+    text(ctx, stage, x + w - pad, y + pad + ls / 2, ls, col, 'right', 900);
+    // the big number (blinks once it is critical) and the heartbeat beside it
+    const ps = compact ? 26 : 36, ny = y + pad + ls + 4 + ps / 2, pct = Math.round(v) + '%';
     ctx.font = `900 ${ps}px system-ui,sans-serif`;
-    const pw = ctx.measureText(pct).width;
-    text(ctx, pct, x + w, y + ps / 2, ps, col, 'right', 900);
-    text(ctx, '🗳️ DEMOCRACY', x, y + ps / 2, compact ? 11 : 13, '#fff', 'left', 900, w - pw - 8);
-    const by = y + ps + (compact ? 3 : 5), bh = compact ? 8 : 11;
-    bar(ctx, x, by, w, bh, v / 100, col);
-    const ey = by + bh + (compact ? 8 : 11), ew = compact ? 56 : 80;
-    text(ctx, stage, x, ey, compact ? 10.5 : 12, col, 'left', 800, w - ew - 8);
-    ecg(ctx, x + w - ew, ey, ew, compact ? 12 : 16, v);
-    return y + h;
+    const pw = ctx.measureText('100%').width;
+    if (v > 25 || Math.floor(time * 3) % 2 === 0) text(ctx, pct, x + pad, ny, ps, col, 'left', 900);
+    ecg(ctx, x + pad + pw + 8, ny, w - pad * 2 - pw - 8, ps * 1.15, v, compact ? 2 : 2.4);
+    bar(ctx, x + pad, y + h - pad - 5, w - pad * 2, compact ? 5 : 6, v / 100, col);
   }
 
   // NEXT banner: what to do now, where and how far.
@@ -124,7 +125,7 @@
     let sub;
     if (gs) sub = gs.sub;
     else if (P.submitT > 0) sub = 'Hold your ground!';
-    else sub = o.where + ' · ' + metres(G, o) + ' m · follow the arrows';
+    else sub = o.where + ' · ' + metres(G, o) + ' m · follow the gold arrow';
     text(ctx, sub, tx, y + h - 13, 11.5, '#ffe0b2', 'left', 700, tw);
   }
 
@@ -141,10 +142,9 @@
 
     // ---- top-left: the Democracy meter, nothing else
     const ms = narrow ? 112 : VH < 520 ? 120 : 150, mx = R - ms - 4, my = TOP + 4;
-    const SW = narrow ? Math.max(150, Math.min(180, mx - 4 - L - 48)) : 250, SH = narrow ? 56 : 78; // leave room for the pause button
-    demoPulse = Math.max(0, demoPulse - dt * 1.5);
-    panel(ctx, L, TOP, SW, SH);
-    demoMeter(ctx, G, L + (narrow ? 10 : 12), TOP + (narrow ? 8 : 10), SW - (narrow ? 20 : 24), narrow);
+    const SW = narrow ? Math.max(160, Math.min(210, mx - 4 - L - 48)) : 300, SH = narrow ? 82 : 102; // leave room for the pause button
+    demoPulse = Math.max(0, demoPulse - dt * 1.2);
+    demoMeter(ctx, G, L, TOP, SW, SH, narrow);
     const statusBottom = TOP + SH;
 
     // ---- radar (top-right); tap/click opens the full town map
@@ -167,33 +167,6 @@
     }
     if (G.mode === 'play' || G.mode === 'intro') banner(ctx, G, obj, bx, by, bw, bh);
     const bannerBottom = by + bh;
-
-    // ---- objective arrow at the screen edge when the objective is off screen
-    if (G.mode === 'play' && P.state === 'free') {
-      const sp = window.Render.worldToScreen(obj.x, obj.y, view);
-      const sx = sp.x / u, sy = sp.y / u;
-      const box = { l: L + 30, r: narrow ? R - 30 : mx - 40, t: (narrow ? bannerBottom : Math.max(bannerBottom, statusBottom)) + 30, b: BOT - (touch ? 150 : 50) };
-      if (sx < box.l || sy < box.t || sx > box.r || sy > box.b) {
-        const pp = window.Render.worldToScreen(P.x, P.y, view);
-        const ox = pp.x / u, oy = pp.y / u;
-        const ang = Math.atan2(sy - oy, sx - ox), c = Math.cos(ang), s = Math.sin(ang);
-        const cx = Math.max(box.l, Math.min(box.r, ox)), cy = Math.max(box.t, Math.min(box.b, oy));
-        let k = Infinity;
-        if (c > 1e-6) k = Math.min(k, (box.r - cx) / c); else if (c < -1e-6) k = Math.min(k, (box.l - cx) / c);
-        if (s > 1e-6) k = Math.min(k, (box.b - cy) / s); else if (s < -1e-6) k = Math.min(k, (box.t - cy) / s);
-        const ax = cx + c * k, ay = cy + s * k;
-        ctx.save(); ctx.translate(ax, ay); ctx.rotate(ang);
-        ctx.fillStyle = obj.goal ? 'rgba(26,45,138,.95)' : 'rgba(249,168,37,.95)'; ctx.strokeStyle = obj.goal ? '#ffd700' : '#fff'; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.moveTo(20, 0); ctx.lineTo(-10, -14); ctx.lineTo(-4, 0); ctx.lineTo(-10, 14); ctx.closePath(); ctx.stroke(); ctx.fill();
-        ctx.restore();
-        const lbl = obj.icon + ' ' + metres(G, obj) + ' m';
-        ctx.font = '800 12px system-ui,sans-serif';
-        const lw = ctx.measureText(lbl).width + 14;
-        const lx = Math.max(box.l, Math.min(box.r, ax - c * 42)), ly = Math.max(box.t - 20, Math.min(box.b + 20, ay - s * 30));
-        panel(ctx, lx - lw / 2, ly - 11, lw, 22, 0.8);
-        text(ctx, lbl, lx, ly, 12, '#fff', 'center', 800);
-      }
-    }
 
     // ---- centre: grab / detained / filing
     const cx = VW / 2, cw = (w) => Math.min(w, VW - 20);
@@ -230,7 +203,7 @@
         ctx.save(); ctx.translate(cx, VH * 0.4); ctx.scale(k, k);
         ctx.font = `900 ${narrow ? 30 : 38}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.lineJoin = 'round'; ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(tier.text, 0, 0, VW - 30);
-        ctx.fillStyle = '#ffd54f'; ctx.fillText(tier.text, 0, 0, VW - 30);
+        ctx.fillStyle = tier.color; ctx.fillText(tier.text, 0, 0, VW - 30);
         ctx.restore(); ctx.globalAlpha = 1;
       }
     }
@@ -274,7 +247,7 @@
     const w = Math.min(560, VW - 24), pad = 20, inner = w - pad * 2;
     ctx.font = '700 14px system-ui,sans-serif';
     const intro = wrap(ctx, game.text(M.intro), inner);
-    const steps = [['🏛️', 'Find your way through the streets to the ' + M.goal], ['⏳', 'Stand in the blue circle until it is filed'], ['🗳️', 'Goons and lathi charges kill democracy. At 0% it is over']];
+    const steps = [['🏛️', 'Find your way through the streets to the ' + M.goal], ['⏳', 'Stand in the blue circle until it is filed'], ['🗳️', 'TDP goons and police lathis kill democracy. At 0% it is over']];
     const tips = touch
       ? ['Drag on the left half to walk · drag far to run', 'Walk into people to grow your crowd', '3+ supporters close = police can\u2019t grab you']
       : ['WASD / arrows or hold the mouse to walk · Shift / right-click to run', 'Walk into people to grow your crowd · Space = slogan', '3+ supporters close = police can\u2019t grab you'];
@@ -299,7 +272,7 @@
     });
     cy += 4;
     ctx.fillStyle = 'rgba(249,168,37,.18)'; rr(ctx, x + pad, cy - 4, inner, 28, 8); ctx.fill();
-    text(ctx, '➜ Follow the glowing arrows on the road and the NEXT banner', x + w / 2, cy + 10, 12.5, '#8a4b00', 'center', 800, inner - 16);
+    text(ctx, '➜ Follow the gold arrow at your feet and the NEXT banner', x + w / 2, cy + 10, 12.5, '#8a4b00', 'center', 800, inner - 16);
     cy += 40;
     tips.forEach((l) => { text(ctx, l, x + w / 2, cy, 12, '#2e4a7a', 'center', 700, inner); cy += 17; });
     // who is who
@@ -340,7 +313,7 @@
     draw, drawMap, layout,
     objective: () => window.Render.objective(),
     toast(s, color, life) { toasts.push({ text: s, color: color || '#fff', life: life || 2.8 }); if (toasts.length > 8) toasts.shift(); },
-    tier(name) { tier = { text: name, life: 1.6 }; },
+    tier(name, color, life) { tier = { text: name, color: color || '#ffd54f', life: life || 1.6 }; },
     demoHit() { demoPulse = 1; },
     reset() { toasts.length = 0; tier = null; tactics.seen.clear(); tactics.queue.length = 0; tactics.cur = null; },
     tactic(id) {

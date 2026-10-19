@@ -2,7 +2,7 @@
 
 A satirical top-down game set in **your own Andhra Pradesh town**. It is nomination day: walk your YSRCP
 candidate through the streets of a small town to the RO Office, gather a crowd ("Jai Jagan!"), dodge the police
-and the ruling front's goons, and push through the Section 144 barricades and the police at the gate.
+and the TDP goons, and push through the Section 144 barricades and the police at the gate.
 
 **Democracy starts at 100%.** Every goon attack, stone and police lathi charge takes a piece of it. At 0% the
 run ends. If you do reach the counter and hold it, the clerk rejects the nomination anyway. Every run ends
@@ -15,8 +15,8 @@ Post-office names from India Post become the neighbourhood names, and your town,
 appear in the dialogue.
 
 > Satire. The player's side is the YSRCP (brand colours: navy `#0F1B61`, green
-> `#00A651`, gold). The "ruling front", its goons, the officials and all other characters, shops and events
-> are fictional; the ruling front stands for no specific real party. The game contains cartoon violence
+> `#00A651`, gold). The yellow goons are labelled TDP. The goons, police, officials and all other characters,
+> shops and events are fictional cartoon caricatures. The game contains cartoon violence
 > against civilians (no blood), shown to criticise it: the player can only protect people, never hurt them.
 
 ## Play
@@ -43,12 +43,13 @@ and the game rules stay the same. The choice is saved on the device. Touch devic
 ## How it plays
 
 - **Who is who.** Blue shirts are YSRCP (you, and anyone who joins your crowd switches to blue), yellow
-  shirts are the ruling front's goons and their "guests", white is the public, khaki is the police.
+  shirts with a yellow **TDP** tag are TDP goons (the "guests" the gate opens for are tagged **TDP LEADER**),
+  white is the public, khaki is the police.
 - **How democracy is being spoiled.** The first time each of 10 tactics shows up (Section 144, barricades,
   stones, attacks on women and children, police looking away, arrests, the police line, the gate shut for you
   but open for friends, the papers check, "server down"), a short card explains it.
-- **Where to go.** There is one destination: the RO Office. The NEXT banner shows its distance, glowing arrows
-  on the road show the way through town, and a pin marks the spot. The corner minimap follows you; tap it
+- **Where to go.** There is one destination: the RO Office. The NEXT banner shows its distance, a gold arrow
+  at the candidate's feet points the way along the streets (it swings at junctions to show the turn), and a pin marks the spot. The corner minimap follows you; tap it
   for the whole town with the office, the police station and your party office.
 - **Crowd.** Walk into townspeople to recruit them; the bigger your crowd, the wider your pull (up to 30).
   They follow you through the streets.
@@ -58,7 +59,9 @@ and the game rules stay the same. The choice is saved on the device. Touch devic
   - Lathi charges scatter supporters. Inspectors throw **tear gas** at big crowds.
   - Each arrest is a case and costs democracy 10%; **3 cases and you're jailed**. After an arrest you're released at the police station.
   - Backup arrives over time, and sooner if your crowd is large.
-- **Goons** rush you and knock you back (democracy −8%). With 3+ supporters close, they run off instead.
+- **TDP goons** rush you and knock you back (democracy −8%). With 3+ supporters close, they run off instead.
+  Four roam the streets, one holds the near end of each canal bridge (so every route meets them), three hang
+  around the office gate, and two "TDP leaders" stroll in and out of the compound.
   - They also **throw stones, sticks and chappals**. A shadow grows where each one will land and turns into a
     red ring just before it hits, so keep moving: zig-zagging dodges most throws. A hit (democracy −6%)
     knocks you back and dazes you, drains stamina and scatters the supporters next to you. With 3+
@@ -73,7 +76,7 @@ and the game rules stay the same. The choice is saved on the device. Touch devic
   1. **Police line.** Cops link arms across the street. Push through with your crowd (alone it barely
      moves) while they lathi your supporters.
   2. **Gate shut "for lunch".** Chant it open with 4 slogans and 8+ supporters, sneak round to the side
-     wicket they "forgot" to lock, or slip in behind the ruling front's guests. The gate and the police line
+     wicket they "forgot" to lock, or slip in behind the TDP leaders. The gate and the police line
      part for them, and the police salute.
   3. **"Only candidate + 4."** The rest of your crowd waits outside chanting and rejoins when you come out.
   4. **Papers check.** A frisk at the gate costs time and democracy; the wicket check is harsher.
@@ -86,6 +89,13 @@ and the game rules stay the same. The choice is saved on the device. Touch devic
   your crowd (−4% to −5%), tear gas shell, arrest, gate trick and stall, more when a woman or child is hurt, and
   when you enter the Section 144 zone. Broken barricades, an opened gate and protected people raise it a
   little. Its stages are Unwell, In hospital, In ICU and On ventilator; at 0% the run ends.
+  You see it die three ways at once:
+  - an **ICU monitor** in the top-left corner: a big %, a heartbeat that slows and flattens, and the stage
+    ("IN ICU") in green, then amber, then red; it blinks once it is critical;
+  - the **town itself**: the colour drains out of the streets and buildings as the meter falls (people, tags
+    and the gold arrow stay in colour), the screen edges bleed red, and below 30% they thump with the heartbeat;
+  - **cause and effect**: every attack pops "−8% DEMOCRACY" over the candidate and flashes the monitor, and each
+    new stage fills the middle of the screen ("DEMOCRACY: IN ICU") with a heartbeat sound.
 - **The end title.** Every run (rejected at the counter, bled out on the road, or jailed) ends on the front
   page of *The Daily Ballot*: just the headline "Democracy is killed in broad daylight. Welcome to Andhra
   Pradesh." over a cartoon of the shuttered RO office. **Share front page** sends it as an image (or
@@ -110,8 +120,8 @@ shared/             DOM-free UMD modules (browser + Node)
   sim.js            30 Hz deterministic game: crowd, police, goons, thrown stones, bystanders, Democracy meter, gas, barricades, gate, filing
 client/
   pincode.js        India Post lookup + Andhra Pradesh check + cache + offline district fallback
-  render.js         cached map chunks, people, sites, ring, gas, ambient autos, route guide, radar + town map, bubbles
-  hud.js            Democracy meter, NEXT banner / gate step guide, radar, objective arrow, toasts, intro, map overlay
+  render.js         cached map chunks, people, sites, ring, gas, ambient autos, gold guide arrow, radar + town map, bubbles
+  hud.js            Democracy meter, NEXT banner / gate step guide, radar, toasts, intro, map overlay
   frontpage.js      "The Daily Ballot" end-title front page (1080x1350 canvas) with Web Share / download
   input.js          keyboard, mouse steering, touch joystick, minimap taps
   audio.js          Web Audio synthesized effects (no audio files)
@@ -132,7 +142,9 @@ to bottom:
 - houses and lanes down to a **canal** with embankment paths and **two bridges**, the natural chokepoints;
 - **Bazaar Street**, lined with striped stalls, where a third of the townspeople are out shopping (the place
   to build your crowd), with **Gandhi Circle** (a statue on a garden island) where a lane crosses it;
-- **Station Road** with the YSRCP party office where you start, the RTC bus stand and the police station.
+- **Station Road** with the YSRCP party office where you start, the RTC bus stand and the police station: a
+  walled forecourt with a sentry box, the national flag and a police jeep with its lights flashing, in front of
+  a building with the police star on the roof and a POLICE STATION sign on the street side.
 
 Half the towns are mirrored, and the compound, both bridges, the lanes and Gandhi Circle shift with the seed.
 Blocks are split into house plots of different sizes, with the odd dead-end gali, tree or small park.

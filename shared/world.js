@@ -168,9 +168,14 @@
     const party = building(rect(E + 1, 42, vs - 2, 45), { color: '#c5cae9', kind: 'party', name: 'YSRCP Party Office', tank: false });
     const start = { kind: 'start', name: 'YSRCP Party Office', x: party.x + party.w / 2, y: 49.5 * TILE, r: 40 };
     sites.push(start);
-    // police station at the far end of Station Road
-    fill(49, 41, L - E, 47, K.PLAZA, K.LOT);
-    const st = building(rect(49, 42, L - E, 45), { color: '#c5d3e8', kind: 'station', name: 'Police Station', tank: false });
+    // police station at the far end of Station Road: the station, a walled forecourt, and a gate onto the road
+    fill(47, 41, L - E, 47, K.PLAZA, K.LOT);
+    fill(47, 41, 47, 47, K.WALL, K.PLAZA); fill(47, 47, L - E, 47, K.WALL, K.PLAZA); fill(49, 47, 50, 47, K.PLAZA);
+    const yard = rect(48, 44, L - E, 46);
+    const st = building(rect(48, 41, L - E, 43), {
+      color: '#e6dcc4', kind: 'station', name: 'Police Station', tank: false,
+      gate: { x: px(50), y: 47.5 * TILE }, yard: { x0: yard.x0 * TILE, y0: yard.y0 * TILE, x1: (yard.x1 + 1) * TILE, y1: (yard.y1 + 1) * TILE },
+    });
     const station = { kind: 'station', name: 'Police Station', x: st.x + st.w / 2, y: 49.5 * TILE, r: 40 };
     sites.push(station);
     // bus stand: an open plaza with a shelter
@@ -273,7 +278,7 @@
 
     // neighbourhood names: north of the canal, and the two halves of the bazaar side
     const names = (opts && opts.names && opts.names.length ? opts.names.slice() : []).concat(NEIGHBOURHOODS);
-    const spots = [[(bA + gx) / 2 + 1, 22], [vs + 7, 33.5], [44, 44]];
+    const spots = [[(bA + gx) / 2 + 1, 22], [vs + 7, 33.5], [(sc + 3 + 46) / 2, 44.5]]; // the last one stays clear of the police station
     const usedN = new Set();
     let ni = 0;
     for (const [lx, ly] of spots) {

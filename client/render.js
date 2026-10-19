@@ -18,10 +18,10 @@
   let particles = [], ambient = [], debris = [], hurtT = 0;
   const bubbles = new Map();
   let bubbleSeq = 0;
-  let freeMap = null, fields = new Map(), routeCache = {};
+  let freeMap = null, fields = new Map(), routeCache = {}, guideAng = null;
   const TAU = Math.PI * 2;
   const NAVY = '#0f1b61', NAVY2 = '#1a2d8a', GREEN = '#00a651', GOLD = '#ffd700'; // YSRCP brand colours
-  // shirt colours: blue = YSRCP, yellow = ruling-front goons, white = the public
+  // shirt colours: blue = YSRCP, yellow = TDP goons, white = the public
   const BLUE = '#2156d1', BLUE_S = ['#2156d1', '#1a49b8'], YELLOW = '#fbc02d', YELLOW_S = ['#fbc02d', '#fdd835'], WHITES = ['#fafafa', '#f1f1ee', '#eceff1'];
 
   function resize(q) {
@@ -43,7 +43,7 @@
     G = game.state; map = G.map;
     chunks.clear(); particles = []; bubbles.clear(); debris = []; hurtT = 0;
     freeMap = Object.assign({}, map, { dyn: new Uint8Array(N * N) }); // plan through barricades: pushing breaks them
-    fields = new Map(); routeCache = {}; radarT = -1; gateSig = '';
+    fields = new Map(); routeCache = {}; radarT = -1; gateSig = ''; guideAng = null;
     cam.x = G.player.x; cam.y = G.player.y;
     buildMini();
     const rng = makeRng(map.seed ^ 0xabc);
@@ -181,7 +181,29 @@
       g.fillStyle = '#e65100'; g.beginPath(); g.arc(b.x + b.w / 2, b.y + b.h / 2, 5, 0, Math.PI * 2); g.fill();
     } else if (b.kind === 'hospital') {
       g.fillStyle = '#e53935'; g.fillRect(b.x + b.w / 2 - 4, b.y + b.h / 2 - 14, 8, 28); g.fillRect(b.x + b.w / 2 - 14, b.y + b.h / 2 - 4, 28, 8);
-    } else if (b.kind === 'office' || b.kind === 'booth' || b.kind === 'station' || b.kind === 'party') {
+    } else if (b.kind === 'station') {
+      // flat RCC roof with a khaki parapet, stair head and tank, the police star, and the sign on the street side
+      g.fillStyle = '#e6dcc4'; g.fillRect(b.x, b.y, b.w, b.h);
+      g.fillStyle = 'rgba(0,0,0,.05)';
+      for (let x = b.x + 16; x < b.x + b.w - 6; x += 16) g.fillRect(x, b.y + 6, 1, b.h - 12);
+      for (let y = b.y + 16; y < b.y + b.h - 6; y += 16) g.fillRect(b.x + 6, y, b.w - 12, 1);
+      g.strokeStyle = '#a1885a'; g.lineWidth = 6; g.strokeRect(b.x + 3, b.y + 3, b.w - 6, b.h - 6);
+      g.fillStyle = '#cbbd9e'; g.fillRect(b.x + b.w - 42, b.y + 10, 30, 22);
+      g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 2; g.strokeRect(b.x + b.w - 42, b.y + 10, 30, 22);
+      g.fillStyle = '#263238'; g.beginPath(); g.arc(b.x + 22, b.y + 22, 9, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#455a64'; g.beginPath(); g.arc(b.x + 21, b.y + 21, 4, 0, Math.PI * 2); g.fill();
+      const ex = b.x + b.w / 2, ey = b.y + 30;
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(ex, ey, 16, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#0d47a1'; g.lineWidth = 3; g.stroke();
+      g.fillStyle = '#0d47a1'; g.beginPath();
+      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? 4.5 : 11; g.lineTo(ex + Math.cos(a) * r, ey + Math.sin(a) * r); }
+      g.closePath(); g.fill();
+      const sy = b.y + b.h - 30;
+      g.fillStyle = '#c62828'; g.fillRect(b.x + 6, sy - 4, b.w - 12, 4);
+      g.fillStyle = '#0d47a1'; g.fillRect(b.x + 6, sy, b.w - 12, 22);
+      g.fillStyle = '#fff'; g.font = '900 13px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('POLICE STATION', b.x + b.w / 2, sy + 11.5, b.w - 20);
+    } else if (b.kind === 'office' || b.kind === 'booth' || b.kind === 'party') {
       g.fillStyle = 'rgba(0,0,0,.08)'; for (let x = b.x + 10; x < b.x + b.w - 10; x += 22) g.fillRect(x, b.y + 8, 12, b.h - 16);
     }
   }
@@ -276,6 +298,57 @@
     if (o.hurt) for (const s of [-1, 1]) { blob(-0.5, s * r * 0.75, 3, 2.3, o.sleeve || o.shirt); blob(0.5, s * 3.3, 2.1, 2.1, o.skin, true); }
     ctx.restore();
   }
+  // a yellow TDP name tag under every goon ("TDP leader" for the VIPs the gate opens for)
+  function tdpTag(x, y, leader) {
+    const s = leader ? 'TDP LEADER' : 'TDP', size = 8.5 * ps;
+    ctx.font = `900 ${size}px system-ui,sans-serif`;
+    const w = ctx.measureText(s).width + 8 * ps, h = size * 1.5;
+    ctx.fillStyle = '#5d1a00'; rr(x - w / 2 - 1.2, y - h / 2 - 1.2, w + 2.4, h + 2.4, 4 * ps); ctx.fill();
+    ctx.fillStyle = '#ffd600'; rr(x - w / 2, y - h / 2, w, h, 3.5 * ps); ctx.fill();
+    ctx.fillStyle = '#b71c1c'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y + 0.5);
+  }
+  // the station forecourt: a sentry box at the gate, the national flag, and a jeep with its lights going
+  function policeYard(b) {
+    const Y = b.yard, mid = (Y.x0 + Y.x1) / 2, left = b.gate.x < mid;
+    const nearX = left ? Y.x0 + 16 : Y.x1 - 16, farX = left ? Y.x1 - 36 : Y.x0 + 36;
+    // sentry box: red-and-white roof by the gate
+    const sx = nearX, sy = Y.y1 - 18;
+    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(sx - 9, sy - 7, 22, 22);
+    ctx.fillStyle = '#fafafa'; ctx.fillRect(sx - 11, sy - 11, 22, 22);
+    ctx.fillStyle = '#c62828'; for (let i = 0; i < 4; i++) ctx.fillRect(sx - 11 + i * 6, sy - 11, 3, 22);
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.5; ctx.strokeRect(sx - 11, sy - 11, 22, 22);
+    // flag pole with the tricolour
+    const fx = nearX, fy = Y.y0 + 50, wv = Math.sin(time * 5) * 1.6;
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(fx + 2, fy + 3, 6, 3, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#9e9e9e'; ctx.beginPath(); ctx.arc(fx, fy, 3.5, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#757575'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - 30); ctx.stroke();
+    const dir = left ? 1 : -1;
+    for (let i = 0; i < 12; i++) {
+      const x = fx + dir * (1 + i * 2), w = Math.sin(time * 6 - i * 0.6) * wv;
+      ctx.fillStyle = '#ff9933'; ctx.fillRect(x, fy - 30 + w, 2.2, 5);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(x, fy - 25 + w, 2.2, 5);
+      ctx.fillStyle = '#138808'; ctx.fillRect(x, fy - 20 + w, 2.2, 5);
+    }
+    ctx.fillStyle = '#000080'; ctx.beginPath(); ctx.arc(fx + dir * 13, fy - 22.5 + Math.sin(time * 6 - 3.6) * wv, 1.6, 0, TAU); ctx.fill();
+    // white jeep facing the gate, blue stripe, red/blue light bar
+    const jx = farX, jy = (Y.y0 + Y.y1) / 2 - 4;
+    ctx.save(); ctx.translate(jx, jy);
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; rr(-11, -23, 28, 52, 7); ctx.fill();
+    ctx.fillStyle = '#212121'; for (const [wx, wy] of [[-15, -18], [11, -18], [-15, 10], [11, 10]]) ctx.fillRect(wx, wy, 4, 10);
+    ctx.fillStyle = '#fafafa'; rr(-13, -26, 26, 52, 6); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.fillStyle = '#1565c0'; ctx.fillRect(-13, -4, 2.5, 22); ctx.fillRect(10.5, -4, 2.5, 22);
+    ctx.fillStyle = '#37474f'; rr(-10, 8, 20, 8, 2); ctx.fill();
+    ctx.fillStyle = '#eceff1'; rr(-10, -20, 20, 26, 3); ctx.fill();
+    ctx.fillStyle = '#0d47a1'; ctx.font = '900 6px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('POLICE', 0, 21);
+    const on = Math.floor(time * 4) % 2 === 0;
+    ctx.fillStyle = '#263238'; rr(-10, -10, 20, 5, 2); ctx.fill();
+    ctx.fillStyle = on ? '#ff1744' : '#5d1010'; ctx.fillRect(-9, -9, 8, 3);
+    ctx.fillStyle = on ? '#0d1b4a' : '#2979ff'; ctx.fillRect(1, -9, 8, 3);
+    ctx.globalAlpha = 0.3; ctx.fillStyle = on ? '#ff1744' : '#2979ff';
+    ctx.beginPath(); ctx.arc(on ? -5 : 5, -7.5, 8, 0, TAU); ctx.fill();
+    ctx.restore(); ctx.globalAlpha = 1;
+  }
   function dazeStars(x, y, n) {
     for (let i = 0; i < (n || 3); i++) {
       const a = time * 5 + (i * TAU) / (n || 3);
@@ -336,7 +409,7 @@
   }
 
   // ------------------------------------------------------------ the gate showdown
-  function policeLine(b) { // cops with linked arms across the street; they part for the ruling front's guests
+  function policeLine(b) { // cops with linked arms across the street; they part for TDP leaders
     const g = G.gate, o = g ? g.out : { x: 0, y: 1 }, sd = { x: -o.y, y: o.x };
     const parted = g && g.openT > 0, jig = b.pushT > 0 ? Math.sin(time * 50) * 1.5 : 0;
     const n = b.tiles.length * 2, span = b.tiles.length * T - 14;
@@ -503,33 +576,33 @@
     routeCache[maxSteps] = { key, pts };
     return pts;
   }
-  // Glowing chevrons flowing along the road to the next objective.
-  function drawGuide(o, px, py, inView) {
-    const pts = route(70);
+  // The way to the office: one gold arrow at the candidate's feet, pointing along the streets (like a sat-nav),
+  // so it swings at a junction to show the turn. It looks ~90 px ahead along the walking route.
+  function drawGuide(o, px, py) {
+    if (Math.hypot(o.x - px, o.y - py) < 70) { guideAng = null; return; } // at the office: the pin takes over
+    const pts = route(12);
     if (pts.length < 2) return;
     pts[0] = [px, py];
-    const gap = 30, off = (time * 60) % gap;
-    let acc = -off, total = 0;
-    ctx.save();
-    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 12;
-    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts) ctx.lineTo(p[0], p[1]); ctx.stroke();
+    let need = 90, tx = pts[pts.length - 1][0], ty = pts[pts.length - 1][1];
     for (let j = 0; j < pts.length - 1; j++) {
-      const a = pts[j], b = pts[j + 1], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
-      if (!len) continue;
-      const ang = Math.atan2(dy, dx);
-      while (acc + gap <= len) {
-        acc += gap; total += gap;
-        if (total < 34) continue;
-        const k = acc / len, x = a[0] + dx * k, y = a[1] + dy * k;
-        if (!inView(x, y, 12)) continue;
-        ctx.globalAlpha = Math.min(1, (total - 34) / 60) * Math.max(0.25, 1 - total / 2400);
-        ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-        ctx.fillStyle = o.color; ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-4, -6); ctx.lineTo(-1, 0); ctx.lineTo(-4, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.restore();
-      }
-      acc -= len;
+      const a = pts[j], b = pts[j + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len >= need) { const k = need / len; tx = a[0] + (b[0] - a[0]) * k; ty = a[1] + (b[1] - a[1]) * k; break; }
+      need -= len;
+    }
+    const want = Math.atan2(ty - py, tx - px);
+    if (guideAng === null) guideAng = want;
+    let d = want - guideAng;
+    while (d > Math.PI) d -= TAU;
+    while (d < -Math.PI) d += TAU;
+    guideAng += d * Math.min(1, 0.25); // ease into turns instead of snapping
+    const r = (34 + Math.sin(time * 6) * 3) * ps, sz = 1.15 * ps;
+    ctx.save(); ctx.translate(px, py); ctx.rotate(guideAng);
+    ctx.lineJoin = 'round';
+    for (const [off, a] of [[0, 1], [16 * ps, 0.45]]) { // a solid arrow and a fainter one ahead of it: "go this way"
+      ctx.save(); ctx.translate(r + off, 0); ctx.scale(sz, sz); ctx.globalAlpha = a;
+      ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-6, -10); ctx.lineTo(-2, 0); ctx.lineTo(-6, 10); ctx.closePath();
+      ctx.fillStyle = GOLD; ctx.strokeStyle = 'rgba(60,40,0,.85)'; ctx.lineWidth = 2.2; ctx.fill(); ctx.stroke();
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -600,6 +673,16 @@
       ctx.restore();
     }
 
+    // democracy dying: the colour drains out of the town (people, tags and the path stay in colour)
+    const dv = Math.max(0, Math.min(1, G.demo / 100));
+    if (dv < 0.995) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'saturation';
+      ctx.fillStyle = `rgba(128,128,128,${Math.min(0.92, (1 - dv) * 1.05)})`;
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.restore();
+    }
+
     // Section 144 ring
     const tg = G.target;
     ctx.save();
@@ -640,7 +723,8 @@
         label('🏛️', st.x, st.y - 8, 26, '#000');
         label('RETURNING OFFICER', st.x, st.y + 22, 11, '#fff', 'rgba(15,27,97,.92)');
       } else if (st.kind === 'station') {
-        label('🚓 Police Station', st.x, st.y - 6, 11, '#fff', 'rgba(21,101,192,.85)');
+        const b = map.buildings.find((o) => o.kind === 'station');
+        if (b && b.yard) policeYard(b);
       } else if (st.kind === 'start') {
         ctx.fillStyle = '#6d4c41'; ctx.fillRect(st.x - 1, st.y - 40, 3, 34);
         ctx.fillStyle = NAVY; ctx.fillRect(st.x + 2, st.y - 40, 22, 5); ctx.fillStyle = '#fff'; ctx.fillRect(st.x + 2, st.y - 35, 22, 4); ctx.fillStyle = GREEN; ctx.fillRect(st.x + 2, st.y - 31, 22, 5);
@@ -656,7 +740,7 @@
     let guideObj = null;
     if ((G.mode === 'play' || G.mode === 'intro') && P.state !== 'held') {
       guideObj = objective();
-      drawGuide(guideObj, px, py, inView);
+      drawGuide(guideObj, px, py);
     }
 
     // gas clouds
@@ -704,6 +788,7 @@
       else if (e.kind === 'cop' && e.mode === 'chase') label('!', x, y - 20 * ps, 14 * ps, '#d32f2f');
       else if (e.kind === 'cop' && e.mode === 'stun') label('💫', x, y - 18 * ps, 12 * ps, '#000');
       else if (e.kind === 'goon' && e.mode === 'chase') label('😠', x, y - 20 * ps, 12 * ps, '#000');
+      if (e.kind === 'goon') tdpTag(x, y + 16 * ps, e.role === 'vip');
     }
     if (P.state === 'held') {
       ctx.fillStyle = '#eceff1'; rr(px - 26, py - 16, 52, 30, 6); ctx.fill();
@@ -777,6 +862,13 @@
       ctx.fillStyle = 'rgba(40,30,20,.16)'; ctx.fillText(l.text.toUpperCase(), l.x, l.y);
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (dv < 0.75) { // the edges bleed red as democracy fails, with a heartbeat thump once it is critical
+      const beat = dv < 0.3 ? Math.pow(Math.max(0, Math.sin(time * (2.2 + dv * 4))), 12) : 0;
+      const a = (0.75 - dv) * 0.55 + beat * 0.18;
+      const g = ctx.createRadialGradient(cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * 0.35, cv.width / 2, cv.height / 2, Math.max(cv.width, cv.height) * 0.75);
+      g.addColorStop(0, 'rgba(120,0,0,0)'); g.addColorStop(1, `rgba(120,0,0,${a})`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+    }
     if (hurtT > 0) { // red edges when the candidate is hit
       hurtT = Math.max(0, hurtT - dt);
       const g = ctx.createRadialGradient(cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * 0.3, cv.width / 2, cv.height / 2, Math.max(cv.width, cv.height) * 0.7);
