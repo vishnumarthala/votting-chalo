@@ -10,6 +10,7 @@
   };
 
   let cv, ctx, W = 0, H = 0, DPR = 1, zoom = 1, quality = 'hi', bottomPad = 0;
+  let ps = 1; // people size setting: scales people, their head icons and bubbles (not the map or hit boxes)
   let map = null, G = null;
   const cam = { x: 0, y: 0, shake: 0 };
   const chunks = new Map();
@@ -198,7 +199,7 @@
     if (stroke) ctx.stroke();
   }
   function person(x, y, e, o) {
-    const r = 9, fx = e.fx || 0, fy = e.fy === undefined ? 1 : e.fy, sc = o.scale || 1;
+    const r = 9, fx = e.fx || 0, fy = e.fy === undefined ? 1 : e.fy, sc = (o.scale || 1) * ps;
     const ang = Math.atan2(fy, fx);
     const amp = o.hurt ? 0 : Math.min(1, Math.hypot(e.vx || 0, e.vy || 0) / 90);
     const ph = Math.sin(time * (amp > 0.9 ? 15 : 11) + e.id * 1.7) * 4.2 * amp;
@@ -697,12 +698,12 @@
       if (!inView(x, y, 40)) continue;
       person(x, y, e, look(e));
       if (e.kind === 'civ') {
-        if (e.mode === 'hurt') dazeStars(x, y - 14, 3);
+        if (e.mode === 'hurt') dazeStars(x, y - 14 * ps, 3);
         else if (e.kite && e.type === 'child' && e.mode === 'wander') kite(x, y, e);
-      } else if (e.ignoreT > 0) label('🙈', x, y - 20, 12, '#000');
-      else if (e.kind === 'cop' && e.mode === 'chase') label('!', x, y - 20, 14, '#d32f2f');
-      else if (e.kind === 'cop' && e.mode === 'stun') label('💫', x, y - 18, 12, '#000');
-      else if (e.kind === 'goon' && e.mode === 'chase') label('😠', x, y - 20, 12, '#000');
+      } else if (e.ignoreT > 0) label('🙈', x, y - 20 * ps, 12 * ps, '#000');
+      else if (e.kind === 'cop' && e.mode === 'chase') label('!', x, y - 20 * ps, 14 * ps, '#d32f2f');
+      else if (e.kind === 'cop' && e.mode === 'stun') label('💫', x, y - 18 * ps, 12 * ps, '#000');
+      else if (e.kind === 'goon' && e.mode === 'chase') label('😠', x, y - 20 * ps, 12 * ps, '#000');
     }
     if (P.state === 'held') {
       ctx.fillStyle = '#eceff1'; rr(px - 26, py - 16, 52, 30, 6); ctx.fill();
@@ -710,7 +711,7 @@
       ctx.fillStyle = Math.floor(time * 6) % 2 ? '#e53935' : '#1e88e5'; ctx.fillRect(px - 6, py - 20, 12, 5);
     } else {
       const glow = P.grab > 0 ? `rgba(229,57,53,${0.4 + 0.3 * Math.sin(time * 20)})` : 'rgba(0,166,81,.38)';
-      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(px, py, 18 + Math.sin(time * 4) * 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(px, py, (18 + Math.sin(time * 4) * 2) * ps, 0, Math.PI * 2); ctx.fill();
       if (P.guardT > 0) { // the crowd closes ranks
         ctx.save(); ctx.globalAlpha = Math.min(1, P.guardT); ctx.setLineDash([6, 5]); ctx.lineDashOffset = -time * 30;
         ctx.strokeStyle = 'rgba(100,181,246,.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(px, py, 70, 0, TAU); ctx.stroke(); ctx.restore();
@@ -718,7 +719,7 @@
       if (P.invuln > 0 && Math.floor(time * 10) % 2) ctx.globalAlpha = 0.5;
       person(px, py, P, look(P));
       ctx.globalAlpha = 1;
-      if (P.daze > 0) dazeStars(px, py - 15, 4);
+      if (P.daze > 0) dazeStars(px, py - 15 * ps, 4);
       if (P.state === 'frisk') { // a cop "verifies" the papers
         const fx = P.fy === undefined ? 0 : -P.fy, fy = P.fx || 1, cx = px + fx * 18, cy = py + fy * 18;
         person(cx, cy, { id: -1, fx: -fx, fy: -fy, vx: Math.sin(time * 9) * 40, vy: 0 }, look({ kind: 'cop', role: 'patrol' }));
@@ -762,7 +763,7 @@
       ctx.globalAlpha = Math.min(1, b.life / 0.3);
       ctx.font = '700 12px system-ui,sans-serif';
       const w = Math.min(240, ctx.measureText(b.text).width + 14);
-      const bx = b.x - w / 2, by = b.y - 44;
+      const bx = b.x - w / 2, by = b.y - 44 - 12 * (ps - 1);
       ctx.fillStyle = 'rgba(20,14,8,.85)'; rr(bx, by, w, 22, 8); ctx.fill();
       ctx.beginPath(); ctx.moveTo(b.x - 5, by + 22); ctx.lineTo(b.x + 5, by + 22); ctx.lineTo(b.x, by + 29); ctx.fill();
       ctx.fillStyle = b.color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(b.text, b.x, by + 11.5, 230);
@@ -894,6 +895,7 @@
     init(canvas) { cv = canvas; ctx = cv.getContext('2d'); resize(); },
     resize, setGame, draw, drawRadar, drawBigMap, objective, burst, popup, say, shake, worldToScreen, addDebris, hurtFlash,
     setBottomPad(px) { bottomPad = Math.max(0, px || 0); resize(); },
+    setPeopleScale(v) { ps = v || 1; }, get peopleScale() { return ps; },
     get ctx() { return ctx; }, get DPR() { return DPR; }, get W() { return W; }, get H() { return H; }, get zoom() { return zoom; },
     get quality() { return quality; }, get bottomPad() { return bottomPad; },
   };

@@ -36,6 +36,10 @@ npm test        # node:test suites
 | Town map (pauses the game) | Tab, or click the minimap | tap the minimap |
 | Pause · mute · graphics | Esc/P · M · G | ⏸ |
 
+**People size.** If the people look too small (phones show more of the town), use **👤 People** on the start
+menu to switch between Normal, Big and Bigger. Only the people, their icons and speech bubbles grow; the map
+and the game rules stay the same. The choice is saved on the device. Touch devices start on Big.
+
 ## How it plays
 
 - **Who is who.** Blue shirts are YSRCP (you, and anyone who joins your crowd switches to blue), yellow

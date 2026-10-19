@@ -61,12 +61,24 @@
   });
   lookupPin();
 
+  // People size: phones see the town zoomed out, so people start one size up there
+  const SIZES = [['normal', 'Normal', 1], ['big', 'Big', 1.35], ['bigger', 'Bigger', 1.7]];
+  let size = SIZES.findIndex((z) => z[0] === store.get('vc_ps', Input.isTouch ? 'big' : 'normal'));
+  if (size < 0) size = 0;
+  Render.setPeopleScale(SIZES[size][2]);
   function syncOpts() {
+    $('optSize').textContent = '👤 People: ' + SIZES[size][1];
     $('optMute').textContent = SFX.muted ? '🔇 Sound off' : '🔊 Sound on';
     $('optQ').textContent = Render.quality === 'hi' ? '✨ Graphics: high' : '⚡ Graphics: fast';
   }
   const toggleMute = () => { SFX.toggleMute(); syncOpts(); };
   const toggleQuality = () => { const q = Render.quality === 'hi' ? 'lo' : 'hi'; store.set('vc_q', q); Render.resize(q); syncOpts(); };
+  $('optSize').addEventListener('click', () => {
+    size = (size + 1) % SIZES.length;
+    store.set('vc_ps', SIZES[size][0]);
+    Render.setPeopleScale(SIZES[size][2]);
+    syncOpts();
+  });
   $('optMute').addEventListener('click', toggleMute);
   $('optQ').addEventListener('click', toggleQuality);
   syncOpts();

@@ -31,7 +31,7 @@ input:focus,select:focus{border-color:var(--blue)}
 #play{width:100%;font-size:21px;font-weight:900;padding:14px;border:none;border-radius:12px;color:#fff;cursor:pointer;letter-spacing:.5px;background:linear-gradient(90deg,var(--deep),var(--navy2) 45%,var(--blue));box-shadow:0 6px 0 #0a1240}
 #play:active{transform:translateY(3px);box-shadow:0 3px 0 #0a1240}
 #play:disabled{opacity:.6}
-#opts{display:flex;gap:8px;margin-top:10px}
+#opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 #opts button{flex:1;border:2px solid #d8c7a8;background:#fffaf0;border-radius:10px;padding:8px;font-weight:800;cursor:pointer;color:#3e2f22;font-size:13px}
 .help{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.8}
 kbd{background:#fff;border:1px solid #cdbb98;border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:11px;font-family:inherit}
@@ -91,7 +91,7 @@ body.touch.playing.mapopen #touch{display:none}
   <div id="pinStatus"></div>
   <div class="legend" aria-label="Who is who"><span><i style="background:#2156d1"></i>Blue: YSRCP (you)</span><span><i style="background:#fbc02d"></i>Yellow: ruling-front goons</span><span><i style="background:#f5f5f5"></i>White: the public</span><span><i style="background:#c8ab72"></i>Khaki: police</span></div>
   <button id="play" type="button">FILE NOMINATION ▶</button>
-  <div id="opts"><button id="optMute" type="button"></button><button id="optQ" type="button"></button></div>
+  <div id="opts"><button id="optSize" type="button" aria-label="People size"></button><button id="optMute" type="button"></button><button id="optQ" type="button"></button></div>
   <div class="help"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>/arrows or hold <kbd>Click</kbd> to walk · <kbd>Shift</kbd>/<kbd>Right-click</kbd> run · <kbd>Space</kbd> slogan · walk into people to recruit · walk into barricades to push · <kbd>Tab</kbd>/click minimap: town map · <kbd>Esc</kbd> pause · <kbd>M</kbd> mute · <kbd>G</kbd> graphics</div>
   <div class="disc">Satire. Contains cartoon violence against civilians, shown to criticise it. The "ruling front", its goons and all characters, shops and events are fictional; the ruling front stands for no specific real party. The town map is generated from your pincode; area names come from India Post's public lookup.</div>
  </div>
