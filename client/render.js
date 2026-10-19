@@ -21,7 +21,7 @@
   let freeMap = null, fields = new Map(), routeCache = {}, guideAng = null;
   const TAU = Math.PI * 2;
   const NAVY = '#0f1b61', NAVY2 = '#1a2d8a', GREEN = '#00a651', GOLD = '#ffd700'; // YSRCP brand colours
-  // shirt colours: blue = YSRCP, yellow = TDP goons, white = the public
+  // shirt colours: blue = YSRCP, yellow = the opponent's goons (Content.OPPONENT), white = the public
   const BLUE = '#2156d1', BLUE_S = ['#2156d1', '#1a49b8'], YELLOW = '#fbc02d', YELLOW_S = ['#fbc02d', '#fdd835'], WHITES = ['#fafafa', '#f1f1ee', '#eceff1'];
 
   function resize(q) {
@@ -298,9 +298,9 @@
     if (o.hurt) for (const s of [-1, 1]) { blob(-0.5, s * r * 0.75, 3, 2.3, o.sleeve || o.shirt); blob(0.5, s * 3.3, 2.1, 2.1, o.skin, true); }
     ctx.restore();
   }
-  // a yellow TDP name tag under every goon ("TDP leader" for the VIPs the gate opens for)
+  // a yellow party tag under every goon (the leader tag for the VIPs the gate opens for); text from Content.OPPONENT
   function tdpTag(x, y, leader) {
-    const s = leader ? 'TDP LEADER' : 'TDP', size = 8.5 * ps;
+    const O = window.Content.OPPONENT, s = leader ? O.leaderTag : O.tag, size = 8.5 * ps;
     ctx.font = `900 ${size}px system-ui,sans-serif`;
     const w = ctx.measureText(s).width + 8 * ps, h = size * 1.5;
     ctx.fillStyle = '#5d1a00'; rr(x - w / 2 - 1.2, y - h / 2 - 1.2, w + 2.4, h + 2.4, 4 * ps); ctx.fill();
@@ -409,7 +409,7 @@
   }
 
   // ------------------------------------------------------------ the gate showdown
-  function policeLine(b) { // cops with linked arms across the street; they part for TDP leaders
+  function policeLine(b) { // cops with linked arms across the street; they part for the opponent's leaders
     const g = G.gate, o = g ? g.out : { x: 0, y: 1 }, sd = { x: -o.y, y: o.x };
     const parted = g && g.openT > 0, jig = b.pushT > 0 ? Math.sin(time * 50) * 1.5 : 0;
     const n = b.tiles.length * 2, span = b.tiles.length * T - 14;

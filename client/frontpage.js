@@ -125,7 +125,9 @@
     ctx.restore();
     // footer
     rule(H - 66, 40, W - 40, 2);
-    txt(NEWS.disclaimer, W / 2, H - 28, `15px ${SANS}`, '#5b4a3a', 'center');
+    ctx.font = `15px ${SANS}`;
+    const foot = wrap(NEWS.disclaimer, W - 80).slice(0, 2);
+    foot.forEach((l, i) => txt(l, W / 2, H - 40 + i * 20 - (foot.length - 1) * 4, `15px ${SANS}`, '#5b4a3a', 'center'));
   }
 
   // ---------------------------------------------------------------- overlay

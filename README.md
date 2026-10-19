@@ -2,7 +2,7 @@
 
 A satirical top-down game set in a small Andhra Pradesh town. It is nomination day: walk your YSRCP
 candidate through the streets of a small town to the RO Office, gather a crowd ("Jai Jagan!"), dodge the police
-and the TDP goons, and push through the Section 144 barricades and the police at the gate.
+and the TDP (Telugu Drama Party) goons, and push through the Section 144 barricades and the police at the gate.
 
 **Democracy starts at 100%.** Every goon attack, stone and police lathi charge takes a piece of it. At 0% the
 run ends. If you do reach the counter and hold it, the clerk rejects the nomination anyway. Every run ends
@@ -13,8 +13,10 @@ on the same title:
 Every game is played in the same unnamed town, so the streets stay the same from run to run.
 
 > Satire. The player's side is the YSRCP (brand colours: navy `#0F1B61`, green
-> `#00A651`, gold). The yellow goons are labelled TDP. The goons, police, officials and all other characters,
-> shops and events are fictional cartoon caricatures. The game contains cartoon violence
+> `#00A651`, gold). The yellow goons are labelled TDP, spelled out as "Telugu
+> Drama Party", our satirical name. The game is opinion and comment on reported pre-election violence, not a
+> factual account; no real person is depicted. Not an official YSRCP website. The name, tags and chant are set
+> in one place, `Content.OPPONENT` in `shared/content.js`. The game contains cartoon violence
 > against civilians (no blood), shown to criticise it: the player can only protect people, never hurt them.
 
 ## Play

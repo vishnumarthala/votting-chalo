@@ -54,7 +54,7 @@
       const waiting = P.followers.filter((f) => f.inner === false).length;
       return { n: 4, main: 'Stand in the blue circle', sub: 'In front of the clerk · ' + metres(G, o) + ' m' + (waiting ? ' · only you + 4 allowed in' : '') };
     }
-    if (g.phase === 'line' && g.line) return { n: 1, main: 'Push through the police line', sub: 'Walk into it with your crowd · or slip through when it parts for TDP leaders' };
+    if (g.phase === 'line' && g.line) return { n: 1, main: 'Push through the police line', sub: 'Walk into it with your crowd · or slip through when it parts for ' + window.Content.OPPONENT.short + ' leaders' };
     if (g.shut) {
       const n = P.followers.length;
       return { n: 2, main: 'Gate shut for "lunch"', sub: n >= 8 ? 'Shout slogans at the gate (' + g.pressure + '/4) · or use the side wicket' : 'Use the side wicket · or bring 8+ supporters to chant (you have ' + n + ')' };
@@ -261,7 +261,7 @@
     const w = Math.min(560, VW - 24), pad = 20, inner = w - pad * 2;
     ctx.font = '700 14px system-ui,sans-serif';
     const intro = wrap(ctx, game.text(M.intro), inner);
-    const steps = [['🏛️', 'Find your way through the streets to the ' + M.goal], ['⏳', 'Stand in the blue circle until it is filed'], ['🗳️', 'TDP goons and police lathis kill democracy. At 0% it is over']];
+    const steps = [['🏛️', 'Find your way through the streets to the ' + M.goal], ['⏳', 'Stand in the blue circle until it is filed'], ['🗳️', window.Content.OPPONENT.short + ' goons and police lathis kill democracy. At 0% it is over']];
     const tips = touch
       ? ['Drag on the left half to walk · drag far to run', 'Walk into people to grow your crowd', '3+ supporters close = police can\u2019t grab you']
       : ['WASD / arrows or hold the mouse to walk · Shift / right-click to run', 'Walk into people to grow your crowd · Space = slogan', '3+ supporters close = police can\u2019t grab you'];
@@ -295,7 +295,7 @@
     leg.forEach((L, i) => {
       const lx = x + pad + cw * i + 10;
       ctx.fillStyle = L.color; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(lx, cy, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      text(ctx, L.label, lx + 12, cy + 1, 11, '#1d1a16', 'left', 800, cw - 26);
+      text(ctx, L.label.replace(/ \(.*\)/, ''), lx + 12, cy + 1, 11, '#1d1a16', 'left', 800, cw - 26); // the full name is in the intro text above
     });
     cy += 22;
     text(ctx, touch ? 'Move to start' : 'Press a move key or Space to start', x + w / 2, y + h - 16, 12, '#9a8670', 'center', 700);

@@ -2,7 +2,7 @@
   "name": "the-death-of-democracy",
   "version": "0.1.0",
   "private": true,
-  "description": "The Death of Democracy: a satirical top-down game. Walk your YSRCP candidate through your Andhra Pradesh town to the RO Office past police and TDP goons while Democracy bleeds from 100% to 0%. Political satire; all characters and events are fictional.",
+  "description": "The Death of Democracy: a satirical top-down game. Walk your YSRCP candidate through your Andhra Pradesh town to the RO Office past police and TDP (Telugu Drama Party) goons while Democracy bleeds from 100% to 0%. Political satire and parody; not an official YSRCP website.",
   "license": "UNLICENSED",
   "scripts": {
     "test": "node --test",
