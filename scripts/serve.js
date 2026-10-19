@@ -15,7 +15,9 @@ const TYPES = {
   '.png': 'image/png',
   '.webp': 'image/webp',
 };
-const PUBLIC = ['index.html', 'shared', 'client'];
+const PUBLIC = ['index.html', 'gamification', 'shared', 'client'];
+// same redirects as vercel.json
+const REDIRECTS = Object.fromEntries(require('../vercel.json').redirects.map((r) => [r.source, r.destination]));
 // the live player count, kept in memory locally (Redis on Vercel)
 const presence = require('../api/presence.js').makeHandler(require('../api/presence.js').memoryStore());
 const stats = require('../api/stats.js').makeHandler(require('../api/stats.js').memoryStore());
@@ -23,6 +25,8 @@ const stats = require('../api/stats.js').makeHandler(require('../api/stats.js').
 http.createServer((req, res) => {
   if (req.url.split('?')[0] === '/api/presence') { presence(req, res); return; }
   if (req.url.split('?')[0] === '/api/stats') { stats(req, res); return; }
+  const to = REDIRECTS[req.url.split('?')[0]];
+  if (to) { res.writeHead(308, { location: to }).end(); return; }
   let rel;
   try {
     rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '') || 'index.html';
@@ -30,7 +34,8 @@ http.createServer((req, res) => {
     res.writeHead(400).end('bad request');
     return;
   }
-  const file = path.resolve(ROOT, rel);
+  let file = path.resolve(ROOT, rel);
+  if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html'); // /gamification -> gamification/index.html
   const top = path.relative(ROOT, file).split(path.sep)[0];
   if (!file.startsWith(ROOT + path.sep) || !PUBLIC.includes(top)) {
     res.writeHead(404).end('not found');

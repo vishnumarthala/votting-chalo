@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    { "source": "/Gamification", "destination": "/gamification", "permanent": true },
+    { "source": "/Gamification/", "destination": "/gamification", "permanent": true },
+    { "source": "/GAMIFICATION", "destination": "/gamification", "permanent": true },
+    { "source": "/game", "destination": "/gamification", "permanent": true },
+    { "source": "/play", "destination": "/gamification", "permanent": true }
+  ]
+}

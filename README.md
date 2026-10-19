@@ -22,7 +22,7 @@ Every game is played in the same unnamed town, so the streets stay the same from
 No build step and no dependencies. You need Node 18 or newer for the dev server and tests.
 
 ```bash
-npm run serve   # http://localhost:8080
+npm run serve   # http://localhost:8080 (home) and http://localhost:8080/gamification (game)
 npm test        # node:test suites
 ```
 
@@ -110,7 +110,7 @@ and the game rules stay the same. The choice is saved on the device. Touch devic
 Everything below fits Vercel's free **Hobby** plan.
 
 **Visitors and page views: Vercel Web Analytics** (cookieless, no personal data). It's loaded from
-`index.html` on the live site only, never on localhost. In the Vercel dashboard open the project →
+both pages on the live site only, never on localhost. In the Vercel dashboard open the project →
 **Analytics** → **Enable**, then deploy once. Hobby includes 50,000 events a month (each page view is one);
 after that, collection pauses until the next month. Nothing is billed. Custom events (games started, shares)
 are a Pro feature, so the game doesn't send any.
@@ -153,7 +153,9 @@ The structure follows the mantarjantar.com approach: plain JavaScript, Canvas 2D
 and a deterministic simulation shared between browser and Node. All code, text and art here are original.
 
 ```
-index.html          menu, pause, touch buttons, CSS
+index.html          home page: welcome + play card (links to /gamification), games-played counter
+gamification/       the game page (menu, pause, touch buttons, CSS), served at /gamification
+vercel.json         redirects /Gamification, /game, /play -> /gamification
 shared/             DOM-free UMD modules (browser + Node)
   world.js          seeded town generator, tile collision, BFS flow fields, line of sight, barricade ring
   content.js        all text, the end title; {town} {mandal} {district} templating

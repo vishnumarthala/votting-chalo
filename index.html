@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="description" content="The Death of Democracy: a satirical top-down game. Walk your YSRCP candidate through the streets of your Andhra Pradesh town to the RO Office to file a nomination, past the police and TDP goons, while Democracy bleeds from 100% to 0%.">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Welcome to The Death of Democracy: a satirical game about nomination day in Andhra Pradesh. Walk your YSRCP candidate to the RO Office past police and TDP goons while Democracy bleeds from 100% to 0%.">
 <meta name="theme-color" content="#0f1b61">
 <title>The Death of Democracy</title>
 <script>
@@ -16,103 +16,81 @@ if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
 </script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E🗳️%3C/text%3E%3C/svg%3E">
 <style>
-:root{--blue:#00a651;--deep:#0f1b61;--navy2:#1a2d8a;--gold:#ffd700;--ink:#1d1a16;--paper:#f6eedd;--muted:#6b5a48}
+:root{--green:#00a651;--deep:#0f1b61;--navy2:#1a2d8a;--gold:#ffd700;--ink:#1d1a16;--paper:#f3ecdc;--red:#b71c1c;--muted:#6b5a48}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden;background:#a5d06b;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);-webkit-tap-highlight-color:transparent}
-canvas{display:block;touch-action:none;outline:none;cursor:crosshair}
-button{font-family:inherit}
-#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:14px;background:radial-gradient(ellipse at center,rgba(10,25,60,.3),rgba(5,12,30,.78));z-index:5;overflow:auto}
-#menu.hide{display:none}
-.card{background:var(--paper);border-radius:18px;max-width:640px;width:100%;padding:24px 22px 16px;box-shadow:0 20px 60px rgba(0,0,0,.5);position:relative;overflow:hidden;margin:auto;flex-shrink:0}
-.card:before{content:"";position:absolute;left:0;right:0;top:0;height:8px;background:linear-gradient(90deg,var(--deep),var(--navy2) 40%,var(--blue) 70%,var(--gold))}
-h1{font-size:clamp(32px,7vw,52px);font-weight:900;letter-spacing:-1.5px;line-height:1;color:var(--deep)}
-h1 span{color:var(--blue)}
-.te{font-size:18px;color:#8a4b2a;font-weight:800;margin-top:6px}
-.tag{margin:8px 0 14px;color:#4b3b2b;font-size:14.5px;line-height:1.45}
-.row{margin-bottom:12px}
-input,select{width:100%;font-size:17px;padding:11px 13px;border-radius:10px;border:2px solid #d8c7a8;background:#fff;outline:none;font-family:inherit;color:var(--ink)}
-input:focus,select:focus{border-color:var(--blue)}
-#play{width:100%;font-size:21px;font-weight:900;padding:14px;border:none;border-radius:12px;color:#fff;cursor:pointer;letter-spacing:.5px;background:linear-gradient(90deg,var(--deep),var(--navy2) 45%,var(--blue));box-shadow:0 6px 0 #0a1240}
-#play:active{transform:translateY(3px);box-shadow:0 3px 0 #0a1240}
-#play:disabled{opacity:.6}
-#opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-#opts button{flex:1;border:2px solid #d8c7a8;background:#fffaf0;border-radius:10px;padding:8px;font-weight:800;cursor:pointer;color:#3e2f22;font-size:13px}
-.help{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.8}
-kbd{background:#fff;border:1px solid #cdbb98;border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:11px;font-family:inherit}
-.disc{font-size:11px;color:#9a8670;margin-top:8px;line-height:1.5}
-.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;font-weight:700;color:#3e2f22;margin:0 0 10px}
-.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:5px;vertical-align:-2px;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
-body.touch .help{display:none}
-.ov{position:fixed;inset:0;z-index:8;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(5,12,30,.55)}
-.ov.on{display:flex}
-.box{background:var(--paper);border-radius:16px;max-width:420px;width:100%;padding:20px 18px 16px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.box h3{font-size:14px;color:#8a4b2a;font-weight:900;letter-spacing:.5px}
-.box .act{border:2px solid #d8c7a8;background:#fff;border-radius:12px;padding:12px 14px;font-size:16px;font-weight:700;cursor:pointer;color:var(--ink);width:100%;margin-top:8px}
-.box .act.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
-#live{display:none;align-items:center;gap:7px;width:max-content;margin:0 0 10px;padding:5px 12px 5px 10px;border-radius:999px;background:var(--deep);color:#fff;font:800 12.5px system-ui,-apple-system,"Segoe UI",sans-serif}
-#live:before{content:"";width:9px;height:9px;border-radius:50%;background:#00e676;box-shadow:0 0 0 0 rgba(0,230,118,.7);animation:livePulse 1.6s infinite}
-#live.on{display:flex}
-@keyframes livePulse{70%{box-shadow:0 0 0 7px rgba(0,230,118,0)}100%{box-shadow:0 0 0 0 rgba(0,230,118,0)}}
-@media (prefers-reduced-motion:reduce){#live:before{animation:none}}
-#touch,#bPause{display:none}
-body.playing #bPause{display:block}
-body.touch.playing #touch{display:block}
-body.touch.playing.mapopen #touch{display:none}
-#bPause{position:fixed;left:50%;top:32px;transform:translate(-50%,-50%);z-index:4;width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(20,14,8,.6);color:#fff;font-size:16px;cursor:pointer}
-.tb{position:fixed;z-index:4;border-radius:50%;border:3px solid rgba(255,255,255,.85);font-weight:900;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.3);touch-action:none;user-select:none;-webkit-user-select:none}
-.tb.down{transform:scale(.92)}
-#bAct{right:calc(18px + env(safe-area-inset-right));bottom:calc(28px + env(safe-area-inset-bottom));width:88px;height:88px;font-size:13px;background:rgba(0,166,81,.92)}
-#bRun{right:calc(118px + env(safe-area-inset-right));bottom:calc(22px + env(safe-area-inset-bottom));width:66px;height:66px;font-size:12px;background:rgba(90,90,90,.8)}
-#fp{position:fixed;inset:0;z-index:12;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px;background:rgba(5,12,30,.88)}
-#fp.on{display:flex}
-#fp:focus{outline:none}
-#fp .fp-paper{height:min(calc(100dvh - 92px),calc((100vw - 24px) * 1.25));aspect-ratio:1080/1350;box-shadow:0 18px 60px rgba(0,0,0,.6);animation:fpIn 1.1s cubic-bezier(.2,.8,.25,1) both}
-#fp canvas{display:block;width:100%;height:100%;cursor:default}
-#fp .fp-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;animation:fpBtns .4s 1s both}
-#fp button{border:none;border-radius:10px;padding:11px 16px;font-size:15px;font-weight:800;cursor:pointer;background:#fffaf0;color:#1d1a16}
-#fp .fp-share{background:#00a651;color:#fff}
-@keyframes fpIn{0%{transform:rotate(-900deg) scale(.04);opacity:0}70%{opacity:1}100%{transform:rotate(-1.5deg) scale(1);opacity:1}}
-@keyframes fpBtns{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){#fp .fp-paper,#fp .fp-actions{animation:none}}
-@media (max-width:520px){#fp{gap:8px;padding:8px}#fp .fp-paper{height:min(calc(100dvh - 72px),calc((100vw - 16px) * 1.25))}#fp button{padding:9px 12px;font-size:14px}}
-@media (max-width:520px){#menu{padding:10px}.card{padding:16px 14px 12px;border-radius:16px}h1{font-size:31px;letter-spacing:-1px}.te{font-size:15px;margin-top:4px}.tag{font-size:13px;margin:6px 0 10px;line-height:1.4}.row{margin-bottom:10px}input,select{font-size:16px;padding:10px 11px}#play{font-size:18px;padding:12px}#opts{margin-top:8px}#opts button{padding:7px 4px;font-size:12px}.disc{font-size:10.5px}}
-@media (orientation:landscape) and (max-height:560px){.card{padding:12px 16px 10px}.te{font-size:13px}.tag{font-size:12px;margin:4px 0 8px}h1{font-size:28px}input{padding:7px 10px;font-size:16px}#play{padding:9px;font-size:17px}}
+html{background:#0a1030}
+body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:28px 16px calc(24px + env(safe-area-inset-bottom));
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;
+  background:radial-gradient(1200px 700px at 50% -10%,#1d2f8f 0%,rgba(15,27,97,0) 60%),linear-gradient(180deg,#0f1b61 0%,#0a1030 70%)}
+.band{position:fixed;left:0;right:0;top:0;height:6px;background:linear-gradient(90deg,var(--deep),var(--navy2) 35%,var(--green) 70%,var(--gold))}
+header{text-align:center;max-width:720px}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#cfd8ff;opacity:.9}
+.kicker:before,.kicker:after{content:"";width:26px;height:2px;background:var(--gold)}
+h1{margin-top:10px;font-size:clamp(34px,7.5vw,64px);font-weight:900;line-height:1.02;letter-spacing:-1.5px}
+h1 .w{display:block;font-size:.5em;letter-spacing:-.5px;color:#cfd8ff;font-weight:800;margin-bottom:4px}
+h1 .d{color:#5be38f}
+.te{margin-top:10px;font-size:18px;font-weight:800;color:var(--gold)}
+.intro{margin:12px auto 0;max-width:560px;font-size:16px;line-height:1.55;color:#dfe5ff}
+/* the play card: a folded newspaper you open to play */
+.play{display:block;width:100%;max-width:560px;text-decoration:none;color:var(--ink);background:var(--paper);border-radius:16px;overflow:hidden;
+  box-shadow:0 24px 60px rgba(0,0,0,.55);transform:rotate(-1deg);transition:transform .18s ease,box-shadow .18s ease}
+.play:hover,.play:focus-visible{transform:rotate(0) translateY(-4px) scale(1.01);box-shadow:0 30px 70px rgba(0,0,0,.6);outline:none}
+.paper{padding:16px 20px 14px;background:repeating-linear-gradient(0deg,rgba(80,60,30,.035) 0 1px,transparent 1px 4px)}
+.mast{display:flex;justify-content:space-between;font:12px Georgia,"Times New Roman",serif;border-top:3px solid var(--ink);padding-top:5px}
+.mast b{font-weight:700;letter-spacing:.5px}
+.name{text-align:center;font:900 clamp(26px,6vw,38px)/1.1 Georgia,"Times New Roman",serif;margin:4px 0 2px}
+.rule{border-top:1.5px solid var(--ink);margin:4px 0 8px}
+.head{text-align:center;font:900 clamp(22px,5.2vw,32px)/1.05 Georgia,"Times New Roman",serif;text-transform:uppercase}
+.sub{text-align:center;font:700 clamp(16px,3.8vw,21px) Georgia,"Times New Roman",serif;color:var(--red);margin-top:6px}
+.cta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;background:linear-gradient(90deg,var(--deep),var(--navy2) 45%,var(--green));color:#fff}
+.cta .t b{display:block;font-size:17px;font-weight:900}
+.cta .t span{font-size:13px;opacity:.9}
+.cta .go{flex-shrink:0;background:#fff;color:var(--deep);font-weight:900;font-size:17px;border-radius:999px;padding:11px 20px;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+.stats{min-height:20px;font-size:14px;font-weight:700;color:#cfd8ff;display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.stats b{color:#fff;font-size:15px}
+footer{max-width:640px;text-align:center;font-size:12px;line-height:1.5;color:#94a0d4}
+@media (prefers-reduced-motion:reduce){.play{transition:none;transform:none}}
+@media (max-width:520px){.kicker{font-size:11px;letter-spacing:1px}.kicker:before,.kicker:after{width:14px}body{gap:18px}.intro{font-size:15px}.cta{padding:12px 14px}.cta .go{padding:10px 16px;font-size:16px}}
 </style>
 </head>
 <body>
-<canvas id="c" tabindex="0"></canvas>
-<button id="bPause" type="button" aria-label="Pause">⏸</button>
-<div id="touch"><button class="tb" id="bRun" type="button">RUN</button><button class="tb" id="bAct" type="button">SLOGAN ✊</button></div>
-<div id="pause" class="ov" role="dialog" aria-modal="true" aria-label="Paused">
- <div class="box"><h3>⏸ PAUSED</h3><button class="act primary" id="resume" type="button">Resume</button><button class="act" id="quit" type="button">Quit to menu</button></div>
-</div>
+<div class="band" aria-hidden="true"></div>
 
-<div id="menu">
- <div class="card">
-  <div id="live" aria-live="polite"></div>
-  <h1>The Death of <span>Democracy</span></h1>
-  <div class="te">నామినేషన్ వేద్దాం, ఓటు వేద్దాం! ✊🗳️</div>
-  <p class="tag">Nomination day. Walk your <b>YSRCP</b> candidate through the streets of an Andhra town to the RO Office. Gather a crowd, dodge the police and the <b>TDP goons</b>, push through the Section 144 barricades. <b>Democracy starts at 100%.</b> Every TDP goon attack and police lathi charge takes a piece of it.</p>
-  <div class="row">
-   <input id="name" maxlength="18" placeholder="Your name (e.g. Ramu)" autocomplete="nickname">
-  </div>
-  <div class="legend" aria-label="Who is who"><span><i style="background:#2156d1"></i>Blue: YSRCP (you)</span><span><i style="background:#fbc02d"></i>Yellow: TDP goons</span><span><i style="background:#f5f5f5"></i>White: the public</span><span><i style="background:#c8ab72"></i>Khaki: police</span></div>
-  <button id="play" type="button">FILE NOMINATION ▶</button>
-  <div id="opts"><button id="optSize" type="button" aria-label="People size"></button><button id="optMute" type="button"></button><button id="optQ" type="button"></button></div>
-  <div class="help"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>/arrows or hold <kbd>Click</kbd> to walk · <kbd>Shift</kbd>/<kbd>Right-click</kbd> run · <kbd>Space</kbd> slogan · walk into people to recruit · walk into barricades to push · <kbd>Tab</kbd>/click minimap: town map · <kbd>Esc</kbd> pause · <kbd>M</kbd> mute · <kbd>G</kbd> graphics</div>
-  <div class="disc">Political satire. Contains cartoon violence against civilians, shown to criticise it. The TDP goons, police and officials are cartoon caricatures; all characters, shops and events are fictional.</div>
+<header>
+ <div class="kicker">Nomination Day · Andhra Pradesh</div>
+ <h1><span class="w">Welcome to</span>The Death of <span class="d">Democracy</span></h1>
+ <div class="te">నామినేషన్ వేద్దాం, ఓటు వేద్దాం! ✊🗳️</div>
+ <p class="intro">Walk your <b>YSRCP</b> candidate to the RO Office to file a nomination. On the way: Section 144, barricades, police lathis and <b>TDP goons</b> throwing stones. Democracy starts at 100%. See how long it survives.</p>
+</header>
+
+<a class="play" href="/gamification" aria-label="Play The Death of Democracy">
+ <div class="paper">
+  <div class="mast"><span id="date"></span><b>ANDHRA PRADESH EDITION</b></div>
+  <div class="name">THE DAILY BALLOT</div>
+  <div class="rule"></div>
+  <div class="head">Democracy is killed in broad daylight.</div>
+  <div class="sub">Welcome to Andhra Pradesh.</div>
  </div>
-</div>
+ <div class="cta">
+  <div class="t"><b>🏛️ File your nomination</b><span>A 1-minute game · phone or desktop</span></div>
+  <div class="go">PLAY ▶</div>
+ </div>
+</a>
 
-<script src="shared/world.js"></script>
-<script src="shared/content.js"></script>
-<script src="shared/sim.js"></script>
-<script src="client/audio.js"></script>
-<script src="client/input.js"></script>
-<script src="client/render.js"></script>
-<script src="client/hud.js"></script>
-<script src="client/frontpage.js"></script>
-<script src="client/live.js"></script>
-<script src="client/main.js"></script>
+<div class="stats" id="stats" aria-live="polite"></div>
+
+<footer>Political satire. Contains cartoon violence against civilians, shown to criticise it. The TDP goons, police and officials are cartoon caricatures; all characters and events are fictional.</footer>
+
+<script>
+document.getElementById('date').textContent = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+// "games played so far": read-only, hidden if the counter isn't available
+fetch('/api/stats').then(function (r) { return r.ok ? r.json() : null; }).then(function (s) {
+  if (!s || !s.games) return;
+  var n = function (v) { return Number(v).toLocaleString('en-IN'); };
+  var el = document.getElementById('stats');
+  var pl = function (v, one, many) { return '<span><b>' + n(v) + '</b> ' + (v === 1 ? one : many) + '</span>'; };
+  el.innerHTML = pl(s.games, 'game played', 'games played') + (s.players ? pl(s.players, 'player', 'players') : '');
+}).catch(function () {});
+</script>
 </body>
 </html>

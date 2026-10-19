@@ -3,3 +3,5 @@
 !shared
 !client
 !api
+!gamification
+!vercel.json
