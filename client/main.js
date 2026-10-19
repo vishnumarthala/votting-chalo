@@ -54,6 +54,7 @@
     return g;
   }
   function start() {
+    if (window.Live) Live.played();
     FrontPage.hide();
     SFX.init();
     store.set('vc_name', nameEl.value.trim());

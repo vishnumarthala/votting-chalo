@@ -42,5 +42,19 @@
   timer = setInterval(beat, PING_MS);
   beat();
 
-  window.Live = { get count() { return count; } };
+  // one ping per game started, for the running totals (GET /api/stats); a random id per device so repeat
+  // plays count once as a player. No personal data.
+  let device = null;
+  try { device = localStorage.getItem('dd_device'); } catch (e) { /* storage disabled */ }
+  if (!device) {
+    const d = new Uint8Array(12);
+    crypto.getRandomValues(d);
+    device = Array.from(d, (x) => x.toString(36).padStart(2, '0')).join('').slice(0, 20);
+    try { localStorage.setItem('dd_device', device); } catch (e) { /* storage disabled */ }
+  }
+  function played() {
+    fetch('/api/stats', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: device }), keepalive: true }).catch(() => {});
+  }
+
+  window.Live = { get count() { return count; }, played };
 })();

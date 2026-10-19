@@ -131,6 +131,20 @@ Free-tier budget: each player costs about 1 function call and 2 Redis commands p
 a quota runs out, the count hides itself and the game carries on. Locally, `npm run serve` keeps the count in
 memory.
 
+**Totals: how many have played.** Open **`/api/stats`** on the live site (e.g. https://www.ysrcp.org/api/stats):
+
+```json
+{ "games": 1234, "gamesToday": 87, "players": 640, "day": "2026-10-19" }
+```
+
+- `games`: every *File nomination* / *Play again* since counting started (19 Oct 2026; nothing before that was
+  recorded).
+- `gamesToday`: games so far today (UTC).
+- `players`: unique devices that played (a random id kept in the browser, no personal data; counted with a
+  Redis HyperLogLog, accurate to about ±1%).
+
+It uses the same Upstash database, at 3 Redis commands per game.
+
 Note: Vercel's Hobby plan is for non-commercial use.
 
 ## Architecture
