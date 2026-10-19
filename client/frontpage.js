@@ -126,8 +126,7 @@
     ctx.restore();
     // footer
     rule(H - 66, 40, W - 40, 2);
-    txt(NEWS.disclaimer, W / 2, H - 38, `15px ${SANS}`, '#5b4a3a', 'center');
-    txt('votting-chalo.vercel.app', W / 2, H - 14, `bold 16px ${SANS}`, '#0f1b61', 'center');
+    txt(NEWS.disclaimer, W / 2, H - 28, `15px ${SANS}`, '#5b4a3a', 'center');
   }
 
   // ---------------------------------------------------------------- overlay
@@ -149,7 +148,7 @@
     cv.toBlob((blob) => {
       if (!blob) return;
       const file = new File([blob], 'the-daily-ballot.png', { type: 'image/png' });
-      const text = headline + ' (satire) #VottingChalo https://votting-chalo.vercel.app';
+      const text = headline + ' (satire) #TheDeathOfDemocracy';
       if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: 'The Daily Ballot', text }).catch(() => {}); return; }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = file.name;
